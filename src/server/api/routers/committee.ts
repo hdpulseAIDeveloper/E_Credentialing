@@ -306,4 +306,88 @@ export const committeeRouter = createTRPCRouter({
         orderBy: { committeeReadyAt: "asc" },
       });
     }),
+
+  // ─── Generate committee summary for a provider ──────────────────────
+  generateSummary: staffProcedure
+    .input(z.object({ providerId: z.string(), sessionId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const { generateCommitteeSummaryHtml } = await import("@/lib/pdf/committee-summary");
+      const html = await generateCommitteeSummaryHtml(input.providerId);
+
+      const cp = await ctx.db.committeeProvider.findFirst({
+        where: { committeeSessionId: input.sessionId, providerId: input.providerId },
+      });
+
+      if (cp) {
+        await ctx.db.committeeProvider.update({
+          where: { id: cp.id },
+          data: {
+            summaryBlobUrl: `generated:html:${Date.now()}`,
+            summaryVersion: (cp.summaryVersion ?? 0) + 1,
+          },
+        });
+      }
+
+      return { html, version: (cp?.summaryVersion ?? 0) + 1 };
+    }),
+
+  // ─── Generate full session agenda ──────────────────────────────────
+  generateAgenda: staffProcedure
+    .input(z.object({ sessionId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const { generateAgendaHtml } = await import("@/lib/pdf/committee-agenda");
+      const html = await generateAgendaHtml(input.sessionId);
+
+      const session = await ctx.db.committeeSession.findUnique({ where: { id: input.sessionId } });
+      const newVersion = (session?.agendaVersion ?? 0) + 1;
+
+      await ctx.db.committeeSession.update({
+        where: { id: input.sessionId },
+        data: {
+          agendaBlobUrl: `generated:html:${Date.now()}`,
+          agendaVersion: newVersion,
+        },
+      });
+
+      return { html, version: newVersion };
+    }),
+
+  // ─── Send agenda to committee members ──────────────────────────────
+  sendAgenda: staffProcedure
+    .input(z.object({ sessionId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const session = await ctx.db.committeeSession.findUnique({ where: { id: input.sessionId } });
+      if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+
+      if (session.committeeMemberIds.length > 0) {
+        const members = await ctx.db.user.findMany({
+          where: { id: { in: session.committeeMemberIds } },
+          select: { email: true, displayName: true },
+        });
+
+        for (const member of members) {
+          await ctx.db.communication.create({
+            data: {
+              providerId: null as any,
+              communicationType: "COMMITTEE_AGENDA_EMAIL",
+              direction: "OUTBOUND",
+              channel: "EMAIL",
+              fromUserId: ctx.session!.user.id,
+              toAddress: member.email,
+              subject: `Committee Agenda — ${session.sessionDate.toLocaleDateString()}`,
+              body: `Dear ${member.displayName},\n\nThe committee agenda for ${session.sessionDate.toLocaleDateString()} is ready for review.\n\nPlease review the attached provider summaries before the session.\n\nBest regards,\nEssen Credentialing`,
+              deliveryStatus: "LOGGED",
+              sentAt: new Date(),
+            },
+          });
+        }
+      }
+
+      await ctx.db.committeeSession.update({
+        where: { id: input.sessionId },
+        data: { agendaSentAt: new Date() },
+      });
+
+      return { sent: session.committeeMemberIds.length };
+    }),
 });

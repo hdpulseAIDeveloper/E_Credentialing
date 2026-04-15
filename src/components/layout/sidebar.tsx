@@ -20,6 +20,7 @@ const MAIN_NAV = [
   { href: "/providers", label: "Providers" },
   { href: "/committee", label: "Committee" },
   { href: "/enrollments", label: "Enrollments" },
+  { href: "/medicaid", label: "NY Medicaid" },
   { href: "/expirables", label: "Expirables" },
 ];
 

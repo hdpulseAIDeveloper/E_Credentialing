@@ -1,6 +1,7 @@
 import { db } from "@/server/db";
 import Link from "next/link";
 import { EnrollmentRowActions } from "@/components/enrollments/EnrollmentRowActions";
+import { RosterGenerationPanel } from "@/components/enrollments/RosterGenerationPanel";
 
 interface SearchParams {
   q?: string;
@@ -345,6 +346,16 @@ export default async function EnrollmentsPage({
           </div>
         )}
       </div>
+
+      {/* Roster Generation Panel */}
+      <RosterGenerationPanel
+        enrollments={enrollments.map((e) => ({
+          id: e.id,
+          payerName: e.payerName,
+          enrollmentType: e.enrollmentType,
+          status: e.status,
+        }))}
+      />
     </div>
   );
 }

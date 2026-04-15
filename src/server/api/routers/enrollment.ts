@@ -227,4 +227,74 @@ export const enrollmentRouter = createTRPCRouter({
 
       return { success: true };
     }),
+
+  // ─── Generate roster CSV ──────────────────────────────────────────────
+  generateRoster: staffProcedure
+    .input(z.object({ enrollmentIds: z.array(z.string()), type: z.enum(["delegated", "facility"]).default("delegated") }))
+    .mutation(async ({ input }) => {
+      const { generateDelegatedRoster, generateFacilityRoster } = await import("@/lib/pdf/roster-generator");
+      const generator = input.type === "facility" ? generateFacilityRoster : generateDelegatedRoster;
+      return generator(input.enrollmentIds);
+    }),
+
+  // ─── Stub: Submit enrollment via portal bot ────────────────────────────
+  submitViaPortal: staffProcedure
+    .input(z.object({ enrollmentId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const enrollment = await ctx.db.enrollment.findUnique({ where: { id: input.enrollmentId }, include: { provider: true } });
+      if (!enrollment) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const botRun = await ctx.db.botRun.create({
+        data: {
+          providerId: enrollment.providerId,
+          botType: "ENROLLMENT_SUBMISSION",
+          triggeredBy: "MANUAL",
+          triggeredByUserId: ctx.session!.user.id,
+          status: "QUEUED",
+          attemptCount: 0,
+          queuedAt: new Date(),
+          inputData: {
+            enrollmentId: input.enrollmentId,
+            payerName: enrollment.payerName,
+            submissionMethod: enrollment.submissionMethod,
+          },
+        },
+      });
+
+      return { botRunId: botRun.id, message: "Enrollment bot queued for submission" };
+    }),
+
+  // ─── Stub: Upload roster via SFTP ──────────────────────────────────────
+  uploadRosterSftp: staffProcedure
+    .input(z.object({ csv: z.string(), filename: z.string(), payerName: z.string() }))
+    .mutation(async ({ input }) => {
+      const { uploadRoster } = await import("@/lib/integrations/sftp");
+      const result = await uploadRoster({
+        payerName: input.payerName,
+        remotePath: `/rosters/${input.payerName.replace(/\s+/g, "_")}`,
+        fileBuffer: Buffer.from(input.csv, "utf-8"),
+        filename: input.filename,
+      });
+      return result;
+    }),
+
+  // ─── Push enrollment status to eCW/RCM ─────────────────────────────────
+  pushToEcw: staffProcedure
+    .input(z.object({ enrollmentId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const enrollment = await ctx.db.enrollment.findUnique({
+        where: { id: input.enrollmentId },
+        include: { provider: true },
+      });
+      if (!enrollment) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const { pushEnrollmentStatus } = await import("@/lib/integrations/ecw-rcm");
+      return pushEnrollmentStatus({
+        providerNpi: enrollment.provider.npi ?? "",
+        providerName: `${enrollment.provider.legalFirstName} ${enrollment.provider.legalLastName}`,
+        payerName: enrollment.payerName,
+        enrollmentStatus: enrollment.status,
+        effectiveDate: enrollment.effectiveDate?.toISOString().split("T")[0],
+      });
+    }),
 });

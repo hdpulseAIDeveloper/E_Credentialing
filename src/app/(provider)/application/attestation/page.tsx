@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 
 const ATTESTATION_QUESTIONS = [
@@ -21,11 +22,37 @@ interface AttestationForm {
 
 export default function AttestationPage() {
   const [submitted, setSubmitted] = useState(false);
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<AttestationForm>();
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
+  const { register, handleSubmit, formState: { errors } } = useForm<AttestationForm>();
 
   const onSubmit = async (data: AttestationForm) => {
-    console.log("Attestation submitted:", data);
-    setSubmitted(true);
+    setSubmitting(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/attestation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token,
+          attestations: data.attestations,
+          electronicSignature: data.electronicSignature,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error ?? "Submission failed");
+      }
+
+      setSubmitted(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "An error occurred");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -90,11 +117,13 @@ export default function AttestationPage() {
         </div>
 
         <div className="flex justify-end">
+          {error && <p className="text-red-500 text-sm mr-4 self-center">{error}</p>}
           <button
             type="submit"
-            className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+            disabled={submitting}
+            className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
           >
-            Submit Application
+            {submitting ? "Submitting..." : "Submit Application"}
           </button>
         </div>
       </form>

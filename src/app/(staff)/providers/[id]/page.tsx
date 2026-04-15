@@ -6,6 +6,10 @@ import { ProviderHeaderActions } from "@/components/providers/ProviderHeaderActi
 import { TaskManager } from "@/components/tasks/TaskManager";
 import { AddEnrollmentModal } from "@/components/enrollments/AddEnrollmentModal";
 import { AuditTrailPanel } from "@/components/audit/AuditTrailPanel";
+import { CoiTrackingPanel } from "@/components/providers/CoiTrackingPanel";
+import { OnsiteMeetingPanel } from "@/components/providers/OnsiteMeetingPanel";
+import { CaqhSyncButton } from "@/components/providers/CaqhSyncButton";
+import { HospitalPrivilegesPanel } from "@/components/providers/HospitalPrivilegesPanel";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -58,6 +62,9 @@ export default async function ProviderDetailPage({ params, searchParams }: Props
         npdbRecords: {
           orderBy: { queryDate: "desc" },
           take: 5,
+        },
+        hospitalPrivileges: {
+          orderBy: { facilityName: "asc" },
         },
       },
     }),
@@ -128,6 +135,7 @@ export default async function ProviderDetailPage({ params, searchParams }: Props
             { id: "communications", label: "Communications" },
             { id: "enrollments", label: `Enrollments (${provider.enrollments.length})` },
             { id: "expirables", label: `Expirables (${provider.expirables.length})` },
+            { id: "privileges", label: `Privileges (${provider.hospitalPrivileges.length})` },
             { id: "audit", label: "Audit Trail" },
           ].map((t) => (
             <a
@@ -148,7 +156,27 @@ export default async function ProviderDetailPage({ params, searchParams }: Props
       {/* Tab Content */}
       <div>
         {tab === "overview" && (
-          <div className="grid grid-cols-2 gap-6">
+          <div className="space-y-6">
+            {/* COI and Onsite Meeting */}
+            <div className="grid grid-cols-2 gap-6">
+              <CoiTrackingPanel
+                providerId={provider.id}
+                coiStatus={provider.coiStatus}
+                coiBrokerName={provider.coiBrokerName}
+                coiRequestedDate={provider.coiRequestedDate?.toISOString() ?? null}
+                coiObtainedDate={provider.coiObtainedDate?.toISOString() ?? null}
+                coiExpirationDate={provider.coiExpirationDate?.toISOString() ?? null}
+              />
+              <OnsiteMeetingPanel
+                providerId={provider.id}
+                meetingStatus={provider.onsiteMeetingStatus}
+                meetingDate={provider.onsiteMeetingDate?.toISOString() ?? null}
+                meetingNotes={provider.onsiteMeetingNotes}
+              />
+            </div>
+
+            {/* Provider Info + Timeline */}
+            <div className="grid grid-cols-2 gap-6">
             <div className="bg-white rounded-lg border p-6 space-y-3">
               <h3 className="font-semibold text-gray-900">Provider Information</h3>
               <dl className="space-y-2">
@@ -162,7 +190,10 @@ export default async function ProviderDetailPage({ params, searchParams }: Props
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-gray-500">CAQH ID</dt>
-                  <dd className="font-medium">{provider.caqhId ?? "—"}</dd>
+                  <dd className="font-medium flex items-center gap-2">
+                    {provider.caqhId ?? "—"}
+                    <CaqhSyncButton providerId={provider.id} caqhId={provider.caqhId} />
+                  </dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-gray-500">iCIMS ID</dt>
@@ -205,6 +236,7 @@ export default async function ProviderDetailPage({ params, searchParams }: Props
                 </div>
               </dl>
             </div>
+          </div>
           </div>
         )}
 
@@ -349,6 +381,23 @@ export default async function ProviderDetailPage({ params, searchParams }: Props
 
         {tab === "audit" && (
           <AuditTrailPanel providerId={provider.id} />
+        )}
+
+        {tab === "privileges" && (
+          <HospitalPrivilegesPanel
+            providerId={provider.id}
+            privileges={provider.hospitalPrivileges.map((hp: any) => ({
+              id: hp.id,
+              facilityName: hp.facilityName,
+              privilegeType: hp.privilegeType,
+              status: hp.status,
+              appliedDate: hp.appliedDate?.toISOString() ?? null,
+              approvedDate: hp.approvedDate?.toISOString() ?? null,
+              expirationDate: hp.expirationDate?.toISOString() ?? null,
+              denialReason: hp.denialReason ?? null,
+              notes: hp.notes ?? null,
+            }))}
+          />
         )}
       </div>
     </div>

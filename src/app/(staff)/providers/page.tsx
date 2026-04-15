@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ProviderStatusBadge } from "@/components/providers/ProviderStatusBadge";
 import { AddProviderModal } from "@/components/providers/AddProviderModal";
 import { ProviderRowActions } from "@/components/providers/ProviderRowActions";
+import { IcimsImportButton } from "@/components/providers/IcimsImportButton";
 
 interface SearchParams {
   status?: string;
@@ -82,7 +83,10 @@ export default async function ProvidersPage({
           <h1 className="text-2xl font-bold text-gray-900">Providers</h1>
           <p className="text-gray-500 mt-1">All providers — {providers.length} result{providers.length !== 1 ? "s" : ""}</p>
         </div>
-        <AddProviderModal providerTypes={providerTypes} staffUsers={staffUsers} />
+        <div className="flex gap-3">
+          <IcimsImportButton />
+          <AddProviderModal providerTypes={providerTypes} staffUsers={staffUsers} />
+        </div>
       </div>
 
       {/* Filters */}

@@ -10,6 +10,7 @@ import {
   ProviderReviewCard,
   SessionSummary,
 } from "@/components/committee/SessionActions";
+import { CommitteePdfActions } from "@/components/committee/CommitteePdfActions";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -119,13 +120,21 @@ export default async function CommitteeSessionPage({ params }: PageProps) {
           )}
         </div>
 
-        {/* Right Column: Summary */}
-        <div className="lg:sticky lg:top-6 lg:self-start">
+        {/* Right Column: Summary + PDF Actions */}
+        <div className="lg:sticky lg:top-6 lg:self-start space-y-4">
           <SessionSummary
             entries={session.providers as any}
             notes={session.notes}
             committeeMemberIds={(session.committeeMemberIds as string[]) ?? []}
           />
+          <div className="bg-white rounded-lg border p-4">
+            <CommitteePdfActions
+              sessionId={session.id}
+              providerIds={session.providers.map((e) => e.provider.id)}
+              agendaVersion={session.agendaVersion}
+              agendaSentAt={session.agendaSentAt?.toISOString() ?? null}
+            />
+          </div>
         </div>
       </div>
     </div>

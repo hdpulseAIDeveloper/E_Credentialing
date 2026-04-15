@@ -14,6 +14,7 @@ import { botRouter } from "@/server/api/routers/bot";
 import { adminRouter } from "@/server/api/routers/admin";
 import { taskRouter } from "@/server/api/routers/task";
 import { communicationRouter } from "@/server/api/routers/communication";
+import { medicaidRouter } from "@/server/api/routers/medicaid";
 
 export const appRouter = createTRPCRouter({
   provider: providerRouter,
@@ -27,6 +28,7 @@ export const appRouter = createTRPCRouter({
   admin: adminRouter,
   task: taskRouter,
   communication: communicationRouter,
+  medicaid: medicaidRouter,
 });
 
 export type AppRouter = typeof appRouter;

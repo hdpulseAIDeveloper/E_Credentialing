@@ -310,6 +310,25 @@ enum MedicaidEnrollmentSubtype {
   GROUP
 }
 
+enum MedicaidEnrollmentPath {
+  NEW_PSP
+  REINSTATEMENT
+  AFFILIATION_UPDATE
+}
+
+enum CoiStatus {
+  PENDING_OUTREACH
+  INFO_REQUESTED
+  SENT_TO_BROKER
+  OBTAINED
+}
+
+enum OnsiteMeetingStatus {
+  PENDING
+  SCHEDULED
+  COMPLETED
+}
+
 enum MedicaidAffiliationStatus {
   PENDING
   IN_PROCESS
@@ -356,6 +375,7 @@ model User {
   sanctionsTriggered     SanctionsCheck[]   @relation("SanctionsTriggeredByUser")
   hospitalSubmissions    HospitalPrivilege[] @relation("HospitalSubmittedBy")
   createdWorkflows       Workflow[]          @relation("WorkflowCreator")
+  medicaidEnrollmentsCreated MedicaidEnrollment[] @relation("MedicaidCreatedBy")
 
   @@map("users")
 }
@@ -408,6 +428,19 @@ model Provider {
   approvedBy           String?        @map("approved_by")
   denialReason         String?        @map("denial_reason")
   notes                String?
+
+  // COI / Malpractice tracking
+  coiStatus            CoiStatus?     @map("coi_status")
+  coiBrokerName        String?        @map("coi_broker_name")
+  coiRequestedDate     DateTime?      @map("coi_requested_date")
+  coiObtainedDate      DateTime?      @map("coi_obtained_date")
+  coiExpirationDate    DateTime?      @map("coi_expiration_date")
+
+  // Onsite meeting tracking
+  onsiteMeetingStatus  OnsiteMeetingStatus? @map("onsite_meeting_status")
+  onsiteMeetingDate    DateTime?      @map("onsite_meeting_date")
+  onsiteMeetingNotes   String?        @map("onsite_meeting_notes")
+
   createdAt            DateTime       @default(now()) @map("created_at")
   updatedAt            DateTime       @updatedAt @map("updated_at")
   createdById          String?        @map("created_by")
@@ -904,6 +937,7 @@ model MedicaidEnrollment {
   id                          String                     @id @default(uuid())
   providerId                  String                     @map("provider_id")
   enrollmentSubtype           MedicaidEnrollmentSubtype  @map("enrollment_subtype")
+  enrollmentPath              MedicaidEnrollmentPath?    @map("enrollment_path")
   payer                       String
   etinNumber                  String?                    @map("etin_number")
   affiliationStatus           MedicaidAffiliationStatus  @default(PENDING) @map("affiliation_status")
@@ -914,13 +948,27 @@ model MedicaidEnrollment {
   enrollmentEffectiveDate     DateTime?                  @map("enrollment_effective_date")
   revalidationDueDate         DateTime?                  @map("revalidation_due_date")
   lastFollowUpDate            DateTime?                  @map("last_follow_up_date")
+
+  // NY Medicaid 3-path tracking
+  pspRegistered               Boolean                    @default(false) @map("psp_registered")
+  pspLoginProvided            Boolean                    @default(false) @map("psp_login_provided")
+  maintenanceFileChecked      Boolean                    @default(false) @map("maintenance_file_checked")
+  isInMaintenanceFile         Boolean?                   @map("is_in_maintenance_file")
+  priorEnrollmentActive       Boolean?                   @map("prior_enrollment_active")
+  groupAffiliationUpdated     Boolean                    @default(false) @map("group_affiliation_updated")
+  etinConfirmedDate           DateTime?                  @map("etin_confirmed_date")
+  etinConfirmationDocUrl      String?                    @map("etin_confirmation_doc_url")
+  etinExpirationDate          DateTime?                  @map("etin_expiration_date")
+
   notes                       String?
   botRunId                    String?                    @map("bot_run_id")
+  createdById                 String?                    @map("created_by_id")
   createdAt                   DateTime                   @default(now()) @map("created_at")
   updatedAt                   DateTime                   @updatedAt @map("updated_at")
 
   provider Provider @relation("ProviderMedicaid", fields: [providerId], references: [id])
   botRun   BotRun?  @relation("BotRunMedicaid", fields: [botRunId], references: [id])
+  createdBy User?   @relation("MedicaidCreatedBy", fields: [createdById], references: [id])
 
   @@index([providerId])
   @@map("medicaid_enrollments")

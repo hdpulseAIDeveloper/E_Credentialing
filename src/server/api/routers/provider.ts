@@ -363,4 +363,169 @@ export const providerRouter = createTRPCRouter({
 
       return { success: true };
     }),
+
+  // ─── COI tracking ─────────────────────────────────────────────────────
+  updateCoi: staffProcedure
+    .input(
+      z.object({
+        providerId: z.string(),
+        coiStatus: z.string().optional(),
+        coiBrokerName: z.string().optional(),
+        coiRequestedDate: z.string().optional(),
+        coiObtainedDate: z.string().optional(),
+        coiExpirationDate: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const data: Record<string, unknown> = {};
+      if (input.coiStatus !== undefined) data.coiStatus = input.coiStatus;
+      if (input.coiBrokerName !== undefined) data.coiBrokerName = input.coiBrokerName;
+      if (input.coiRequestedDate) data.coiRequestedDate = new Date(input.coiRequestedDate);
+      if (input.coiObtainedDate) data.coiObtainedDate = new Date(input.coiObtainedDate);
+      if (input.coiExpirationDate) data.coiExpirationDate = new Date(input.coiExpirationDate);
+
+      const updated = await ctx.db.provider.update({
+        where: { id: input.providerId },
+        data: data as any,
+      });
+
+      await writeAuditLog({
+        actorId: ctx.session!.user.id,
+        actorRole: ctx.session!.user.role,
+        action: "provider.coi.updated",
+        entityType: "Provider",
+        entityId: input.providerId,
+        providerId: input.providerId,
+        afterState: data as Record<string, string | Date>,
+      });
+
+      return updated;
+    }),
+
+  // ─── Onsite meeting tracking ──────────────────────────────────────────
+  updateOnsiteMeeting: staffProcedure
+    .input(
+      z.object({
+        providerId: z.string(),
+        onsiteMeetingStatus: z.string().optional(),
+        onsiteMeetingDate: z.string().optional(),
+        onsiteMeetingNotes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const data: Record<string, unknown> = {};
+      if (input.onsiteMeetingStatus !== undefined) data.onsiteMeetingStatus = input.onsiteMeetingStatus;
+      if (input.onsiteMeetingDate) data.onsiteMeetingDate = new Date(input.onsiteMeetingDate);
+      if (input.onsiteMeetingNotes !== undefined) data.onsiteMeetingNotes = input.onsiteMeetingNotes;
+
+      return ctx.db.provider.update({
+        where: { id: input.providerId },
+        data: data as any,
+      });
+    }),
+
+  // ─── iCIMS import ─────────────────────────────────────────────────────
+  importFromIcims: staffProcedure
+    .input(z.object({ icimsId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const { fetchProviderFromIcims } = await import("@/lib/integrations/icims");
+      const icimsData = await fetchProviderFromIcims(input.icimsId);
+
+      const existing = await ctx.db.provider.findFirst({ where: { icimsId: input.icimsId } });
+      if (existing) throw new TRPCError({ code: "CONFLICT", message: "Provider with this iCIMS ID already exists" });
+
+      const defaultType = await ctx.db.providerType.findFirst({ where: { abbreviation: "MD" } });
+
+      const provider = await ctx.db.provider.create({
+        data: {
+          legalFirstName: icimsData.firstName,
+          legalLastName: icimsData.lastName,
+          legalMiddleName: icimsData.middleName ?? null,
+          icimsId: input.icimsId,
+          npi: icimsData.npi ?? null,
+          status: "INVITED",
+          providerTypeId: defaultType!.id,
+          createdById: ctx.session!.user.id,
+        },
+      });
+
+      if (icimsData.facility || icimsData.specialty) {
+        await ctx.db.providerProfile.create({
+          data: {
+            providerId: provider.id,
+            facilityAssignment: icimsData.facility ?? null,
+            specialtyPrimary: icimsData.specialty ?? null,
+            department: icimsData.department ?? null,
+            jobTitle: icimsData.jobTitle ?? null,
+            personalEmail: icimsData.email ?? null,
+            mobilePhone: icimsData.phone ?? null,
+            hireDate: icimsData.hireDate ? new Date(icimsData.hireDate) : null,
+            icimsDataSnapshot: icimsData as any,
+          },
+        });
+      }
+
+      await writeAuditLog({
+        actorId: ctx.session!.user.id,
+        actorRole: ctx.session!.user.role,
+        action: "provider.imported.icims",
+        entityType: "Provider",
+        entityId: provider.id,
+        providerId: provider.id,
+        afterState: { icimsId: input.icimsId },
+      });
+
+      return provider;
+    }),
+
+  // ─── CAQH data sync ───────────────────────────────────────────────────
+  pullCaqhData: staffProcedure
+    .input(z.object({ providerId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const provider = await ctx.db.provider.findUnique({ where: { id: input.providerId } });
+      if (!provider) throw new TRPCError({ code: "NOT_FOUND" });
+      if (!provider.caqhId) throw new TRPCError({ code: "BAD_REQUEST", message: "Provider has no CAQH ID" });
+
+      const { pullProviderData } = await import("@/lib/integrations/caqh");
+      const caqhData = await pullProviderData(provider.caqhId);
+
+      await ctx.db.providerProfile.upsert({
+        where: { providerId: input.providerId },
+        update: { caqhDataSnapshot: caqhData as any },
+        create: { providerId: input.providerId, caqhDataSnapshot: caqhData as any },
+      });
+
+      await writeAuditLog({
+        actorId: ctx.session!.user.id,
+        actorRole: ctx.session!.user.role,
+        action: "provider.caqh.synced",
+        entityType: "Provider",
+        entityId: input.providerId,
+        providerId: input.providerId,
+      });
+
+      return { success: true };
+    }),
+
+  // ─── Hospital privilege status update ──────────────────────────────────
+  updateHospitalPrivilege: staffProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        status: z.string().optional(),
+        notes: z.string().optional(),
+        approvedDate: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const data: Record<string, unknown> = {};
+      if (input.status) data.status = input.status;
+      if (input.notes !== undefined) data.notes = input.notes;
+      if (input.approvedDate) data.approvedDate = new Date(input.approvedDate);
+
+      return ctx.db.hospitalPrivilege.update({
+        where: { id: input.id },
+        data: data as any,
+      });
+    }),
 });
