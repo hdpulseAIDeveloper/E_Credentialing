@@ -1,4 +1,5 @@
 import { db } from "@/server/db";
+import Link from "next/link";
 
 export default async function EnrollmentsPage() {
   const enrollments = await db.enrollment.findMany({
@@ -64,12 +65,16 @@ export default async function EnrollmentsPage() {
                 return (
                   <tr key={e.id} className={`hover:bg-gray-50 ${isOverdue ? "bg-red-50" : ""}`}>
                     <td className="p-3">
-                      <a href={`/providers/${e.provider.id}`} className="text-blue-600 hover:underline font-medium">
+                      <Link href={`/providers/${e.provider.id}`} className="text-blue-600 hover:underline font-medium">
                         {e.provider.legalFirstName} {e.provider.legalLastName}
-                      </a>
+                      </Link>
                       <div className="text-xs text-gray-400">{e.provider.providerType.abbreviation}</div>
                     </td>
-                    <td className="p-3 text-sm">{e.payerName}</td>
+                    <td className="p-3 text-sm">
+                      <Link href={`/enrollments/${e.id}`} className="text-gray-900 hover:text-blue-600 hover:underline">
+                        {e.payerName}
+                      </Link>
+                    </td>
                     <td className="p-3 text-sm text-gray-500">{e.enrollmentType}</td>
                     <td className="p-3">
                       <span className={`text-xs px-2 py-1 rounded-full ${

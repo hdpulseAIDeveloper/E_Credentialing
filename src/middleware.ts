@@ -14,6 +14,7 @@ export default auth((req) => {
 
   // Allow public routes
   if (
+    pathname === "/" ||
     pathname.startsWith("/auth/") ||
     pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/api/webhooks/") ||
@@ -23,7 +24,7 @@ export default auth((req) => {
   }
 
   // Provider application routes — handled by token validation in the page
-  if (pathname.startsWith("/application/") || pathname.startsWith("/(provider)/")) {
+  if (pathname.startsWith("/application") || pathname === "/application") {
     return NextResponse.next();
   }
 

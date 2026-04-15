@@ -29,6 +29,7 @@ services:
       REDIS_PORT: 6379
       # App URLs
       NEXT_PUBLIC_APP_URL: http://localhost:6015
+      NEXT_PUBLIC_WORKER_URL: http://localhost:6025
       WORKER_INTERNAL_URL: http://ecred-worker:6025
       # Socket.io
       SOCKET_IO_PATH: /socket.io

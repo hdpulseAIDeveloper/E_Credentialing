@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import { BotRunRow } from "./BotRunRow";
+import { api } from "@/trpc/react";
 import type { BotRun, BotType, User, VerificationRecord } from "@prisma/client";
 
 type BotRunWithRelations = BotRun & {
@@ -31,18 +32,32 @@ export function BotStatusPanel({ providerId, providerType, botRuns: initialBotRu
 
   const applicableBotTypes = BOT_TYPES_BY_PROVIDER[providerType] ?? ["LICENSE_VERIFICATION", "OIG_SANCTIONS", "SAM_SANCTIONS"];
 
+  const triggerMutation = api.bot.triggerBot.useMutation({
+    onSuccess: (newRun) => {
+      // Optimistically update the list with the new queued run
+      setBotRuns((prev) => {
+        const filtered = prev.filter((r) => r.botType !== newRun.botType);
+        return [newRun as BotRunWithRelations, ...filtered];
+      });
+    },
+    onError: (err) => {
+      console.error("[BotStatusPanel] Failed to trigger bot:", err.message);
+    },
+  });
+
   useEffect(() => {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin;
-    const s = io(appUrl);
+    const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL;
+    if (!workerUrl) return;
+
+    const s = io(workerUrl);
 
     s.on("connect", () => {
       s.emit("subscribe:provider", providerId);
     });
 
     s.on("bot:update", (data: { event: string; botRunId: string; botType: string }) => {
-      // Refresh bot run data
       console.log("[BotStatusPanel] Bot update received:", data);
-      // In a full implementation, re-fetch the updated bot run from API
+      // Re-fetch updated data via tRPC in a full implementation
     });
 
     setSocket(s);
@@ -56,16 +71,8 @@ export function BotStatusPanel({ providerId, providerType, botRuns: initialBotRu
   const getLatestRun = (botType: BotType) =>
     botRuns.find((r) => r.botType === botType);
 
-  const handleTriggerBot = async (botType: BotType) => {
-    const response = await fetch("/api/trpc/bot.triggerBot", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ providerId, botType }),
-    });
-    if (response.ok) {
-      // Optimistically add a queued run
-      console.log(`[BotStatusPanel] Triggered ${botType}`);
-    }
+  const handleTriggerBot = (botType: BotType) => {
+    triggerMutation.mutate({ providerId, botType });
   };
 
   return (

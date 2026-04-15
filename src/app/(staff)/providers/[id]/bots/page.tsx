@@ -3,12 +3,13 @@ import { notFound } from "next/navigation";
 import { BotStatusPanel } from "@/components/bots/BotStatusPanel";
 
 interface Props {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function ProviderBotsPage({ params }: Props) {
+  const { id } = await params;
   const provider = await db.provider.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       providerType: true,
       botRuns: {

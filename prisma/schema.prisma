@@ -325,6 +325,7 @@ model User {
   email                   String    @unique
   displayName             String    @map("display_name")
   role                    UserRole
+  passwordHash            String?   @map("password_hash")
   azureAdOid              String?   @unique @map("azure_ad_oid")
   providerId              String?   @map("provider_id")
   isActive                Boolean   @default(true) @map("is_active")

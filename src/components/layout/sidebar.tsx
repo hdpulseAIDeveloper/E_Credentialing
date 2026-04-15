@@ -17,6 +17,7 @@ interface SidebarProps {
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: "grid" },
+  { href: "/providers", label: "Providers", icon: "user" },
   { href: "/committee", label: "Committee", icon: "users" },
   { href: "/enrollments", label: "Enrollments", icon: "file-text" },
   { href: "/expirables", label: "Expirables", icon: "clock" },

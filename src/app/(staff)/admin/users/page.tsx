@@ -1,16 +1,20 @@
 import { api } from "@/trpc/server";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { AdminUserRowActions, InviteUserButton } from "@/components/admin/AdminUserActions";
 import { format } from "date-fns";
+
+const ROLE_LABELS: Record<string, string> = {
+  SPECIALIST: "Specialist",
+  MANAGER: "Manager",
+  COMMITTEE_MEMBER: "Committee Member",
+  ADMIN: "Admin",
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  ADMIN: "bg-red-100 text-red-700",
+  MANAGER: "bg-purple-100 text-purple-700",
+  COMMITTEE_MEMBER: "bg-blue-100 text-blue-700",
+  SPECIALIST: "bg-gray-100 text-gray-600",
+};
 
 export default async function AdminUsersPage() {
   const { users } = await api.admin.listUsers({});
@@ -18,56 +22,59 @@ export default async function AdminUsersPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Staff Users</h1>
-        <Button size="sm">Invite User</Button>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Staff Users</h1>
+          <p className="text-gray-500 mt-1">{users.length} user{users.length !== 1 ? "s" : ""}</p>
+        </div>
+        <InviteUserButton />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">All Staff ({users.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Last Login</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.displayName}</TableCell>
-                  <TableCell className="text-muted-foreground">{user.email}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{user.role}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={user.isActive ? "default" : "secondary"}>
-                      {user.isActive ? "Active" : "Inactive"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {user.lastLoginAt
-                      ? format(new Date(user.lastLoginAt), "MMM d, yyyy")
-                      : "Never"}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {users.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                    No users found.
-                  </TableCell>
-                </TableRow>
+      <div className="bg-white rounded-lg border overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Name</th>
+                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Email</th>
+                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Role</th>
+                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Status</th>
+                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Last Login</th>
+                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {users.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-gray-500">No users found.</td>
+                </tr>
+              ) : (
+                users.map((user) => (
+                  <tr key={user.id} className="hover:bg-gray-50">
+                    <td className="p-3 font-medium text-gray-900">{user.displayName}</td>
+                    <td className="p-3 text-sm text-gray-500">{user.email}</td>
+                    <td className="p-3">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${ROLE_COLORS[user.role] ?? "bg-gray-100 text-gray-600"}`}>
+                        {ROLE_LABELS[user.role] ?? user.role}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${user.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                        {user.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td className="p-3 text-sm text-gray-500">
+                      {user.lastLoginAt ? format(new Date(user.lastLoginAt), "MMM d, yyyy") : "Never"}
+                    </td>
+                    <td className="p-3">
+                      <AdminUserRowActions user={{ id: user.id, displayName: user.displayName, email: user.email, role: user.role, isActive: user.isActive }} />
+                    </td>
+                  </tr>
+                ))
               )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

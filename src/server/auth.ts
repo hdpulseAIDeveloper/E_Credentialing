@@ -11,6 +11,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { db } from "@/server/db";
 import type { UserRole } from "@prisma/client";
 import { jwtVerify } from "jose";
+import bcrypt from "bcryptjs";
 
 // Extend next-auth types to include our custom fields
 declare module "next-auth" {
@@ -47,6 +48,38 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           scope: "openid profile email",
           tenant: process.env.AZURE_AD_TENANT_ID!,
         },
+      },
+    }),
+
+    // ─── Email / Password credentials ────────────────────────────────────
+    Credentials({
+      id: "credentials",
+      name: "Email & Password",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null;
+
+        const user = await db.user.findUnique({
+          where: { email: credentials.email as string },
+        });
+
+        if (!user || !user.passwordHash || !user.isActive) return null;
+
+        const valid = await bcrypt.compare(
+          credentials.password as string,
+          user.passwordHash
+        );
+        if (!valid) return null;
+
+        await db.user.update({
+          where: { id: user.id },
+          data: { lastLoginAt: new Date() },
+        });
+
+        return { id: user.id, email: user.email, name: user.displayName };
       },
     }),
 
@@ -96,15 +129,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
   callbacks: {
     // ─── JWT callback: embed role + userId into token ─────────────────────
-    async jwt({ token, account, profile }) {
+    async jwt({ token, account, profile, user }) {
+      // ── Credentials sign-in (email/password or magic-link) ────────────
+      if (account?.type === "credentials" && user?.id) {
+        const dbUser = await db.user.findUnique({ where: { id: user.id } });
+        if (dbUser) {
+          token.id = dbUser.id;
+          token.role = dbUser.role;
+          token.providerId = dbUser.providerId;
+        }
+        return token;
+      }
+
+      // ── Azure AD first sign-in ─────────────────────────────────────────
       if (account && profile) {
-        // First sign-in via Azure AD
         const oid = (profile as { oid?: string }).oid;
         const email = profile.email ?? token.email;
 
         if (email) {
-          // Upsert user record
-          const user = await db.user.upsert({
+          const dbUser = await db.user.upsert({
             where: { email },
             update: {
               azureAdOid: oid ?? undefined,
@@ -121,18 +164,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             },
           });
 
-          token.id = user.id;
-          token.role = user.role;
-          token.providerId = user.providerId;
+          token.id = dbUser.id;
+          token.role = dbUser.role;
+          token.providerId = dbUser.providerId;
         }
       }
 
-      // Refresh role from DB on subsequent requests
+      // ── Refresh role on subsequent requests ───────────────────────────
       if (token.id && !token.role) {
-        const user = await db.user.findUnique({ where: { id: token.id } });
-        if (user) {
-          token.role = user.role;
-          token.providerId = user.providerId;
+        const dbUser = await db.user.findUnique({ where: { id: token.id } });
+        if (dbUser) {
+          token.role = dbUser.role;
+          token.providerId = dbUser.providerId;
         }
       }
 

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
+import { EnrollmentActions } from "@/components/enrollments/EnrollmentActions";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -26,7 +27,14 @@ export default async function EnrollmentDetailPage({ params }: PageProps) {
             {enrollment.provider.legalFirstName} {enrollment.provider.legalLastName}
           </p>
         </div>
-        <Badge variant="outline">{enrollment.status}</Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant="outline">{enrollment.status}</Badge>
+          <EnrollmentActions
+            enrollmentId={enrollment.id}
+            currentStatus={enrollment.status as "DRAFT" | "SUBMITTED" | "PENDING_PAYER" | "ENROLLED" | "DENIED" | "ERROR" | "WITHDRAWN"}
+            currentFollowUpDue={enrollment.followUpDueDate ? String(enrollment.followUpDueDate) : null}
+          />
+        </div>
       </div>
 
       <Separator />
