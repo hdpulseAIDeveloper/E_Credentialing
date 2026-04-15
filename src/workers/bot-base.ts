@@ -88,7 +88,7 @@ export abstract class BotBase {
           verifiedDate: result.verifiedDate,
           expirationDate: result.expirationDate ?? null,
           sourceWebsite: result.sourceWebsite,
-          resultDetails: result.resultDetails,
+          resultDetails: result.resultDetails as Prisma.InputJsonValue,
           pdfBlobUrl: pdfBlobUrl ?? null,
           outputFilename: outputFilename ?? null,
           isFlagged: result.isFlagged ?? false,

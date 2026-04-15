@@ -9,6 +9,7 @@
     "rootDir": "src",
     "skipLibCheck": true,
     "resolveJsonModule": true,
+    "jsx": "react-jsx",
     "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src/workers/**/*", "src/lib/**/*", "src/server/db.ts"],
