@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { keepPreviousData } from "@tanstack/react-query";
 import { api } from "@/trpc/react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -297,7 +298,7 @@ export function AuditTrailPanel({ providerId }: AuditTrailPanelProps) {
 
   const { data, isLoading, isFetching } = api.provider.getAuditTrail.useQuery(
     { providerId, page: 1, limit: page * PAGE_SIZE },
-    { keepPreviousData: true },
+    { placeholderData: keepPreviousData },
   );
 
   const logs = (data?.logs ?? []) as AuditLog[];
