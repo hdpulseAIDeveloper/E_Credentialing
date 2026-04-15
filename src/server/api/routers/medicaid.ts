@@ -325,16 +325,20 @@ export const medicaidRouter = createTRPCRouter({
 
   getSummary: staffProcedure
     .query(async ({ ctx }) => {
-      const [total, byStatus, byPath] = await Promise.all([
-        ctx.db.medicaidEnrollment.count(),
-        ctx.db.medicaidEnrollment.groupBy({ by: ["affiliationStatus"], _count: true }),
-        ctx.db.medicaidEnrollment.groupBy({ by: ["enrollmentPath"], _count: true }),
+      const total = await ctx.db.medicaidEnrollment.count();
+      if (total === 0) {
+        return { total: 0, byStatus: {} as Record<string, number>, byPath: {} as Record<string, number> };
+      }
+
+      const [byStatus, byPath] = await Promise.all([
+        ctx.db.medicaidEnrollment.groupBy({ by: ["affiliationStatus"], _count: { _all: true } }),
+        ctx.db.medicaidEnrollment.groupBy({ by: ["enrollmentPath"], _count: { _all: true } }),
       ]);
 
       return {
         total,
-        byStatus: byStatus.reduce((acc, s) => ({ ...acc, [s.affiliationStatus]: s._count }), {} as Record<string, number>),
-        byPath: byPath.reduce((acc, p) => ({ ...acc, [p.enrollmentPath ?? "UNKNOWN"]: p._count }), {} as Record<string, number>),
+        byStatus: byStatus.reduce((acc, s) => ({ ...acc, [s.affiliationStatus]: s._count._all }), {} as Record<string, number>),
+        byPath: byPath.reduce((acc, p) => ({ ...acc, [p.enrollmentPath ?? "UNKNOWN"]: p._count._all }), {} as Record<string, number>),
       };
     }),
 });
