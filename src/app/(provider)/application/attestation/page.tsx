@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 
@@ -21,6 +21,14 @@ interface AttestationForm {
 }
 
 export default function AttestationPage() {
+  return (
+    <Suspense fallback={<div className="py-12 text-center text-gray-400">Loading...</div>}>
+      <AttestationContent />
+    </Suspense>
+  );
+}
+
+function AttestationContent() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
