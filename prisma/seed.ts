@@ -849,6 +849,81 @@ async function main() {
   }
   console.log(`  ✓ Hospital privileges: ${hospPrivilegeDefs.length} created`);
 
+  // ─── Workflow Diagrams (Excalidraw) ──────────────────────────────────────
+
+  const workflowDefs = [
+    {
+      name: "Provider Onboarding (End-to-End)",
+      description: "Full onboarding journey from initial outreach through committee readiness. Covers iCIMS import, CAQH ingestion, application, document upload, PSV bot queue, and committee readiness.",
+      category: "onboarding",
+    },
+    {
+      name: "PSV Bot Execution",
+      description: "Lifecycle of a single Primary Source Verification bot run — queue, input validation, Playwright execution, retry logic, PDF storage, and verification record creation.",
+      category: "bots",
+    },
+    {
+      name: "Committee Review",
+      description: "Committee preparation, review session, and approval process — summary sheet generation, agenda creation, session decisions (approve/deny/defer/conditional).",
+      category: "committee",
+    },
+    {
+      name: "Enrollment Submission",
+      description: "Enrolling a provider with a payer after credentialing approval — portal bot, FTP, or email submission methods with follow-up tracking.",
+      category: "enrollment",
+    },
+    {
+      name: "Expirables Tracking & Renewal",
+      description: "Detecting expiring credentials via nightly scans, escalation thresholds (90/60/30/14/7 days), bot renewal confirmation, and provider outreach.",
+      category: "expirables",
+    },
+    {
+      name: "Sanctions Checking",
+      description: "OIG LEIE and SAM.gov exclusion queries — initial check at pipeline entry, hard stop on findings, monthly recurring checks for all active providers.",
+      category: "sanctions",
+    },
+    {
+      name: "NY Medicaid ETIN Enrollment",
+      description: "eMedNY enrollment workflow — ETIN affiliation, revalidation, provider signature tracking, bot submission to eMedNY Service Portal.",
+      category: "medicaid",
+    },
+    {
+      name: "NPDB Query",
+      description: "National Practitioner Data Bank initial query and continuous monitoring — report review, flag/acknowledge, and ongoing alert handling.",
+      category: "npdb",
+    },
+    {
+      name: "Provider Status Lifecycle",
+      description: "State diagram showing all possible provider status transitions: invited → onboarding → documents_pending → verification → committee_ready → committee_in_review → approved/denied/deferred.",
+      category: "general",
+    },
+    {
+      name: "Staff Notification & Escalation",
+      description: "Alert escalation flow — specialist notification, SLA thresholds (bot failure 4h, expirable 48h, enrollment follow-up 24h, sanctions/NPDB 2h), manager escalation.",
+      category: "general",
+    },
+  ];
+
+  const defaultScene = { elements: [], appState: { viewBackgroundColor: "#ffffff" }, files: {} };
+
+  for (const wf of workflowDefs) {
+    try {
+      await prisma.workflow.create({
+        data: {
+          name: wf.name,
+          description: wf.description,
+          category: wf.category,
+          sceneData: defaultScene,
+          createdBy: adminUser.id,
+          updatedBy: adminUser.id,
+        },
+      });
+    } catch {
+      // Skip if already seeded
+    }
+  }
+  console.log(`  ✓ Workflows: ${workflowDefs.length} created`);
+
   console.log("\nSeed complete.");
 }
 

@@ -355,6 +355,7 @@ model User {
   auditLogsAsActor       AuditLog[]         @relation("AuditLogActor")
   sanctionsTriggered     SanctionsCheck[]   @relation("SanctionsTriggeredByUser")
   hospitalSubmissions    HospitalPrivilege[] @relation("HospitalSubmittedBy")
+  createdWorkflows       Workflow[]          @relation("WorkflowCreator")
 
   @@map("users")
 }
@@ -946,4 +947,38 @@ model AuditLog {
   @@index([providerId])
   @@index([timestamp])
   @@map("audit_logs")
+}
+
+// ─── Application Settings ────────────────────────────────────────────────────
+
+model AppSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  description String?
+  category    String   @default("general")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  updatedBy   String?  @map("updated_by")
+
+  @@map("app_settings")
+}
+
+// ─── Workflows (Excalidraw) ──────────────────────────────────────────────────
+
+model Workflow {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  category    String   @default("general")
+  sceneData   Json     @map("scene_data")
+  thumbnail   String?
+  isPublished Boolean  @default(false) @map("is_published")
+  createdBy   String   @map("created_by")
+  updatedBy   String?  @map("updated_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  creator     User     @relation("WorkflowCreator", fields: [createdBy], references: [id])
+
+  @@map("workflows")
 }

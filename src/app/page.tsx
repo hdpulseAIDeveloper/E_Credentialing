@@ -1,13 +1,9 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { auth } from "@/server/auth";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 
 export default async function HomePage() {
   const session = await auth();
-
-  if (session?.user) {
-    redirect("/dashboard");
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
@@ -39,18 +35,32 @@ export default async function HomePage() {
 
             {/* Nav links */}
             <div className="flex items-center gap-3">
-              <Link
-                href="/auth/signin"
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
-              >
-                Sign In
-              </Link>
-              <Link
-                href="/auth/register"
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
-              >
-                Register
-              </Link>
+              {session?.user ? (
+                <>
+                  <Link
+                    href="/dashboard"
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Go to Dashboard
+                  </Link>
+                  <SignOutButton />
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/auth/register"
+                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+                  >
+                    Register
+                  </Link>
+                  <Link
+                    href="/auth/signin"
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Sign In
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -74,18 +84,32 @@ export default async function HomePage() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link
-            href="/auth/register"
-            className="inline-flex items-center justify-center px-8 py-3 text-base font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-          >
-            Start Your Application
-          </Link>
-          <Link
-            href="/auth/signin"
-            className="inline-flex items-center justify-center px-8 py-3 text-base font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
-          >
-            Sign In
-          </Link>
+          {session?.user ? (
+            <>
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center justify-center px-8 py-3 text-base font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                Go to Dashboard
+              </Link>
+              <SignOutButton className="inline-flex items-center justify-center px-8 py-3 text-base font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm" />
+            </>
+          ) : (
+            <>
+              <Link
+                href="/auth/register"
+                className="inline-flex items-center justify-center px-8 py-3 text-base font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                Start Your Application
+              </Link>
+              <Link
+                href="/auth/signin"
+                className="inline-flex items-center justify-center px-8 py-3 text-base font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+              >
+                Sign In
+              </Link>
+            </>
+          )}
         </div>
       </section>
 

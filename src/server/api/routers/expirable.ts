@@ -164,4 +164,29 @@ export const expirableRouter = createTRPCRouter({
 
       return { expired, in7Days, in30Days, in60Days, in90Days };
     }),
+
+  // ─── Delete expirable ─────────────────────────────────────────────────
+  delete: staffProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const expirable = await ctx.db.expirable.findUnique({
+        where: { id: input.id },
+        select: { id: true, providerId: true, expirableType: true, status: true },
+      });
+      if (!expirable) throw new TRPCError({ code: "NOT_FOUND", message: "Expirable not found" });
+
+      await ctx.db.expirable.delete({ where: { id: input.id } });
+
+      await writeAuditLog({
+        actorId: ctx.session!.user.id,
+        actorRole: ctx.session!.user.role,
+        action: "expirable.deleted",
+        entityType: "Expirable",
+        entityId: input.id,
+        providerId: expirable.providerId,
+        beforeState: { type: expirable.expirableType, status: expirable.status },
+      });
+
+      return { success: true };
+    }),
 });

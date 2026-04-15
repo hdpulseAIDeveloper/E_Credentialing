@@ -168,29 +168,29 @@ export default async function DashboardPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Credentialing Dashboard</h1>
-        <p className="text-gray-500 mt-1">Provider credentialing operations overview</p>
+        <p className="text-gray-500 text-sm mt-0.5">Provider credentialing operations overview</p>
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {statCards.map((card) => (
           <div
             key={card.label}
-            className={`${card.bg} rounded-lg border ${card.border} p-4`}
+            className={`${card.bg} rounded-lg border ${card.border} px-3 py-2.5`}
           >
-            <div className={`text-2xl font-bold ${card.color}`}>{card.value}</div>
-            <div className="text-sm text-gray-500 mt-1">{card.label}</div>
+            <div className={`text-xl font-bold ${card.color}`}>{card.value}</div>
+            <div className="text-xs text-gray-500 mt-0.5">{card.label}</div>
           </div>
         ))}
       </div>
 
       {/* Status Distribution Bar */}
       {totalForBar > 0 && (
-        <div className="bg-white rounded-lg border p-4">
-          <h2 className="text-sm font-medium text-gray-700 mb-3">Provider Status Distribution</h2>
+        <div className="bg-white rounded-lg border px-4 py-3">
+          <h2 className="text-xs font-medium text-gray-700 mb-2">Provider Status Distribution</h2>
           <div className="flex rounded-full overflow-hidden h-6">
             {orderedStatuses.map((status) => {
               const count = statusMapStr.get(status) ?? 0;
@@ -216,7 +216,7 @@ export default async function DashboardPage() {
               );
             })}
           </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-2">
             {orderedStatuses.map((status) => {
               const count = statusMapStr.get(status) ?? 0;
               if (count === 0) return null;
@@ -235,24 +235,24 @@ export default async function DashboardPage() {
       )}
 
       {/* Main Content: Pipeline + Sidebar */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Pipeline Table */}
         <div className="lg:col-span-2">
           <PipelineTable providers={providers as Parameters<typeof PipelineTable>[0]["providers"]} />
         </div>
 
         {/* Right Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* My Tasks */}
           <TaskList tasks={tasks as Parameters<typeof TaskList>[0]["tasks"]} />
 
           {/* Upcoming Expirations */}
           <div className="bg-white rounded-lg border">
-            <div className="px-4 py-3 border-b">
-              <h2 className="text-sm font-semibold text-gray-900">Upcoming Expirations</h2>
+            <div className="px-3 py-2 border-b">
+              <h2 className="text-xs font-semibold text-gray-900">Upcoming Expirations</h2>
             </div>
             {upcomingExpirations.length === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-gray-400">
+              <div className="px-3 py-4 text-center text-sm text-gray-400">
                 No upcoming expirations
               </div>
             ) : (
@@ -264,7 +264,7 @@ export default async function DashboardPage() {
                     days <= 14 ? "text-orange-600 bg-orange-50" :
                     "text-yellow-600 bg-yellow-50";
                   return (
-                    <li key={exp.id} className="px-4 py-3 flex items-center justify-between gap-2">
+                    <li key={exp.id} className="px-3 py-2 flex items-center justify-between gap-2">
                       <div className="min-w-0">
                         <div className="text-sm font-medium text-gray-900 truncate">
                           {exp.provider.legalFirstName} {exp.provider.legalLastName}
@@ -285,11 +285,11 @@ export default async function DashboardPage() {
 
           {/* Overdue Follow-ups */}
           <div className="bg-white rounded-lg border">
-            <div className="px-4 py-3 border-b">
-              <h2 className="text-sm font-semibold text-gray-900">Overdue Follow-ups</h2>
+            <div className="px-3 py-2 border-b">
+              <h2 className="text-xs font-semibold text-gray-900">Overdue Follow-ups</h2>
             </div>
             {overdueFollowUps.length === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-gray-400">
+              <div className="px-3 py-4 text-center text-sm text-gray-400">
                 No overdue follow-ups
               </div>
             ) : (
@@ -297,7 +297,7 @@ export default async function DashboardPage() {
                 {overdueFollowUps.map((enr) => {
                   const overdue = daysOverdue(enr.followUpDueDate!);
                   return (
-                    <li key={enr.id} className="px-4 py-3">
+                    <li key={enr.id} className="px-3 py-2">
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
                           <div className="text-sm font-medium text-gray-900 truncate">
@@ -320,17 +320,17 @@ export default async function DashboardPage() {
 
           {/* Recent Activity */}
           <div className="bg-white rounded-lg border">
-            <div className="px-4 py-3 border-b">
-              <h2 className="text-sm font-semibold text-gray-900">Recent Activity</h2>
+            <div className="px-3 py-2 border-b">
+              <h2 className="text-xs font-semibold text-gray-900">Recent Activity</h2>
             </div>
             {recentActivity.length === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-gray-400">
+              <div className="px-3 py-4 text-center text-sm text-gray-400">
                 No recent activity
               </div>
             ) : (
               <ul className="divide-y">
                 {recentActivity.map((log) => (
-                  <li key={log.id} className="px-4 py-3">
+                  <li key={log.id} className="px-3 py-2">
                     <div className="flex items-start gap-2">
                       <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-blue-400 shrink-0" />
                       <div className="min-w-0">

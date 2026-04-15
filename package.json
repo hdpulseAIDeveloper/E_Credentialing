@@ -25,6 +25,7 @@
     "@azure/storage-blob": "^12.25.0",
     "@bull-board/api": "^7.0.0",
     "@bull-board/express": "^7.0.0",
+    "@excalidraw/excalidraw": "^0.18.0",
     "@hookform/resolvers": "^3.9.0",
     "@prisma/client": "^5.19.0",
     "@radix-ui/react-alert-dialog": "^1.1.2",

@@ -259,4 +259,179 @@ export const adminRouter = createTRPCRouter({
         expiredExpirables,
       };
     }),
+
+  // ─── List app settings ─────────────────────────────────────────────────
+  listSettings: managerProcedure
+    .input(z.object({ category: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      try {
+        return await ctx.db.appSetting.findMany({
+          where: input?.category ? { category: input.category } : undefined,
+          orderBy: [{ category: "asc" }, { key: "asc" }],
+        });
+      } catch {
+        return [];
+      }
+    }),
+
+  // ─── Upsert app setting ───────────────────────────────────────────────
+  upsertSetting: adminProcedure
+    .input(
+      z.object({
+        key: z.string().min(1),
+        value: z.string(),
+        description: z.string().optional(),
+        category: z.string().default("general"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const setting = await ctx.db.appSetting.upsert({
+          where: { key: input.key },
+          update: { value: input.value, description: input.description, category: input.category, updatedBy: ctx.session!.user.id },
+          create: { key: input.key, value: input.value, description: input.description, category: input.category, updatedBy: ctx.session!.user.id },
+        });
+
+        await writeAuditLog({
+          actorId: ctx.session!.user.id,
+          actorRole: ctx.session!.user.role,
+          action: "setting.updated",
+          entityType: "AppSetting",
+          entityId: setting.id,
+          afterState: { key: input.key, value: input.value },
+        });
+
+        return setting;
+      } catch {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Settings table not available. Please run database migrations." });
+      }
+    }),
+
+  // ─── Delete app setting ───────────────────────────────────────────────
+  deleteSetting: adminProcedure
+    .input(z.object({ key: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        await ctx.db.appSetting.delete({ where: { key: input.key } });
+        return { success: true };
+      } catch {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Settings table not available. Please run database migrations." });
+      }
+    }),
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // ─── Workflow Endpoints ─────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════
+
+  listWorkflows: managerProcedure
+    .input(z.object({ category: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      try {
+        return await ctx.db.workflow.findMany({
+          where: input?.category ? { category: input.category } : undefined,
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            category: true,
+            thumbnail: true,
+            isPublished: true,
+            createdBy: true,
+            updatedAt: true,
+            creator: { select: { displayName: true } },
+          },
+          orderBy: [{ category: "asc" }, { name: "asc" }],
+        });
+      } catch {
+        return [];
+      }
+    }),
+
+  getWorkflow: managerProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const workflow = await ctx.db.workflow.findUnique({
+        where: { id: input.id },
+        include: { creator: { select: { displayName: true } } },
+      });
+      if (!workflow) throw new TRPCError({ code: "NOT_FOUND", message: "Workflow not found" });
+      return workflow;
+    }),
+
+  createWorkflow: adminProcedure
+    .input(
+      z.object({
+        name: z.string().min(1),
+        description: z.string().optional(),
+        category: z.string().default("general"),
+        sceneData: z.any().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const defaultScene = { elements: [], appState: { viewBackgroundColor: "#ffffff" }, files: {} };
+      const workflow = await ctx.db.workflow.create({
+        data: {
+          name: input.name,
+          description: input.description,
+          category: input.category,
+          sceneData: input.sceneData ?? defaultScene,
+          createdBy: ctx.session!.user.id,
+          updatedBy: ctx.session!.user.id,
+        },
+      });
+
+      await writeAuditLog({
+        actorId: ctx.session!.user.id,
+        actorRole: ctx.session!.user.role,
+        action: "workflow.created",
+        entityType: "Workflow",
+        entityId: workflow.id,
+        afterState: { name: input.name, category: input.category },
+      });
+
+      return workflow;
+    }),
+
+  saveWorkflow: adminProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        name: z.string().optional(),
+        description: z.string().optional(),
+        category: z.string().optional(),
+        sceneData: z.any().optional(),
+        isPublished: z.boolean().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+      const workflow = await ctx.db.workflow.update({
+        where: { id },
+        data: {
+          ...data,
+          updatedBy: ctx.session!.user.id,
+        },
+      });
+      return workflow;
+    }),
+
+  deleteWorkflow: adminProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const workflow = await ctx.db.workflow.findUnique({ where: { id: input.id } });
+      if (!workflow) throw new TRPCError({ code: "NOT_FOUND", message: "Workflow not found" });
+
+      await ctx.db.workflow.delete({ where: { id: input.id } });
+
+      await writeAuditLog({
+        actorId: ctx.session!.user.id,
+        actorRole: ctx.session!.user.role,
+        action: "workflow.deleted",
+        entityType: "Workflow",
+        entityId: input.id,
+        afterState: { name: workflow.name },
+      });
+
+      return { success: true };
+    }),
 });

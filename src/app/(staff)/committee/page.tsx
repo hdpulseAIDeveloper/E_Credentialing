@@ -168,7 +168,7 @@ export default async function CommitteeDashboardPage() {
                   <a
                     key={s.id}
                     href={`/committee/sessions/${s.id}`}
-                    className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors group"
+                    className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 transition-colors group"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
@@ -240,7 +240,7 @@ export default async function CommitteeDashboardPage() {
                   <a
                     key={s.id}
                     href={`/committee/sessions/${s.id}`}
-                    className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors group"
+                    className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 transition-colors group"
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
@@ -295,7 +295,7 @@ export default async function CommitteeDashboardPage() {
           ) : (
             <div className="divide-y">
               {queue.map((p) => (
-                <div key={p.id} className="p-4 flex items-center justify-between">
+                <div key={p.id} className="px-4 py-2.5 flex items-center justify-between">
                   <div>
                     <a
                       href={`/providers/${p.id}`}

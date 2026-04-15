@@ -198,4 +198,33 @@ export const enrollmentRouter = createTRPCRouter({
 
       return followUp;
     }),
+
+  // ─── Delete enrollment ────────────────────────────────────────────────
+  delete: staffProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const enrollment = await ctx.db.enrollment.findUnique({
+        where: { id: input.id },
+        select: { id: true, providerId: true, payerName: true, status: true },
+      });
+      if (!enrollment) throw new TRPCError({ code: "NOT_FOUND", message: "Enrollment not found" });
+
+      await ctx.db.enrollment.update({
+        where: { id: input.id },
+        data: { status: "WITHDRAWN" },
+      });
+
+      await writeAuditLog({
+        actorId: ctx.session!.user.id,
+        actorRole: ctx.session!.user.role,
+        action: "enrollment.withdrawn",
+        entityType: "Enrollment",
+        entityId: input.id,
+        providerId: enrollment.providerId,
+        beforeState: { status: enrollment.status },
+        afterState: { status: "WITHDRAWN" },
+      });
+
+      return { success: true };
+    }),
 });

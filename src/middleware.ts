@@ -4,11 +4,11 @@
  * Provider routes (/application/*) use a separate token-based auth.
  */
 
-import { auth } from "@/server/auth";
+import { authMiddleware } from "@/server/auth.edge";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export default auth((req) => {
+export default authMiddleware((req) => {
   const { pathname } = req.nextUrl;
   const session = req.auth;
 
@@ -35,9 +35,16 @@ export default auth((req) => {
     return NextResponse.redirect(signInUrl);
   }
 
-  // Role check for admin routes
-  if (pathname.startsWith("/admin/") || pathname.startsWith("/(staff)/admin/")) {
+  // Role check for admin routes (match both /admin and /admin/*)
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
     if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+  }
+
+  // Committee routes — restrict to ADMIN, MANAGER, COMMITTEE_MEMBER
+  if (pathname === "/committee" || pathname.startsWith("/committee/")) {
+    if (!["ADMIN", "MANAGER", "COMMITTEE_MEMBER"].includes(session.user.role as string)) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
   }

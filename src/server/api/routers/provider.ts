@@ -337,4 +337,30 @@ export const providerRouter = createTRPCRouter({
 
       return { logs, total };
     }),
+
+  // ─── Soft-delete provider (set INACTIVE) ─────────────────────────────
+  delete: managerProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const provider = await ctx.db.provider.findUnique({ where: { id: input.id } });
+      if (!provider) throw new TRPCError({ code: "NOT_FOUND", message: "Provider not found" });
+
+      await ctx.db.provider.update({
+        where: { id: input.id },
+        data: { status: "INACTIVE" },
+      });
+
+      await writeAuditLog({
+        actorId: ctx.session!.user.id,
+        actorRole: ctx.session!.user.role,
+        action: "provider.deactivated",
+        entityType: "Provider",
+        entityId: input.id,
+        providerId: input.id,
+        beforeState: { status: provider.status },
+        afterState: { status: "INACTIVE" },
+      });
+
+      return { success: true };
+    }),
 });

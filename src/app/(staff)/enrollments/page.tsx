@@ -1,5 +1,6 @@
 import { db } from "@/server/db";
 import Link from "next/link";
+import { EnrollmentRowActions } from "@/components/enrollments/EnrollmentRowActions";
 
 interface SearchParams {
   q?: string;
@@ -221,20 +222,21 @@ export default async function EnrollmentsPage({
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Provider</th>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Payer</th>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Type</th>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Method</th>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Status</th>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Follow-Up Due</th>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Last Follow-Up</th>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Assigned To</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Provider</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Payer</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Type</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Method</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Status</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Follow-Up Due</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Last Follow-Up</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Assigned To</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {enrollments.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-gray-500">
+                  <td colSpan={9} className="px-3 py-6 text-center text-gray-500">
                     No enrollments found.{hasFilters && " Try adjusting your filters."}
                   </td>
                 </tr>
@@ -248,18 +250,18 @@ export default async function EnrollmentsPage({
                       key={e.id}
                       className={`hover:bg-gray-50 ${isOverdue ? "bg-red-50" : ""}`}
                     >
-                      <td className="p-3">
+                      <td className="px-3 py-1.5">
                         <Link
                           href={`/providers/${e.provider.id}`}
-                          className="text-blue-600 hover:underline font-medium"
+                          className="text-sm text-blue-600 hover:underline font-medium"
                         >
                           {e.provider.legalFirstName} {e.provider.legalLastName}
                         </Link>
-                        <div className="text-xs text-gray-400">
+                        <div className="text-[11px] text-gray-400 leading-tight">
                           {e.provider.providerType.abbreviation}
                         </div>
                       </td>
-                      <td className="p-3 text-sm">
+                      <td className="px-3 py-1.5 text-sm">
                         <Link
                           href={`/enrollments/${e.id}`}
                           className="text-gray-900 hover:text-blue-600 hover:underline"
@@ -267,17 +269,17 @@ export default async function EnrollmentsPage({
                           {e.payerName}
                         </Link>
                       </td>
-                      <td className="p-3 text-sm text-gray-500">
+                      <td className="px-3 py-1.5 text-sm text-gray-500">
                         {typeLabels[e.enrollmentType] ?? e.enrollmentType}
                       </td>
-                      <td className="p-3 text-sm text-gray-500">
+                      <td className="px-3 py-1.5 text-sm text-gray-500">
                         {methodLabels[e.submissionMethod] ?? e.submissionMethod}
                       </td>
-                      <td className="p-3">
+                      <td className="px-3 py-1.5">
                         <StatusBadge status={e.status} />
                       </td>
                       <td
-                        className={`p-3 text-sm ${
+                        className={`px-3 py-1.5 text-sm ${
                           isOverdue ? "text-red-600 font-medium" : "text-gray-500"
                         }`}
                       >
@@ -286,13 +288,19 @@ export default async function EnrollmentsPage({
                           : "—"}
                         {isOverdue && " (OVERDUE)"}
                       </td>
-                      <td className="p-3 text-sm text-gray-500">
+                      <td className="px-3 py-1.5 text-sm text-gray-500">
                         {lastFollowUp
                           ? lastFollowUp.followUpDate.toLocaleDateString()
                           : "—"}
                       </td>
-                      <td className="p-3 text-sm text-gray-500">
+                      <td className="px-3 py-1.5 text-sm text-gray-500">
                         {e.assignedTo?.displayName ?? "—"}
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <EnrollmentRowActions
+                          enrollmentId={e.id}
+                          payerName={e.payerName}
+                        />
                       </td>
                     </tr>
                   );

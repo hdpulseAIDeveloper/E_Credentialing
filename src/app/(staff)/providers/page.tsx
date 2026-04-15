@@ -2,6 +2,7 @@ import { db } from "@/server/db";
 import Link from "next/link";
 import { ProviderStatusBadge } from "@/components/providers/ProviderStatusBadge";
 import { AddProviderModal } from "@/components/providers/AddProviderModal";
+import { ProviderRowActions } from "@/components/providers/ProviderRowActions";
 
 interface SearchParams {
   status?: string;
@@ -127,46 +128,42 @@ export default async function ProvidersPage({
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Provider</th>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Type</th>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">NPI</th>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Status</th>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Specialist</th>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Actions</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Provider</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Type</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">NPI</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Status</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Specialist</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {providers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-gray-500">
+                  <td colSpan={6} className="px-3 py-6 text-center text-gray-500">
                     No providers found.
                   </td>
                 </tr>
               ) : (
                 providers.map((p) => (
                   <tr key={p.id} className="hover:bg-gray-50">
-                    <td className="p-3">
-                      <Link href={`/providers/${p.id}`} className="font-medium text-blue-600 hover:underline">
+                    <td className="px-3 py-1.5">
+                      <Link href={`/providers/${p.id}`} className="text-sm font-medium text-blue-600 hover:underline">
                         {p.legalFirstName} {p.legalLastName}
                       </Link>
                     </td>
-                    <td className="p-3 text-sm text-gray-600">{p.providerType.name}</td>
-                    <td className="p-3 text-sm font-mono text-gray-500">{p.npi ?? "—"}</td>
-                    <td className="p-3">
+                    <td className="px-3 py-1.5 text-sm text-gray-600">{p.providerType.name}</td>
+                    <td className="px-3 py-1.5 text-sm font-mono text-gray-500">{p.npi ?? "—"}</td>
+                    <td className="px-3 py-1.5">
                       <ProviderStatusBadge status={p.status} />
                     </td>
-                    <td className="p-3 text-sm text-gray-500">
+                    <td className="px-3 py-1.5 text-sm text-gray-500">
                       {p.assignedSpecialist?.displayName ?? "—"}
                     </td>
-                    <td className="p-3">
-                      <div className="flex gap-3">
-                        <Link href={`/providers/${p.id}`} className="text-xs text-blue-600 hover:underline">
-                          View
-                        </Link>
-                        <Link href={`/providers/${p.id}/bots`} className="text-xs text-purple-600 hover:underline">
-                          Bots
-                        </Link>
-                      </div>
+                    <td className="px-3 py-1.5">
+                      <ProviderRowActions
+                        providerId={p.id}
+                        providerName={`${p.legalFirstName} ${p.legalLastName}`}
+                      />
                     </td>
                   </tr>
                 ))

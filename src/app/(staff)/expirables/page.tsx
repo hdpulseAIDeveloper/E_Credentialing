@@ -1,5 +1,6 @@
 import { db } from "@/server/db";
 import Link from "next/link";
+import { ExpirableRowActions } from "@/components/expirables/ExpirableRowActions";
 
 const EXPIRABLE_TYPES = [
   "ACLS", "BLS", "PALS", "INFECTION_CONTROL",
@@ -266,20 +267,20 @@ export default async function ExpirablesPage({
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Provider</th>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Credential Type</th>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Status</th>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Expires</th>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Days Left</th>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Last Verified</th>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Outreach Sent</th>
-                <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Actions</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Provider</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Credential Type</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Status</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Expires</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Days Left</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Last Verified</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Outreach Sent</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {expirables.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-gray-500">
+                  <td colSpan={8} className="px-3 py-6 text-center text-gray-500">
                     No expirables found matching your filters.
                   </td>
                 </tr>
@@ -288,57 +289,56 @@ export default async function ExpirablesPage({
                   const daysLeft = Math.floor(
                     (e.expirationDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
                   );
-                  const isActionable = e.status === "EXPIRED" || e.status === "EXPIRING_SOON";
                   return (
                     <tr key={e.id} className={`hover:bg-gray-50 ${rowBgClass(daysLeft)}`}>
-                      <td className="p-3">
+                      <td className="px-3 py-1.5">
                         <Link
                           href={`/providers/${e.provider.id}`}
                           className="text-blue-600 hover:underline font-medium text-sm"
                         >
                           {e.provider.legalFirstName} {e.provider.legalLastName}
                         </Link>
-                        <div className="text-xs text-gray-400">{e.provider.providerType.abbreviation}</div>
+                        <div className="text-[11px] text-gray-400 leading-tight">{e.provider.providerType.abbreviation}</div>
                       </td>
-                      <td className="p-3 text-sm text-gray-700">{formatExpirableType(e.expirableType)}</td>
-                      <td className="p-3">
+                      <td className="px-3 py-1.5 text-sm text-gray-700">{formatExpirableType(e.expirableType)}</td>
+                      <td className="px-3 py-1.5">
                         <span
-                          className={`text-xs px-2 py-1 rounded-full font-medium ${statusBadgeClasses(e.status)}`}
+                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadgeClasses(e.status)}`}
                         >
                           {formatExpirableType(e.status)}
                         </span>
                       </td>
-                      <td className="p-3 text-sm text-gray-700">
+                      <td className="px-3 py-1.5 text-sm text-gray-700">
                         {e.expirationDate.toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
                           year: "numeric",
                         })}
                       </td>
-                      <td className="p-3">
+                      <td className="px-3 py-1.5">
                         {daysLeft < 0 ? (
-                          <span className="text-xs px-2 py-1 rounded-full font-medium bg-red-100 text-red-800">
+                          <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-800">
                             {Math.abs(daysLeft)}d overdue
                           </span>
                         ) : daysLeft <= 7 ? (
-                          <span className="text-xs px-2 py-1 rounded-full font-medium bg-red-100 text-red-700">
+                          <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">
                             {daysLeft}d
                           </span>
                         ) : daysLeft <= 30 ? (
-                          <span className="text-xs px-2 py-1 rounded-full font-medium bg-orange-100 text-orange-700">
+                          <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-orange-100 text-orange-700">
                             {daysLeft}d
                           </span>
                         ) : daysLeft <= 60 ? (
-                          <span className="text-xs px-2 py-1 rounded-full font-medium bg-yellow-100 text-yellow-700">
+                          <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-yellow-100 text-yellow-700">
                             {daysLeft}d
                           </span>
                         ) : (
-                          <span className="text-xs px-2 py-1 rounded-full font-medium bg-blue-50 text-blue-600">
+                          <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-blue-50 text-blue-600">
                             {daysLeft}d
                           </span>
                         )}
                       </td>
-                      <td className="p-3 text-sm text-gray-500">
+                      <td className="px-3 py-1.5 text-sm text-gray-500">
                         {e.lastVerifiedDate
                           ? e.lastVerifiedDate.toLocaleDateString("en-US", {
                               month: "short",
@@ -347,7 +347,7 @@ export default async function ExpirablesPage({
                             })
                           : "—"}
                       </td>
-                      <td className="p-3 text-sm text-gray-500">
+                      <td className="px-3 py-1.5 text-sm text-gray-500">
                         {e.outreachSentAt
                           ? e.outreachSentAt.toLocaleDateString("en-US", {
                               month: "short",
@@ -356,23 +356,13 @@ export default async function ExpirablesPage({
                             })
                           : "—"}
                       </td>
-                      <td className="p-3">
-                        <div className="flex gap-2">
-                          {isActionable && (
-                            <Link
-                              href={`/providers/${e.provider.id}?tab=expirables&renew=${e.id}`}
-                              className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-colors"
-                            >
-                              Renew
-                            </Link>
-                          )}
-                          <Link
-                            href={`/providers/${e.provider.id}`}
-                            className="text-xs text-blue-600 hover:underline py-1.5"
-                          >
-                            View
-                          </Link>
-                        </div>
+                      <td className="px-3 py-1.5">
+                        <ExpirableRowActions
+                          expirableId={e.id}
+                          providerName={`${e.provider.legalFirstName} ${e.provider.legalLastName}`}
+                          credentialType={formatExpirableType(e.expirableType)}
+                          providerId={e.provider.id}
+                        />
                       </td>
                     </tr>
                   );
