@@ -1,0 +1,948 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  PROVIDER
+  SPECIALIST
+  MANAGER
+  COMMITTEE_MEMBER
+  ADMIN
+}
+
+enum ProviderStatus {
+  INVITED
+  ONBOARDING_IN_PROGRESS
+  DOCUMENTS_PENDING
+  VERIFICATION_IN_PROGRESS
+  COMMITTEE_READY
+  COMMITTEE_IN_REVIEW
+  APPROVED
+  DENIED
+  DEFERRED
+  INACTIVE
+}
+
+enum LicenseStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+  SUSPENDED
+  REVOKED
+}
+
+enum LicenseSource {
+  CAQH
+  MANUAL
+  OCR
+}
+
+enum DocumentType {
+  PHOTO_ID
+  SSN_CARD
+  CV_RESUME
+  PROFESSIONAL_LIABILITY_INSURANCE
+  ORIGINAL_LICENSE
+  LICENSE_REGISTRATION
+  DEA_CERTIFICATE
+  MEDICAL_SCHOOL_DIPLOMA
+  GRADUATE_CERTIFICATE
+  ECFMG_CERTIFICATE
+  BOARD_CERTIFICATION
+  CME_CREDITS
+  BLS_CARD
+  ACLS_CARD
+  PALS_CARD
+  INFECTION_CONTROL_CERTIFICATE
+  CHILD_ABUSE_CERTIFICATE
+  PAIN_MANAGEMENT_CERTIFICATE
+  PHYSICAL_EXAM_MMR
+  PHYSICAL_EXAM_PPD
+  CHEST_XRAY
+  FLU_SHOT
+  HOSPITAL_APPOINTMENT_LETTER
+  HOSPITAL_REAPPOINTMENT_LETTER
+  INTERNSHIP_CERTIFICATE
+  RESIDENCY_CERTIFICATE
+  FELLOWSHIP_CERTIFICATE
+}
+
+enum RequirementType {
+  REQUIRED
+  CONDITIONAL
+  NOT_APPLICABLE
+}
+
+enum DocumentSource {
+  PROVIDER_UPLOAD
+  HR_INGESTION
+  EMAIL_INGESTION
+  BOT_OUTPUT
+}
+
+enum OcrStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+enum ChecklistStatus {
+  RECEIVED
+  PENDING
+  NEEDS_ATTENTION
+}
+
+enum BotType {
+  LICENSE_VERIFICATION
+  DEA_VERIFICATION
+  BOARD_NCCPA
+  BOARD_ABIM
+  BOARD_ABFM
+  OIG_SANCTIONS
+  SAM_SANCTIONS
+  NPDB
+  EMEDRAL_ETIN
+  EXPIRABLE_RENEWAL
+  ENROLLMENT_SUBMISSION
+}
+
+enum BotStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  RETRYING
+  REQUIRES_MANUAL
+}
+
+enum BotTriggeredBy {
+  AUTOMATIC
+  MANUAL
+}
+
+enum CredentialType {
+  LICENSE
+  DEA
+  BOARD_NCCPA
+  BOARD_ABIM
+  BOARD_ABFM
+  BOARD_OTHER
+  OIG_SANCTIONS
+  SAM_SANCTIONS
+  NPDB
+  EMEDRAL
+  HOSPITAL_PRIVILEGE
+  EXPIRABLE_RENEWAL
+}
+
+enum VerificationStatus {
+  VERIFIED
+  FLAGGED
+  NOT_FOUND
+  EXPIRED
+  ERROR
+}
+
+enum TaskPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  BLOCKED
+}
+
+enum CommunicationType {
+  OUTREACH_EMAIL
+  FOLLOW_UP_EMAIL
+  SMS
+  PHONE_LOG
+  INTERNAL_NOTE
+  COMMITTEE_AGENDA_EMAIL
+}
+
+enum CommunicationDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum CommunicationChannel {
+  EMAIL
+  SMS
+  PHONE
+  INTERNAL
+}
+
+enum DeliveryStatus {
+  SENT
+  DELIVERED
+  FAILED
+  BOUNCED
+  LOGGED
+}
+
+enum CommitteeSessionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum CommitteeDecision {
+  APPROVED
+  DENIED
+  DEFERRED
+  CONDITIONAL
+}
+
+enum EnrollmentType {
+  DELEGATED
+  FACILITY_BTC
+  DIRECT
+}
+
+enum SubmissionMethod {
+  PORTAL_MPP
+  PORTAL_AVAILITY
+  PORTAL_VERITY
+  PORTAL_EYEMED
+  PORTAL_VNS
+  EMAIL
+  FTP
+}
+
+enum EnrollmentStatus {
+  DRAFT
+  SUBMITTED
+  PENDING_PAYER
+  ENROLLED
+  DENIED
+  ERROR
+  WITHDRAWN
+}
+
+enum ExpirableType {
+  ACLS
+  BLS
+  PALS
+  INFECTION_CONTROL
+  PAIN_MGMT_HCS
+  PAIN_MGMT_PART1
+  PAIN_MGMT_PART2
+  FLU_SHOT
+  PHYSICAL_EXAM
+  PPD
+  QUANTIFERON
+  CHEST_XRAY
+  IDENTIFICATION
+  HOSPITAL_PRIVILEGE
+  CAQH_ATTESTATION
+  MEDICAID_ETIN
+  MEDICAID_REVALIDATION_PROVIDER
+  MEDICAID_REVALIDATION_GROUP
+  MEDICARE_REVALIDATION_PROVIDER
+  MEDICARE_REVALIDATION_GROUP
+  STATE_LICENSE
+  DEA
+  BOARD_CERTIFICATION
+  MALPRACTICE_INSURANCE
+}
+
+enum ExpirableStatus {
+  CURRENT
+  EXPIRING_SOON
+  EXPIRED
+  PENDING_RENEWAL
+  RENEWED
+}
+
+enum SanctionsSource {
+  OIG
+  SAM_GOV
+}
+
+enum SanctionsTriggeredBy {
+  AUTOMATIC_INITIAL
+  AUTOMATIC_MONTHLY
+  MANUAL
+}
+
+enum SanctionsResult {
+  CLEAR
+  FLAGGED
+}
+
+enum NpdbQueryType {
+  INITIAL
+  CONTINUOUS_ALERT
+  ON_DEMAND
+}
+
+enum NpdbResult {
+  NO_REPORTS
+  REPORTS_FOUND
+}
+
+enum HospitalPrivilegeStatus {
+  APPLIED
+  PENDING_REVIEW
+  APPROVED
+  DENIED
+  EXPIRED
+  REAPPOINTMENT_DUE
+}
+
+enum MedicaidEnrollmentSubtype {
+  INDIVIDUAL
+  GROUP
+}
+
+enum MedicaidAffiliationStatus {
+  PENDING
+  IN_PROCESS
+  ENROLLED
+  REVALIDATION_DUE
+  EXPIRED
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id                      String    @id @default(uuid())
+  email                   String    @unique
+  displayName             String    @map("display_name")
+  role                    UserRole
+  azureAdOid              String?   @unique @map("azure_ad_oid")
+  providerId              String?   @map("provider_id")
+  isActive                Boolean   @default(true) @map("is_active")
+  lastLoginAt             DateTime? @map("last_login_at")
+  notificationPreferences Json?     @map("notification_preferences")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  linkedProvider         Provider?          @relation("UserLinkedProvider", fields: [providerId], references: [id])
+  assignedProviders      Provider[]         @relation("SpecialistAssignedProviders")
+  approvedProviders      Provider[]         @relation("ApprovedByUser")
+  triggeredBotRuns       BotRun[]           @relation("BotRunTriggeredBy")
+  assignedTasks          Task[]             @relation("TaskAssignedTo")
+  completedTasks         Task[]             @relation("TaskCompletedBy")
+  taskComments           TaskComment[]      @relation("TaskCommentAuthor")
+  communications         Communication[]    @relation("CommunicationFromUser")
+  flaggedChecklist       ChecklistItem[]    @relation("ChecklistFlaggedBy")
+  acknowledgedSanctions  SanctionsCheck[]   @relation("SanctionsAcknowledgedBy")
+  acknowledgedNpdb       NPDBRecord[]       @relation("NpdbAcknowledgedBy")
+  acknowledgedVerif      VerificationRecord[] @relation("VerifAcknowledgedBy")
+  committeeDecisions     CommitteeProvider[] @relation("CommitteeDecisionBy")
+  enrollmentSubmissions  Enrollment[]       @relation("EnrollmentSubmittedBy")
+  enrollmentAssignments  Enrollment[]       @relation("EnrollmentAssignedTo")
+  enrollmentFollowUps    EnrollmentFollowUp[] @relation("FollowUpPerformedBy")
+  uploadedDocuments      Document[]         @relation("DocumentUploadedBy")
+  auditLogsAsActor       AuditLog[]         @relation("AuditLogActor")
+  sanctionsTriggered     SanctionsCheck[]   @relation("SanctionsTriggeredByUser")
+  hospitalSubmissions    HospitalPrivilege[] @relation("HospitalSubmittedBy")
+
+  @@map("users")
+}
+
+model ProviderType {
+  id               String    @id @default(uuid())
+  name             String    @unique
+  abbreviation     String    @unique
+  isActive         Boolean   @default(true) @map("is_active")
+  requiresEcfmg    Boolean   @default(false) @map("requires_ecfmg")
+  requiresDea      Boolean   @default(false) @map("requires_dea")
+  requiresBoards   Boolean   @default(false) @map("requires_boards")
+  boardType        String?   @map("board_type")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  providers            Provider[]            @relation("ProviderTypeProviders")
+  documentRequirements DocumentRequirement[] @relation("ProviderTypeDocReqs")
+
+  @@map("provider_types")
+}
+
+model Provider {
+  id                   String         @id @default(uuid())
+  status               ProviderStatus @default(INVITED)
+  providerTypeId       String         @map("provider_type_id")
+  assignedSpecialistId String?        @map("assigned_specialist_id")
+  legalFirstName       String         @map("legal_first_name")
+  legalMiddleName      String?        @map("legal_middle_name")
+  legalLastName        String         @map("legal_last_name")
+  preferredName        String?        @map("preferred_name")
+  dateOfBirth          String?        @map("date_of_birth") // encrypted AES-256
+  ssn                  String?        // encrypted AES-256
+  gender               String?
+  languagesSpoken      String[]       @map("languages_spoken")
+  npi                  String?        @unique
+  deaNumber            String?        @map("dea_number")
+  caqhId               String?        @map("caqh_id")
+  icimsId              String?        @map("icims_id")
+  medicarePtan         String?        @map("medicare_ptan")
+  medicaidId           String?        @map("medicaid_id")
+  inviteSentAt         DateTime?      @map("invite_sent_at")
+  inviteToken          String?        @map("invite_token")
+  inviteTokenExpiresAt DateTime?      @map("invite_token_expires_at")
+  applicationStartedAt DateTime?      @map("application_started_at")
+  applicationSubmittedAt DateTime?    @map("application_submitted_at")
+  committeeReadyAt     DateTime?      @map("committee_ready_at")
+  approvedAt           DateTime?      @map("approved_at")
+  approvalSessionId    String?        @map("approval_session_id")
+  approvedBy           String?        @map("approved_by")
+  denialReason         String?        @map("denial_reason")
+  notes                String?
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @updatedAt @map("updated_at")
+  createdById          String?        @map("created_by")
+  updatedById          String?        @map("updated_by")
+
+  // Relations
+  providerType        ProviderType       @relation("ProviderTypeProviders", fields: [providerTypeId], references: [id])
+  assignedSpecialist  User?              @relation("SpecialistAssignedProviders", fields: [assignedSpecialistId], references: [id])
+  approvalUser        User?              @relation("ApprovedByUser", fields: [approvedBy], references: [id])
+  approvalSession     CommitteeSession?  @relation("ApprovalSession", fields: [approvalSessionId], references: [id])
+  userAccount         User[]             @relation("UserLinkedProvider")
+  profile             ProviderProfile?   @relation("ProviderProfile")
+  licenses            License[]          @relation("ProviderLicenses")
+  documents           Document[]         @relation("ProviderDocuments")
+  checklistItems      ChecklistItem[]    @relation("ProviderChecklist")
+  botRuns             BotRun[]           @relation("ProviderBotRuns")
+  verificationRecords VerificationRecord[] @relation("ProviderVerifications")
+  tasks               Task[]             @relation("ProviderTasks")
+  communications      Communication[]    @relation("ProviderCommunications")
+  enrollments         Enrollment[]       @relation("ProviderEnrollments")
+  expirables          Expirable[]        @relation("ProviderExpirables")
+  sanctionsChecks     SanctionsCheck[]   @relation("ProviderSanctions")
+  npdbRecords         NPDBRecord[]       @relation("ProviderNpdb")
+  hospitalPrivileges  HospitalPrivilege[] @relation("ProviderHospitalPrivileges")
+  medicaidEnrollments MedicaidEnrollment[] @relation("ProviderMedicaid")
+  committeeEntries    CommitteeProvider[] @relation("ProviderCommitteeEntries")
+  auditLogs           AuditLog[]         @relation("ProviderAuditLogs")
+
+  @@map("providers")
+}
+
+model ProviderProfile {
+  id                    String   @id @default(uuid())
+  providerId            String   @unique @map("provider_id")
+  homeAddressLine1      String?  @map("home_address_line1") // encrypted
+  homeAddressLine2      String?  @map("home_address_line2") // encrypted
+  homeCity              String?  @map("home_city") // encrypted
+  homeState             String?  @map("home_state") // encrypted
+  homeZip               String?  @map("home_zip") // encrypted
+  homePhone             String?  @map("home_phone") // encrypted
+  mobilePhone           String?  @map("mobile_phone")
+  personalEmail         String?  @map("personal_email")
+  emergencyContactName  String?  @map("emergency_contact_name")
+  emergencyContactPhone String?  @map("emergency_contact_phone")
+  ecfmgNumber           String?  @map("ecfmg_number")
+  medicalSchoolName     String?  @map("medical_school_name")
+  medicalSchoolCountry  String?  @map("medical_school_country")
+  graduationYear        Int?     @map("graduation_year")
+  specialtyPrimary      String?  @map("specialty_primary")
+  specialtySecondary    String?  @map("specialty_secondary")
+  hireDate              DateTime? @map("hire_date")
+  startDate             DateTime? @map("start_date")
+  facilityAssignment    String?  @map("facility_assignment")
+  department            String?
+  jobTitle              String?  @map("job_title")
+  caqhDataSnapshot      Json?    @map("caqh_data_snapshot")
+  icimsDataSnapshot     Json?    @map("icims_data_snapshot")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  provider Provider @relation("ProviderProfile", fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@map("provider_profiles")
+}
+
+model DocumentRequirement {
+  id                   String          @id @default(uuid())
+  providerTypeId       String          @map("provider_type_id")
+  documentType         DocumentType    @map("document_type")
+  requirement          RequirementType
+  conditionDescription String?         @map("condition_description")
+  createdAt            DateTime        @default(now()) @map("created_at")
+  updatedAt            DateTime        @updatedAt @map("updated_at")
+
+  providerType ProviderType @relation("ProviderTypeDocReqs", fields: [providerTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([providerTypeId, documentType])
+  @@map("document_requirements")
+}
+
+model License {
+  id             String        @id @default(uuid())
+  providerId     String        @map("provider_id")
+  state          String
+  licenseNumber  String        @map("license_number")
+  licenseType    String        @map("license_type")
+  status         LicenseStatus @default(ACTIVE)
+  issueDate      DateTime?     @map("issue_date")
+  expirationDate DateTime?     @map("expiration_date")
+  isPrimary      Boolean       @default(false) @map("is_primary")
+  source         LicenseSource @default(MANUAL)
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  provider Provider @relation("ProviderLicenses", fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([state, licenseNumber])
+  @@map("licenses")
+}
+
+model Document {
+  id                   String         @id @default(uuid())
+  providerId           String         @map("provider_id")
+  documentType         DocumentType   @map("document_type")
+  originalFilename     String         @map("original_filename")
+  blobUrl              String         @map("blob_url")
+  blobContainer        String         @map("blob_container")
+  blobPath             String         @map("blob_path")
+  fileSizeBytes        Int            @map("file_size_bytes")
+  mimeType             String         @map("mime_type")
+  uploadedById         String         @map("uploaded_by")
+  source               DocumentSource
+  ocrStatus            OcrStatus      @default(PENDING) @map("ocr_status")
+  ocrData              Json?          @map("ocr_data")
+  ocrConfidence        Float?         @map("ocr_confidence")
+  isVerified           Boolean        @default(false) @map("is_verified")
+  verificationRecordId String?        @map("verification_record_id")
+  expirationDate       DateTime?      @map("expiration_date")
+  isDeleted            Boolean        @default(false) @map("is_deleted")
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @updatedAt @map("updated_at")
+
+  provider           Provider            @relation("ProviderDocuments", fields: [providerId], references: [id])
+  uploadedBy         User                @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+  verificationRecord VerificationRecord? @relation("DocumentVerification", fields: [verificationRecordId], references: [id])
+  checklistItems     ChecklistItem[]     @relation("ChecklistDocument")
+  appointmentPrivileges HospitalPrivilege[] @relation("AppointmentLetterDoc")
+  reappointmentPrivileges HospitalPrivilege[] @relation("ReappointmentLetterDoc")
+  expirables         Expirable[]         @relation("ExpirableDocument")
+
+  @@index([providerId])
+  @@index([documentType])
+  @@map("documents")
+}
+
+model ChecklistItem {
+  id             String          @id @default(uuid())
+  providerId     String          @map("provider_id")
+  documentType   DocumentType    @map("document_type")
+  status         ChecklistStatus @default(PENDING)
+  documentId     String?         @map("document_id")
+  manuallyFlagged Boolean        @default(false) @map("manually_flagged")
+  flagReason     String?         @map("flag_reason")
+  flaggedById    String?         @map("flagged_by")
+  receivedAt     DateTime?       @map("received_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  provider   Provider  @relation("ProviderChecklist", fields: [providerId], references: [id], onDelete: Cascade)
+  document   Document? @relation("ChecklistDocument", fields: [documentId], references: [id])
+  flaggedBy  User?     @relation("ChecklistFlaggedBy", fields: [flaggedById], references: [id])
+
+  @@unique([providerId, documentType])
+  @@index([providerId])
+  @@map("checklist_items")
+}
+
+model BotRun {
+  id                String         @id @default(uuid())
+  providerId        String         @map("provider_id")
+  botType           BotType        @map("bot_type")
+  triggeredBy       BotTriggeredBy @map("triggered_by")
+  triggeredByUserId String?        @map("triggered_by_user_id")
+  status            BotStatus      @default(QUEUED)
+  attemptCount      Int            @default(0) @map("attempt_count")
+  queuedAt          DateTime       @default(now()) @map("queued_at")
+  startedAt         DateTime?      @map("started_at")
+  completedAt       DateTime?      @map("completed_at")
+  inputData         Json           @map("input_data")
+  outputData        Json?          @map("output_data")
+  errorMessage      String?        @map("error_message")
+  logBlobUrl        String?        @map("log_blob_url")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  provider           Provider             @relation("ProviderBotRuns", fields: [providerId], references: [id])
+  triggeredByUser    User?                @relation("BotRunTriggeredBy", fields: [triggeredByUserId], references: [id])
+  verificationRecords VerificationRecord[] @relation("BotRunVerifications")
+  sanctionsChecks    SanctionsCheck[]     @relation("BotRunSanctions")
+  npdbRecords        NPDBRecord[]         @relation("BotRunNpdb")
+  medicaidEnrollments MedicaidEnrollment[] @relation("BotRunMedicaid")
+
+  @@index([providerId])
+  @@index([status])
+  @@map("bot_runs")
+}
+
+model VerificationRecord {
+  id             String             @id @default(uuid())
+  providerId     String             @map("provider_id")
+  botRunId       String             @map("bot_run_id")
+  credentialType CredentialType     @map("credential_type")
+  status         VerificationStatus
+  verifiedDate   DateTime           @map("verified_date")
+  expirationDate DateTime?          @map("expiration_date")
+  sourceWebsite  String             @map("source_website")
+  resultDetails  Json               @map("result_details")
+  pdfBlobUrl     String?            @map("pdf_blob_url")
+  outputFilename String?            @map("output_filename")
+  isFlagged      Boolean            @default(false) @map("is_flagged")
+  flagReason     String?            @map("flag_reason")
+  acknowledgedById String?          @map("acknowledged_by")
+  acknowledgedAt DateTime?          @map("acknowledged_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  provider       Provider  @relation("ProviderVerifications", fields: [providerId], references: [id])
+  botRun         BotRun    @relation("BotRunVerifications", fields: [botRunId], references: [id])
+  acknowledgedBy User?     @relation("VerifAcknowledgedBy", fields: [acknowledgedById], references: [id])
+  documents      Document[] @relation("DocumentVerification")
+
+  @@index([providerId])
+  @@index([credentialType])
+  @@map("verification_records")
+}
+
+model Task {
+  id          String       @id @default(uuid())
+  providerId  String       @map("provider_id")
+  title       String
+  description String?
+  assignedToId String      @map("assigned_to")
+  priority    TaskPriority @default(MEDIUM)
+  status      TaskStatus   @default(OPEN)
+  dueDate     DateTime?    @map("due_date")
+  completedAt DateTime?    @map("completed_at")
+  completedById String?    @map("completed_by")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  createdById String?      @map("created_by")
+
+  provider    Provider      @relation("ProviderTasks", fields: [providerId], references: [id])
+  assignedTo  User          @relation("TaskAssignedTo", fields: [assignedToId], references: [id])
+  completedBy User?         @relation("TaskCompletedBy", fields: [completedById], references: [id])
+  comments    TaskComment[] @relation("TaskComments")
+
+  @@index([providerId])
+  @@index([assignedToId])
+  @@index([status])
+  @@map("tasks")
+}
+
+model TaskComment {
+  id              String   @id @default(uuid())
+  taskId          String   @map("task_id")
+  authorId        String   @map("author_id")
+  body            String
+  mentionedUserIds String[] @map("mentioned_user_ids")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  task   Task @relation("TaskComments", fields: [taskId], references: [id], onDelete: Cascade)
+  author User @relation("TaskCommentAuthor", fields: [authorId], references: [id])
+
+  @@index([taskId])
+  @@map("task_comments")
+}
+
+model Communication {
+  id                  String                 @id @default(uuid())
+  providerId          String                 @map("provider_id")
+  communicationType   CommunicationType      @map("communication_type")
+  direction           CommunicationDirection @default(OUTBOUND)
+  channel             CommunicationChannel
+  fromUserId          String?                @map("from_user_id")
+  toAddress           String?                @map("to_address")
+  subject             String?
+  body                String
+  templateId          String?                @map("template_id")
+  deliveryStatus      DeliveryStatus         @default(SENT) @map("delivery_status")
+  sentAt              DateTime               @default(now()) @map("sent_at")
+  deliveryConfirmedAt DateTime?              @map("delivery_confirmed_at")
+  createdAt           DateTime               @default(now()) @map("created_at")
+  updatedAt           DateTime               @updatedAt @map("updated_at")
+
+  provider  Provider @relation("ProviderCommunications", fields: [providerId], references: [id])
+  fromUser  User?    @relation("CommunicationFromUser", fields: [fromUserId], references: [id])
+
+  @@index([providerId])
+  @@index([sentAt])
+  @@map("communications")
+}
+
+model CommitteeSession {
+  id                  String                 @id @default(uuid())
+  sessionDate         DateTime               @map("session_date")
+  sessionTime         String?                @map("session_time")
+  location            String?
+  status              CommitteeSessionStatus @default(SCHEDULED)
+  agendaBlobUrl       String?                @map("agenda_blob_url")
+  agendaSentAt        DateTime?              @map("agenda_sent_at")
+  agendaVersion       Int                    @default(0) @map("agenda_version")
+  committeeMemberIds  String[]               @map("committee_member_ids")
+  notes               String?
+  createdAt           DateTime               @default(now()) @map("created_at")
+  updatedAt           DateTime               @updatedAt @map("updated_at")
+
+  providers         CommitteeProvider[] @relation("SessionProviders")
+  approvedProviders Provider[]          @relation("ApprovalSession")
+
+  @@index([sessionDate])
+  @@map("committee_sessions")
+}
+
+model CommitteeProvider {
+  id                String             @id @default(uuid())
+  committeeSessionId String            @map("committee_session_id")
+  providerId        String             @map("provider_id")
+  agendaOrder       Int                @default(0) @map("agenda_order")
+  summaryBlobUrl    String?            @map("summary_blob_url")
+  summaryVersion    Int                @default(0) @map("summary_version")
+  decision          CommitteeDecision?
+  decisionDate      DateTime?          @map("decision_date")
+  decisionById      String?            @map("decision_by")
+  denialReason      String?            @map("denial_reason")
+  conditionalItems  String?            @map("conditional_items")
+  committeeNotes    String?            @map("committee_notes")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  committeeSession CommitteeSession @relation("SessionProviders", fields: [committeeSessionId], references: [id])
+  provider         Provider        @relation("ProviderCommitteeEntries", fields: [providerId], references: [id])
+  decisionBy       User?           @relation("CommitteeDecisionBy", fields: [decisionById], references: [id])
+
+  @@unique([committeeSessionId, providerId])
+  @@index([committeeSessionId])
+  @@index([providerId])
+  @@map("committee_providers")
+}
+
+model Enrollment {
+  id                     String           @id @default(uuid())
+  providerId             String           @map("provider_id")
+  payerName              String           @map("payer_name")
+  enrollmentType         EnrollmentType   @map("enrollment_type")
+  submissionMethod       SubmissionMethod @map("submission_method")
+  portalName             String?          @map("portal_name")
+  status                 EnrollmentStatus @default(DRAFT)
+  submittedAt            DateTime?        @map("submitted_at")
+  submittedById          String?          @map("submitted_by")
+  submissionFileBlobUrl  String?          @map("submission_file_blob_url")
+  payerConfirmationNumber String?         @map("payer_confirmation_number")
+  effectiveDate          DateTime?        @map("effective_date")
+  payerResponseDate      DateTime?        @map("payer_response_date")
+  payerResponseNotes     String?          @map("payer_response_notes")
+  denialReason           String?          @map("denial_reason")
+  followUpDueDate        DateTime?        @map("follow_up_due_date")
+  followUpCadenceDays    Int              @default(14) @map("follow_up_cadence_days")
+  assignedToId           String?          @map("assigned_to")
+  createdAt              DateTime         @default(now()) @map("created_at")
+  updatedAt              DateTime         @updatedAt @map("updated_at")
+
+  provider     Provider             @relation("ProviderEnrollments", fields: [providerId], references: [id])
+  submittedBy  User?                @relation("EnrollmentSubmittedBy", fields: [submittedById], references: [id])
+  assignedTo   User?                @relation("EnrollmentAssignedTo", fields: [assignedToId], references: [id])
+  followUps    EnrollmentFollowUp[] @relation("EnrollmentFollowUps")
+
+  @@index([providerId])
+  @@index([status])
+  @@index([payerName])
+  @@map("enrollments")
+}
+
+model EnrollmentFollowUp {
+  id               String   @id @default(uuid())
+  enrollmentId     String   @map("enrollment_id")
+  followUpDate     DateTime @map("follow_up_date")
+  performedById    String   @map("performed_by")
+  outcome          String
+  nextFollowUpDate DateTime? @map("next_follow_up_date")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  enrollment  Enrollment @relation("EnrollmentFollowUps", fields: [enrollmentId], references: [id], onDelete: Cascade)
+  performedBy User       @relation("FollowUpPerformedBy", fields: [performedById], references: [id])
+
+  @@index([enrollmentId])
+  @@map("enrollment_follow_ups")
+}
+
+model Expirable {
+  id                   String          @id @default(uuid())
+  providerId           String          @map("provider_id")
+  expirableType        ExpirableType   @map("expirable_type")
+  status               ExpirableStatus @default(CURRENT)
+  expirationDate       DateTime        @map("expiration_date")
+  renewalConfirmedDate DateTime?       @map("renewal_confirmed_date")
+  newExpirationDate    DateTime?       @map("new_expiration_date")
+  documentId           String?         @map("document_id")
+  screenshotBlobUrl    String?         @map("screenshot_blob_url")
+  lastVerifiedDate     DateTime?       @map("last_verified_date")
+  nextCheckDate        DateTime        @map("next_check_date")
+  outreachSentAt       DateTime?       @map("outreach_sent_at")
+  renewalCadenceDays   Int             @default(365) @map("renewal_cadence_days")
+  createdAt            DateTime        @default(now()) @map("created_at")
+  updatedAt            DateTime        @updatedAt @map("updated_at")
+
+  provider Provider  @relation("ProviderExpirables", fields: [providerId], references: [id])
+  document Document? @relation("ExpirableDocument", fields: [documentId], references: [id])
+
+  @@index([providerId])
+  @@index([expirationDate])
+  @@index([status])
+  @@map("expirables")
+}
+
+model SanctionsCheck {
+  id                     String               @id @default(uuid())
+  providerId             String               @map("provider_id")
+  source                 SanctionsSource
+  runDate                DateTime             @map("run_date")
+  triggeredBy            SanctionsTriggeredBy @map("triggered_by")
+  triggeredByUserId      String?              @map("triggered_by_user_id")
+  result                 SanctionsResult
+  exclusionType          String?              @map("exclusion_type")
+  exclusionEffectiveDate DateTime?            @map("exclusion_effective_date")
+  exclusionBasis         String?              @map("exclusion_basis")
+  pdfBlobUrl             String?              @map("pdf_blob_url")
+  isAcknowledged         Boolean              @default(false) @map("is_acknowledged")
+  acknowledgedById       String?              @map("acknowledged_by")
+  acknowledgedAt         DateTime?            @map("acknowledged_at")
+  botRunId               String?              @map("bot_run_id")
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @updatedAt @map("updated_at")
+
+  provider        Provider @relation("ProviderSanctions", fields: [providerId], references: [id])
+  triggeredByUser User?    @relation("SanctionsTriggeredByUser", fields: [triggeredByUserId], references: [id])
+  acknowledgedBy  User?    @relation("SanctionsAcknowledgedBy", fields: [acknowledgedById], references: [id])
+  botRun          BotRun?  @relation("BotRunSanctions", fields: [botRunId], references: [id])
+
+  @@index([providerId])
+  @@index([runDate])
+  @@map("sanctions_checks")
+}
+
+model NPDBRecord {
+  id                            String        @id @default(uuid())
+  providerId                    String        @map("provider_id")
+  queryDate                     DateTime      @map("query_date")
+  queryType                     NpdbQueryType @map("query_type")
+  continuousQueryEnrolled       Boolean       @default(false) @map("continuous_query_enrolled")
+  continuousQueryEnrollmentDate DateTime?     @map("continuous_query_enrollment_date")
+  result                        NpdbResult
+  reportCount                   Int           @default(0) @map("report_count")
+  reports                       Json          @default("[]")
+  queryConfirmationNumber       String?       @map("query_confirmation_number")
+  reportBlobUrl                 String?       @map("report_blob_url")
+  isAcknowledged                Boolean       @default(false) @map("is_acknowledged")
+  acknowledgedById              String?       @map("acknowledged_by")
+  acknowledgedAt                DateTime?     @map("acknowledged_at")
+  botRunId                      String?       @map("bot_run_id")
+  createdAt                     DateTime      @default(now()) @map("created_at")
+  updatedAt                     DateTime      @updatedAt @map("updated_at")
+
+  provider       Provider @relation("ProviderNpdb", fields: [providerId], references: [id])
+  acknowledgedBy User?    @relation("NpdbAcknowledgedBy", fields: [acknowledgedById], references: [id])
+  botRun         BotRun?  @relation("BotRunNpdb", fields: [botRunId], references: [id])
+
+  @@index([providerId])
+  @@index([queryDate])
+  @@map("npdb_records")
+}
+
+model HospitalPrivilege {
+  id                      String                  @id @default(uuid())
+  providerId              String                  @map("provider_id")
+  facilityName            String                  @map("facility_name")
+  facilityAddress         String?                 @map("facility_address")
+  privilegeType           String                  @map("privilege_type")
+  status                  HospitalPrivilegeStatus @default(APPLIED)
+  appliedDate             DateTime?               @map("applied_date")
+  approvedDate            DateTime?               @map("approved_date")
+  effectiveDate           DateTime?               @map("effective_date")
+  expirationDate          DateTime?               @map("expiration_date")
+  appointmentLetterDocId  String?                 @map("appointment_letter_doc_id")
+  reappointmentLetterDocId String?                @map("reappointment_letter_doc_id")
+  submittedById           String?                 @map("submitted_by")
+  denialReason            String?                 @map("denial_reason")
+  notes                   String?
+  createdAt               DateTime                @default(now()) @map("created_at")
+  updatedAt               DateTime                @updatedAt @map("updated_at")
+
+  provider              Provider  @relation("ProviderHospitalPrivileges", fields: [providerId], references: [id])
+  submittedBy           User?     @relation("HospitalSubmittedBy", fields: [submittedById], references: [id])
+  appointmentLetterDoc  Document? @relation("AppointmentLetterDoc", fields: [appointmentLetterDocId], references: [id])
+  reappointmentLetterDoc Document? @relation("ReappointmentLetterDoc", fields: [reappointmentLetterDocId], references: [id])
+
+  @@index([providerId])
+  @@map("hospital_privileges")
+}
+
+model MedicaidEnrollment {
+  id                          String                     @id @default(uuid())
+  providerId                  String                     @map("provider_id")
+  enrollmentSubtype           MedicaidEnrollmentSubtype  @map("enrollment_subtype")
+  payer                       String
+  etinNumber                  String?                    @map("etin_number")
+  affiliationStatus           MedicaidAffiliationStatus  @default(PENDING) @map("affiliation_status")
+  applicationPopulatedAt      DateTime?                  @map("application_populated_at")
+  providerSignatureRequired   Boolean                    @default(true) @map("provider_signature_required")
+  providerSignatureReceivedAt DateTime?                  @map("provider_signature_received_at")
+  submissionDate              DateTime?                  @map("submission_date")
+  enrollmentEffectiveDate     DateTime?                  @map("enrollment_effective_date")
+  revalidationDueDate         DateTime?                  @map("revalidation_due_date")
+  lastFollowUpDate            DateTime?                  @map("last_follow_up_date")
+  notes                       String?
+  botRunId                    String?                    @map("bot_run_id")
+  createdAt                   DateTime                   @default(now()) @map("created_at")
+  updatedAt                   DateTime                   @updatedAt @map("updated_at")
+
+  provider Provider @relation("ProviderMedicaid", fields: [providerId], references: [id])
+  botRun   BotRun?  @relation("BotRunMedicaid", fields: [botRunId], references: [id])
+
+  @@index([providerId])
+  @@map("medicaid_enrollments")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  timestamp   DateTime @default(now())
+  actorId     String?  @map("actor_id")
+  actorRole   String?  @map("actor_role")
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  providerId  String?  @map("provider_id")
+  beforeState Json?    @map("before_state")
+  afterState  Json?    @map("after_state")
+  metadata    Json?
+
+  actor    User?     @relation("AuditLogActor", fields: [actorId], references: [id])
+  provider Provider? @relation("ProviderAuditLogs", fields: [providerId], references: [id])
+
+  @@index([actorId])
+  @@index([entityId])
+  @@index([providerId])
+  @@index([timestamp])
+  @@map("audit_logs")
+}

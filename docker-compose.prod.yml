@@ -1,0 +1,103 @@
+# ESSEN Credentialing Platform — Production Docker Compose
+#
+# Uses shared production infrastructure on supabase_network_hdpulse2000:
+#   - PostgreSQL: supabase_db_hdpulse2000 (port 5432 internal)
+#   - Redis:      host.docker.internal (port 6379)
+#
+# Ports:
+#   - 6015 → Next.js web app  (UI + tRPC API + Socket.io)
+#   - 6025 → BullMQ worker    (Playwright bots + Bull Board dashboard)
+
+services:
+  # -------------------------------------------------------------------------
+  # Web Container — Next.js App Router (Production)
+  # -------------------------------------------------------------------------
+  ecred-web-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile.web.prod
+    container_name: ecred-web-prod
+    environment:
+      NODE_ENV: production
+      PORT: 6015
+      HOSTNAME: "0.0.0.0"
+      # Database — production Supabase PostgreSQL
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@supabase_db_hdpulse2000:5432/e_credentialing_db
+      # Redis
+      REDIS_HOST: ${REDIS_HOST:-host.docker.internal}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      # Azure AD
+      AZURE_AD_TENANT_ID: ${AZURE_AD_TENANT_ID}
+      AZURE_AD_CLIENT_ID: ${AZURE_AD_CLIENT_ID}
+      # Azure Resources
+      AZURE_KEY_VAULT_URL: ${AZURE_KEY_VAULT_URL}
+      AZURE_BLOB_ACCOUNT_URL: ${AZURE_BLOB_ACCOUNT_URL}
+      AZURE_BLOB_CONTAINER: essen-credentialing
+      AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: ${AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT}
+      AZURE_COMMUNICATION_SERVICES_ENDPOINT: ${AZURE_COMMUNICATION_SERVICES_ENDPOINT}
+      # Email
+      SENDGRID_FROM_EMAIL: cred_onboarding@essenmed.com
+      # App URLs
+      NEXT_PUBLIC_APP_URL: https://credentialing.essenmed.com
+      WORKER_INTERNAL_URL: http://ecred-worker-prod:6025
+      # Security
+      NEXTAUTH_URL: https://credentialing.essenmed.com
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      # Misc
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "6015:6015"
+    networks:
+      - supabase_network_hdpulse2000
+      - ecred-prod-network
+    depends_on:
+      ecred-worker-prod:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:6015/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # -------------------------------------------------------------------------
+  # Worker Container — BullMQ + Playwright PSV Bots (Production)
+  # -------------------------------------------------------------------------
+  ecred-worker-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker.prod
+    container_name: ecred-worker-prod
+    environment:
+      NODE_ENV: production
+      BULL_BOARD_PORT: 6025
+      # Database — production Supabase PostgreSQL
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@supabase_db_hdpulse2000:5432/e_credentialing_db
+      # Redis
+      REDIS_HOST: ${REDIS_HOST:-host.docker.internal}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      # Azure Resources
+      AZURE_KEY_VAULT_URL: ${AZURE_KEY_VAULT_URL}
+      AZURE_BLOB_ACCOUNT_URL: ${AZURE_BLOB_ACCOUNT_URL}
+      AZURE_BLOB_CONTAINER: essen-credentialing
+    ports:
+      - "6025:6025"
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - supabase_network_hdpulse2000
+      - ecred-prod-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:6025/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  ecred-prod-network:
+    driver: bridge
+  supabase_network_hdpulse2000:
+    external: true

@@ -1,0 +1,26 @@
+# ESSEN Credentialing Platform — Worker Container (Development)
+# BullMQ job queue + Playwright PSV bots + Bull Board dashboard
+# Playwright requires Ubuntu (jammy) base — not alpine
+
+FROM mcr.microsoft.com/playwright:v1.50.0-jammy
+
+WORKDIR /app
+
+# Copy package files and install dependencies
+COPY package*.json ./
+RUN npm install --legacy-peer-deps
+
+# Install Playwright Chromium browser
+RUN npx playwright install chromium
+
+# Copy source (overridden by volume mounts in dev)
+COPY . .
+
+# Bull Board monitoring dashboard port
+EXPOSE 6025
+
+ENV NODE_ENV=development
+# Enable polling for file watching inside Docker on Windows
+ENV CHOKIDAR_USEPOLLING=true
+
+CMD ["npm", "run", "dev:worker"]

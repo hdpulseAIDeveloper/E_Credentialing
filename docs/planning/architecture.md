@@ -385,9 +385,60 @@ Full schema file will be generated from the complete data model before implement
 
 ---
 
-## Infrastructure as Code
+## Production Server
 
-All Azure resources are provisioned using **Bicep** (Azure's native IaC language). This ensures environments (dev, staging, production) are reproducible and version-controlled.
+The platform is hosted on the shared HDPulse production VPS. **This is the actual current production environment** — distinct from the long-term Azure cloud target documented in the IaC section below.
+
+| Property | Value |
+|----------|-------|
+| Server IP | 69.62.70.191 |
+| User | hdpulse2000 |
+| Server path | `/var/www/E_Credentialing` |
+| Git branch | `master` |
+| Compose file | `docker-compose.prod.yml` |
+| Web container | `ecred-web-prod` (port 6015) |
+| Worker container | `ecred-worker-prod` (port 6025) |
+| Production URL | `credentialing.essenmed.com` *(TBD — confirm before go-live)* |
+
+### Production Infrastructure (shared on server)
+
+| Service | Container / Host | Network |
+|---------|-----------------|---------|
+| PostgreSQL | `supabase_db_hdpulse2000:5432` | `supabase_network_hdpulse2000` |
+| Redis | `host.docker.internal:6379` | host-level |
+
+- Production DB name: `e_credentialing_db`
+- Production DB user: `postgres`
+- The `supabase_network_hdpulse2000` Docker network is external and shared across all production apps on the server.
+
+### Deployment Process
+
+Deployment is performed via a Python paramiko script (`.claude/deploy.py`) — **native SSH does not work from the dev machine**.
+
+```bash
+# Push code and deploy (standard workflow)
+git push origin master
+python .claude/deploy.py
+
+# Run an arbitrary command on the production server
+python .claude/deploy.py "cd /var/www/E_Credentialing && docker compose -f docker-compose.prod.yml ps"
+
+# Run DB migration on production
+python .claude/deploy.py "cd /var/www/E_Credentialing && docker exec ecred-web-prod npx prisma migrate deploy"
+```
+
+The deploy script performs these steps automatically:
+1. `git pull origin master` — pulls latest code on the server
+2. `docker compose -f docker-compose.prod.yml down` — stops current containers
+3. `docker compose -f docker-compose.prod.yml up -d --build` — rebuilds and starts
+4. `docker image prune -f` — removes dangling images
+5. `docker compose -f docker-compose.prod.yml ps` — confirms container status
+
+---
+
+## Infrastructure as Code (Future / Azure Target)
+
+The long-term production target is Azure Container Apps. All Azure resources will be provisioned using **Bicep** (Azure's native IaC language).
 
 ### Resource Groups
 
@@ -781,20 +832,115 @@ CMD ["node", "dist/workers/index.js"]
 
 ---
 
+## Port Assignments
+
+| Service | Port | Description |
+|---------|------|-------------|
+| **Web container** | **6015** | Next.js App Router — UI + tRPC API + Auth.js + Socket.io |
+| **Worker container** | **6025** | BullMQ workers + Playwright bots + Bull Board dashboard |
+
+These ports are used in both development (docker-compose.dev.yml) and production (docker-compose.prod.yml).
+
+---
+
+## Docker Files
+
+The repository includes four Dockerfiles following the patterns of sibling applications:
+
+| File | Purpose |
+|------|---------|
+| `Dockerfile.web` | Web container — development (hot reload via volume mounts) |
+| `Dockerfile.web.prod` | Web container — production (multi-stage build, non-root user) |
+| `Dockerfile.worker` | Worker container — development (Playwright jammy base, hot reload) |
+| `Dockerfile.worker.prod` | Worker container — production (Playwright jammy base, optimized) |
+
+**Note**: The worker container uses `mcr.microsoft.com/playwright:v1.50.0-jammy` (Ubuntu 22.04) as its base image — not `node:20-alpine` — because Playwright requires OS-level browser dependencies that are not available in Alpine.
+
+---
+
+## Docker Compose Files
+
+| File | Purpose |
+|------|---------|
+| `docker-compose.dev.yml` | Development — connects to shared `localai_default` network |
+| `docker-compose.prod.yml` | Production — connects to `supabase_network_hdpulse2000` |
+
+---
+
+## Local Infrastructure (Shared Docker Containers)
+
+This machine runs shared infrastructure containers used by all applications on the `localai_default` Docker network. **Do not create new PostgreSQL or Redis containers** — connect to the existing shared ones.
+
+### Shared Containers
+
+| Container | Image | Network | Host Port | Internal Access |
+|-----------|-------|---------|-----------|----------------|
+| `localai-postgres-1` | `postgres:latest` | `localai_default` | 5433 | `localai-postgres-1:5432` |
+| `redis` | `valkey/valkey:8-alpine` | `localai_default` | 6379 | `redis:6379` |
+
+### Database
+
+- **Host**: `localai-postgres-1` (from within `localai_default` network) or `localhost:5433` (from host)
+- **User**: `postgres`
+- **Password**: `testpostgrespass00`
+- **Database name**: `e_credentialing_db` (must be created before first run — see setup below)
+
+### Redis
+
+- **Host**: `redis` (from within `localai_default` network) or `localhost:6379` (from host)
+- **Port**: 6379
+- **Auth**: none required (local dev)
+
+---
+
 ## Development Environment Setup
 
-### Prerequisites
-- Node.js 20+
-- Docker Desktop
-- Azure CLI (for local Key Vault access via `az login`)
-- PostgreSQL (via Docker or local install)
-- Redis (via Docker)
+### Prerequisites — Confirmed Installed (as of 2026-04-14)
 
-### Local setup
+| Tool | Required Version | Installed Version | Status |
+|------|-----------------|-------------------|--------|
+| Node.js | 20+ | v22.17.0 | ✅ |
+| npm | 10+ | 11.5.2 | ✅ |
+| Docker Desktop | Latest | 29.1.5 | ✅ |
+| Docker Compose | v2+ | v5.0.1 | ✅ |
+| Git | Latest | 2.50.0 | ✅ |
+| Playwright | (installed via npm) | v1.59.1 (via npx) | ✅ |
+| Python 3 | Required for deploy script | 3.13.5 | ✅ at `C:\Users\admin\AppData\Local\Programs\Python\Python313\` |
+| paramiko | Required for deploy script | Installed | ✅ |
+| Azure CLI | Required for Key Vault local access | **Not installed** | ⚠️ |
+
+**Azure CLI**: Install from https://aka.ms/installazurecliwindows. Run `az login` to authenticate with Essen's Azure tenant before running bots locally.
+
+**Python in bash shell**: The `python3` alias is not mapped in Git Bash. Use the full path or invoke via `python .claude/deploy.py` (Windows `python` command works). Paramiko is confirmed installed.
+
+### Local Setup (Docker — Recommended)
+
 ```bash
-# Clone repo
-git clone {repo-url}
-cd prjApp-Credentialing
+# 1. Copy environment template
+cp .env.example .env.local
+# Fill in Azure AD, Key Vault, Blob Storage, and SendGrid values
+
+# 2. Create the database (one-time setup)
+docker exec localai-postgres-1 psql -U postgres -c "CREATE DATABASE e_credentialing_db;"
+
+# 3. Start both containers (web on :6015, worker on :6025)
+docker compose -f docker-compose.dev.yml up --build
+
+# 4. In a separate terminal — run Prisma migrations
+docker exec ecred-web npx prisma migrate dev
+
+# 5. Seed initial data (provider types, admin user)
+docker exec ecred-web npm run db:seed
+```
+
+Once running:
+- **Web app**: http://localhost:6015
+- **Bull Board** (job queue monitor): http://localhost:6025
+
+### Local Setup (Without Docker — Alternative)
+
+```bash
+# Prerequisites: Node.js 22, Redis on localhost:6379, Postgres on localhost:5433
 
 # Install dependencies
 npm install
@@ -802,30 +948,39 @@ npm install
 # Install Playwright browsers
 npx playwright install chromium
 
-# Copy environment template
+# Copy environment template and set REDIS_HOST=localhost, DB port=5433
 cp .env.example .env.local
-# Fill in non-secret values; secrets retrieved from Key Vault via az login
 
-# Start local services (PostgreSQL + Redis)
-docker compose up -d postgres redis
+# Create database
+psql -h localhost -p 5433 -U postgres -c "CREATE DATABASE e_credentialing_db;"
 
 # Run database migrations
 npx prisma migrate dev
 
-# Seed initial data (provider types, admin user)
+# Seed initial data
 npm run db:seed
 
-# Start web app (dev mode)
+# Start web app (dev mode) — runs on port 6015
 npm run dev
 
-# Start worker (separate terminal)
+# Start worker in a separate terminal — Bull Board on port 6025
 npm run dev:worker
 ```
 
-### Local bot testing
+### Local Bot Testing
+
 ```bash
 # Run a specific bot in headed mode (visible browser) against a specific provider
 npm run bot:headed -- --type=license --providerId={uuid}
+
+# Run all bots for a provider (queued)
+npm run bot:run -- --providerId={uuid}
+```
+
+### Stopping the Environment
+
+```bash
+docker compose -f docker-compose.dev.yml down
 ```
 
 ---

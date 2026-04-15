@@ -134,16 +134,123 @@ Bot output file naming conventions (preserved from legacy K: drive):
 
 **Architecture**: Two containers — `web` (Next.js app) and `worker` (BullMQ + Playwright bots). Workers communicate results back to the UI via Redis pub/sub → Socket.io.
 
-**Key commands** (once repo is scaffolded):
+## Ports
+
+| Container | Port | URL |
+|-----------|------|-----|
+| Web (Next.js — UI + tRPC API) | **6015** | http://localhost:6015 |
+| Worker (BullMQ + Bull Board) | **6025** | http://localhost:6025 |
+
+## Docker Commands
+
 ```bash
-npm run dev          # Start Next.js dev server
-npm run dev:worker   # Start BullMQ worker (separate terminal)
+# Start full stack (web :6015 + worker :6025)
+docker compose -f docker-compose.dev.yml up --build
+
+# Start in background
+docker compose -f docker-compose.dev.yml up -d --build
+
+# View logs
+docker compose -f docker-compose.dev.yml logs -f
+
+# Stop
+docker compose -f docker-compose.dev.yml down
+
+# Production
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+## Database Setup (one-time)
+
+```bash
+# Create the database in the shared localai-postgres-1 container
+docker exec localai-postgres-1 psql -U postgres -c "CREATE DATABASE e_credentialing_db;"
+
+# Run migrations (after containers are up)
+docker exec ecred-web npx prisma migrate dev
+
+# Seed initial data
+docker exec ecred-web npm run db:seed
+```
+
+## Local Infrastructure (shared containers — do not recreate)
+
+| Service | Container | Host Port | Internal URL |
+|---------|-----------|-----------|-------------|
+| PostgreSQL | `localai-postgres-1` | 5433 | `localai-postgres-1:5432` |
+| Redis | `redis` | 6379 | `redis:6379` |
+
+Both containers are on the `localai_default` Docker network. The app connects by joining that network (configured in docker-compose.dev.yml).
+
+## Key Commands (inside containers or local npm)
+
+```bash
+npm run dev          # Start Next.js on :6015 (hot reload)
+npm run dev:worker   # Start BullMQ worker + Bull Board on :6025
 npm run db:migrate   # Run Prisma migrations
 npm run db:seed      # Seed provider types and admin user
 npm run bot:headed   # Run a specific bot with visible browser (debugging)
 npm test             # Run test suite
-npm run build        # Production build
+npm run build        # Production build (web)
+npm run build:worker # Production build (worker)
 ```
+
+## Prerequisites (confirmed installed 2026-04-14)
+
+| Tool | Version | Notes |
+|------|---------|-------|
+| Node.js | v22.17.0 | ✅ |
+| npm | 11.5.2 | ✅ |
+| Docker Desktop | 29.1.5 | ✅ |
+| Docker Compose | v5.0.1 | ✅ |
+| Git | 2.50.0 | ✅ |
+| Python 3.13 | 3.13.5 | ✅ at `C:\Users\admin\AppData\Local\Programs\Python\Python313\` |
+| paramiko | Installed | ✅ Required for deploy script |
+| Azure CLI | Not installed | ⚠️ Required for Key Vault local dev |
+
+**Azure CLI**: Install from https://aka.ms/installazurecliwindows. After installing, run `az login`.
+
+**Python in bash**: Use the full path `C:/Users/admin/AppData/Local/Programs/Python/Python313/python.exe` or add Python to PATH if `python3` is not found in bash.
+
+---
+
+## Production Deployment
+
+- **Server**: 69.62.70.191 (user: `hdpulse2000`)
+- **Server path**: `/var/www/E_Credentialing`
+- **Branch**: `master`
+- **Compose file**: `docker-compose.prod.yml`
+- **Containers**: `ecred-web-prod`, `ecred-worker-prod`
+- **Prod URL**: `credentialing.essenmed.com` (TBD — confirm domain before go-live)
+
+### Push & Deploy Workflow
+
+When the user says "push and deploy" (or similar), execute these steps immediately without asking questions:
+
+1. Stage all modified and untracked files (except `.claude/` and `test-results/`)
+2. Commit with a clear, descriptive message summarizing the changes
+3. `git push origin master`
+4. `python .claude/deploy.py` — pulls from GitHub, rebuilds containers, prunes old images, shows status
+
+**Do NOT ask the user which files to include, whether to show diffs, or how to split commits. Just commit everything, push, and deploy.**
+
+For arbitrary SSH commands on the production server: `python .claude/deploy.py "<command>"`
+
+### Important
+
+- **Native SSH does not work from this machine** — always use `.claude/deploy.py` (paramiko-based)
+- Do NOT use `ssh hdpulse2000@69.62.70.191` directly
+- Server git credentials are configured globally on the production server
+- Run Python with full path if needed: `C:/Users/admin/AppData/Local/Programs/Python/Python313/python.exe .claude/deploy.py`
+
+### Production Infrastructure
+
+| Service | Host (prod server) | Notes |
+|---------|--------------------|-------|
+| PostgreSQL | `supabase_db_hdpulse2000:5432` | Shared prod DB container on `supabase_network_hdpulse2000` |
+| Redis | `host.docker.internal:6379` | Shared Redis container on prod server |
+
+Production DB credentials: user `postgres`, password via `${DB_PASSWORD}` env var on the server.
 
 ## Source Documents
 

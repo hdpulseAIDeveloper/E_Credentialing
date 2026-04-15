@@ -1,0 +1,29 @@
+# ESSEN Credentialing Platform — Web Container (Development)
+# Next.js App Router: UI + tRPC API + Auth.js + Socket.io
+# Hot reload enabled via volume mounts in docker-compose.dev.yml
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies for Prisma and native modules
+RUN apk add --no-cache libc6-compat openssl
+
+# Copy package files and install dependencies
+COPY package*.json ./
+RUN npm install --legacy-peer-deps
+
+# Copy source (overridden by volume mounts in dev)
+COPY . .
+
+# Expose Next.js dev server port
+EXPOSE 6015
+
+ENV HOSTNAME="0.0.0.0"
+ENV PORT=6015
+ENV NEXT_TELEMETRY_DISABLED=1
+# Enable polling for file watching inside Docker on Windows
+ENV CHOKIDAR_USEPOLLING=true
+ENV WATCHPACK_POLLING=true
+
+CMD ["npm", "run", "dev"]

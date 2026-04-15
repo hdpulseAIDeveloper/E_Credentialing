@@ -1,0 +1,103 @@
+# ESSEN Credentialing Platform — Development Docker Compose
+#
+# Uses shared infrastructure from localai_default network:
+#   - PostgreSQL: localai-postgres-1 (port 5432 internal / 5433 on host)
+#   - Redis:      redis container    (port 6379 internal / 6379 on host)
+#
+# Ports:
+#   - 6015 → Next.js web app  (UI + tRPC API + Socket.io)
+#   - 6025 → BullMQ worker    (Playwright bots + Bull Board dashboard)
+
+services:
+  # -------------------------------------------------------------------------
+  # Web Container — Next.js App Router (UI + tRPC + Auth.js + Socket.io)
+  # -------------------------------------------------------------------------
+  ecred-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: ecred-web
+    env_file: .env.local
+    environment:
+      NODE_ENV: development
+      PORT: 6015
+      HOSTNAME: "0.0.0.0"
+      # Database — shared localai-postgres-1 container
+      DATABASE_URL: postgresql://postgres:testpostgrespass00@localai-postgres-1:5432/e_credentialing_db
+      # Redis — shared redis container (on localai_default network)
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # App URLs
+      NEXT_PUBLIC_APP_URL: http://localhost:6015
+      WORKER_INTERNAL_URL: http://ecred-worker:6025
+      # Socket.io
+      SOCKET_IO_PATH: /socket.io
+      # Development flags
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "6015:6015"
+    volumes:
+      # Hot reload: mount source directories only, exclude node_modules and .next
+      - ./src:/app/src
+      - ./prisma:/app/prisma
+      - ./public:/app/public
+      - ./next.config.ts:/app/next.config.ts
+      - ./tailwind.config.ts:/app/tailwind.config.ts
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./postcss.config.mjs:/app/postcss.config.mjs
+      # Preserve container node_modules and .next cache
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - ecred-network
+      - localai_default
+    depends_on:
+      - ecred-worker
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+  # -------------------------------------------------------------------------
+  # Worker Container — BullMQ + Playwright PSV Bots + Bull Board (port 6025)
+  # -------------------------------------------------------------------------
+  ecred-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: ecred-worker
+    env_file: .env.local
+    environment:
+      NODE_ENV: development
+      BULL_BOARD_PORT: 6025
+      # Database — shared localai-postgres-1 container
+      DATABASE_URL: postgresql://postgres:testpostgrespass00@localai-postgres-1:5432/e_credentialing_db
+      # Redis — shared redis container
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # Playwright
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "0"
+      # Development flags
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "6025:6025"
+    volumes:
+      - ./src/workers:/app/src/workers
+      - ./src/lib:/app/src/lib
+      - ./src/server:/app/src/server
+      - ./prisma:/app/prisma
+      - ./logs:/app/logs
+      - /app/node_modules
+    networks:
+      - ecred-network
+      - localai_default
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+networks:
+  ecred-network:
+    driver: bridge
+  localai_default:
+    external: true
