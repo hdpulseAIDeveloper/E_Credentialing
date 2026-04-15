@@ -16,8 +16,8 @@ export const { auth: authMiddleware } = NextAuth({
     },
     async session({ session, token }) {
       if (token.id) {
-        (session.user as Record<string, unknown>).id = token.id;
-        (session.user as Record<string, unknown>).role = token.role;
+        (session.user as unknown as Record<string, unknown>).id = token.id;
+        (session.user as unknown as Record<string, unknown>).role = token.role;
       }
       return session;
     },
