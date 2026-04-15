@@ -161,7 +161,11 @@ export default async function DashboardPage() {
     "DENIED",
     "DEFERRED",
     "INACTIVE",
-  ];
+  ] as const;
+
+  const statusMapStr = new Map(
+    statusDistribution.map((s) => [s.status as string, s._count.status])
+  );
 
   return (
     <div className="space-y-6">
@@ -189,7 +193,7 @@ export default async function DashboardPage() {
           <h2 className="text-sm font-medium text-gray-700 mb-3">Provider Status Distribution</h2>
           <div className="flex rounded-full overflow-hidden h-6">
             {orderedStatuses.map((status) => {
-              const count = statusMap.get(status) ?? 0;
+              const count = statusMapStr.get(status) ?? 0;
               if (count === 0) return null;
               const pct = (count / totalForBar) * 100;
               return (
@@ -214,7 +218,7 @@ export default async function DashboardPage() {
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
             {orderedStatuses.map((status) => {
-              const count = statusMap.get(status) ?? 0;
+              const count = statusMapStr.get(status) ?? 0;
               if (count === 0) return null;
               return (
                 <div key={status} className="flex items-center gap-1.5 text-xs text-gray-600">
