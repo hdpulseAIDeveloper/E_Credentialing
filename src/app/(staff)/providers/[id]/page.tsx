@@ -4,6 +4,7 @@ import { ProviderStatusBadge } from "@/components/providers/ProviderStatusBadge"
 import { ChecklistPanel } from "@/components/checklist/ChecklistPanel";
 import { ProviderHeaderActions } from "@/components/providers/ProviderHeaderActions";
 import { TaskManager } from "@/components/tasks/TaskManager";
+import { AddEnrollmentModal } from "@/components/enrollments/AddEnrollmentModal";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -105,6 +106,11 @@ export default async function ProviderDetailPage({ params, searchParams }: Props
             currentIcims={provider.icimsId}
             currentNotes={provider.notes}
             currentSpecialistId={provider.assignedSpecialistId}
+            currentFirstName={provider.legalFirstName}
+            currentLastName={provider.legalLastName}
+            currentMiddleName={provider.legalMiddleName}
+            currentMedicarePtan={provider.medicarePtan}
+            currentMedicaidId={provider.medicaidId}
             staffUsers={staffUsers}
           />
         </div>
@@ -279,8 +285,9 @@ export default async function ProviderDetailPage({ params, searchParams }: Props
 
         {tab === "enrollments" && (
           <div className="bg-white rounded-lg border">
-            <div className="p-4 border-b">
+            <div className="p-4 border-b flex items-center justify-between">
               <h3 className="font-semibold">Enrollment Records</h3>
+              <AddEnrollmentModal providerId={provider.id} staffUsers={staffUsers} />
             </div>
             <div className="divide-y">
               {provider.enrollments.length === 0 ? (

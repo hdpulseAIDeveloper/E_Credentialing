@@ -76,6 +76,7 @@ export const committeeRouter = createTRPCRouter({
         sessionTime: z.string().optional(),
         location: z.string().optional(),
         committeeMemberIds: z.array(z.string().uuid()).default([]),
+        notes: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -85,6 +86,7 @@ export const committeeRouter = createTRPCRouter({
           sessionTime: input.sessionTime,
           location: input.location,
           committeeMemberIds: input.committeeMemberIds,
+          notes: input.notes,
           status: "SCHEDULED",
           agendaVersion: 0,
         },
