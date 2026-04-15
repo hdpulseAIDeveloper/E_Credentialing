@@ -3,7 +3,7 @@
  */
 
 import { chromium } from "playwright";
-import { BotBase, type BotVerificationResult } from "../bot-base";
+import { BotBase, type BotVerificationResult, type BotProviderPayload } from "../bot-base";
 import { getSecret, KeyVaultSecrets } from "../../lib/azure/keyvault";
 import type { BotType } from "@prisma/client";
 
@@ -13,7 +13,7 @@ export class EmedralEnrollmentBot extends BotBase {
   }
 
   async execute(
-    provider: Parameters<BotBase["execute"]>[0],
+    provider: BotProviderPayload,
     botRunId: string
   ): Promise<BotVerificationResult> {
     // Get credentials from Key Vault

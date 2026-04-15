@@ -4,7 +4,7 @@
  */
 
 import { chromium } from "playwright";
-import { BotBase, type BotVerificationResult } from "../bot-base";
+import { BotBase, type BotVerificationResult, type BotProviderPayload } from "../bot-base";
 import { boardVerificationFilename } from "../../lib/blob-naming";
 import type { BotType } from "@prisma/client";
 
@@ -17,7 +17,7 @@ export class BoardNccpaBot extends BotBase {
   }
 
   async execute(
-    provider: Parameters<BotBase["execute"]>[0],
+    provider: BotProviderPayload,
     _botRunId: string
   ): Promise<BotVerificationResult> {
     const browser = await chromium.launch({ headless: true });

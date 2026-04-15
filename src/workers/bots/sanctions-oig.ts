@@ -5,7 +5,7 @@
  */
 
 import { chromium } from "playwright";
-import { BotBase, type BotVerificationResult } from "../bot-base";
+import { BotBase, type BotVerificationResult, type BotProviderPayload } from "../bot-base";
 import { oigSanctionsFilename } from "../../lib/blob-naming";
 import type { BotType, SanctionsResult } from "@prisma/client";
 
@@ -15,7 +15,7 @@ export class SanctionsOigBot extends BotBase {
   }
 
   async execute(
-    provider: Parameters<BotBase["execute"]>[0],
+    provider: BotProviderPayload,
     botRunId: string
   ): Promise<BotVerificationResult> {
     const runDate = new Date();

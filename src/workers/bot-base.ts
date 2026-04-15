@@ -3,13 +3,17 @@
  * Handles BotRun record lifecycle, PDF saving to blob, VerificationRecord creation.
  */
 
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import type { BotType, CredentialType, VerificationStatus } from "@prisma/client";
 import { uploadDocument } from "../lib/azure/blob";
 import { verificationBlobPath } from "../lib/blob-naming";
 import { writeAuditLog } from "../lib/audit";
 
 const db = new PrismaClient();
+
+export type BotProviderPayload = Prisma.ProviderGetPayload<{
+  include: { providerType: true; profile: true; licenses: true };
+}>;
 
 export interface BotRunInput {
   botRunId: string;
@@ -186,7 +190,7 @@ export abstract class BotBase {
    * The actual bot logic — implemented by each subclass.
    */
   abstract execute(
-    provider: Awaited<ReturnType<typeof db.provider.findUniqueOrThrow>>,
+    provider: BotProviderPayload,
     botRunId: string
   ): Promise<BotVerificationResult>;
 }

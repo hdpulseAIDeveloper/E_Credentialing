@@ -4,7 +4,7 @@
  */
 
 import { chromium } from "playwright";
-import { BotBase, type BotVerificationResult } from "../bot-base";
+import { BotBase, type BotVerificationResult, type BotProviderPayload } from "../bot-base";
 import { licenseVerificationFilename } from "../../lib/blob-naming";
 import type { BotType } from "@prisma/client";
 
@@ -24,7 +24,7 @@ export class LicenseVerificationBot extends BotBase {
   }
 
   async execute(
-    provider: Parameters<BotBase["execute"]>[0],
+    provider: BotProviderPayload,
     _botRunId: string
   ): Promise<BotVerificationResult> {
     const primaryLicense = provider.licenses.find((l) => l.isPrimary) ?? provider.licenses[0];

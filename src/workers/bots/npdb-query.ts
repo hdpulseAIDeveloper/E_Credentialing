@@ -20,7 +20,7 @@
  * Dev mode: Returns mock "no_reports" result.
  */
 
-import { BotBase, type BotVerificationResult } from "../bot-base";
+import { BotBase, type BotVerificationResult, type BotProviderPayload } from "../bot-base";
 import { npdbQueryFilename } from "../../lib/blob-naming";
 import type { BotType, NpdbResult } from "@prisma/client";
 
@@ -30,7 +30,7 @@ export class NpdbQueryBot extends BotBase {
   }
 
   async execute(
-    provider: Parameters<BotBase["execute"]>[0],
+    provider: BotProviderPayload,
     botRunId: string
   ): Promise<BotVerificationResult> {
     const queryDate = new Date();

@@ -195,7 +195,7 @@ createBullBoard({
 
 const app = express();
 app.use("/bull-board", serverAdapter.getRouter());
-app.get("/health", (_req, res) => {
+app.get("/health", (_req: express.Request, res: express.Response) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 

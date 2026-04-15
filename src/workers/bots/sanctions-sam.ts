@@ -3,7 +3,7 @@
  * Queries the System for Award Management federal exclusions database.
  */
 
-import { BotBase, type BotVerificationResult } from "../bot-base";
+import { BotBase, type BotVerificationResult, type BotProviderPayload } from "../bot-base";
 import { samSanctionsFilename } from "../../lib/blob-naming";
 import { getSecret, KeyVaultSecrets } from "../../lib/azure/keyvault";
 import type { BotType, SanctionsResult } from "@prisma/client";
@@ -27,7 +27,7 @@ export class SanctionsSamBot extends BotBase {
   }
 
   async execute(
-    provider: Parameters<BotBase["execute"]>[0],
+    provider: BotProviderPayload,
     botRunId: string
   ): Promise<BotVerificationResult> {
     const runDate = new Date();

@@ -22,7 +22,7 @@
  *   8. Save PDF as "DEA Verification, Exp. MM.DD.YYYY"
  */
 
-import { BotBase, type BotVerificationResult } from "../bot-base";
+import { BotBase, type BotVerificationResult, type BotProviderPayload } from "../bot-base";
 import type { BotType } from "@prisma/client";
 
 export class DeaVerificationBot extends BotBase {
@@ -31,7 +31,7 @@ export class DeaVerificationBot extends BotBase {
   }
 
   async execute(
-    provider: Parameters<BotBase["execute"]>[0],
+    provider: BotProviderPayload,
     botRunId: string
   ): Promise<BotVerificationResult> {
     console.log(
