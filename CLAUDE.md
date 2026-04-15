@@ -250,7 +250,62 @@ For arbitrary SSH commands on the production server: `python .claude/deploy.py "
 | PostgreSQL | `supabase_db_hdpulse2000:5432` | Shared prod DB container on `supabase_network_hdpulse2000` |
 | Redis | `host.docker.internal:6379` | Shared Redis container on prod server |
 
-Production DB credentials: user `postgres`, password via `${DB_PASSWORD}` env var on the server.
+Production DB credentials: user `postgres`, password `postgres`, database `e_credentialing_db`.
+Full connection string: `postgresql://postgres:postgres@supabase_db_hdpulse2000:5432/e_credentialing_db`
+
+Before first deploy, create the database:
+```bash
+python .claude/deploy.py "docker exec supabase_db_hdpulse2000 psql -U postgres -c 'CREATE DATABASE e_credentialing_db;'"
+```
+
+Then run migrations:
+```bash
+python .claude/deploy.py "cd /var/www/E_Credentialing && docker exec ecred-web-prod npx prisma migrate deploy"
+```
+
+Production DB credentials: user `postgres`, password `postgres` (matches all sibling apps on this server).
+
+### Nginx Setup (one-time, done on the server)
+
+```bash
+# Copy the nginx site config to the server
+python .claude/deploy.py "cat > /etc/nginx/sites-available/credentialing.essenmed.com << 'NGINXEOF'
+$(cat nginx/credentialing.essenmed.com)
+NGINXEOF"
+
+# Enable the site and get SSL cert via Certbot
+python .claude/deploy.py "ln -sf /etc/nginx/sites-available/credentialing.essenmed.com /etc/nginx/sites-enabled/ && certbot --nginx -d credentialing.essenmed.com && nginx -t && systemctl reload nginx"
+```
+
+### First-Time Production Deploy
+
+1. Create the database on the shared PostgreSQL:
+   ```bash
+   python .claude/deploy.py "docker exec supabase_db_hdpulse2000 psql -U postgres -c 'CREATE DATABASE e_credentialing_db;'"
+   ```
+
+2. Create `.env` on the server at `/var/www/E_Credentialing/.env` with real values (see `.env.example`). Critical vars:
+   - `DB_PASSWORD=postgres` (shared prod DB)
+   - `NEXTAUTH_SECRET=<openssl rand -base64 32>`
+   - `AZURE_AD_TENANT_ID`, `AZURE_AD_CLIENT_ID`, `AZURE_AD_CLIENT_SECRET`
+   - `ENCRYPTION_KEY=<32-byte base64>`
+
+3. Push and deploy:
+   ```bash
+   # (Claude Code) push and deploy
+   ```
+
+4. After containers are up, run Prisma migrations:
+   ```bash
+   python .claude/deploy.py "docker exec ecred-web-prod npx prisma migrate deploy"
+   ```
+
+5. Seed initial data:
+   ```bash
+   python .claude/deploy.py "docker exec ecred-web-prod npm run db:seed"
+   ```
+
+6. Set up nginx (see above) and obtain SSL certificate.
 
 ## Source Documents
 

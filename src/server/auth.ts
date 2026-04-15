@@ -41,6 +41,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       clientId: process.env.AZURE_AD_CLIENT_ID!,
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
       issuer: `https://login.microsoftonline.com/${process.env.AZURE_AD_TENANT_ID!}/v2.0`,
+      // Note: AZURE_AD_CLIENT_SECRET is validated in src/env.ts
       authorization: {
         params: {
           scope: "openid profile email",

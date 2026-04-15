@@ -17,30 +17,37 @@ services:
       context: .
       dockerfile: Dockerfile.web.prod
     container_name: ecred-web-prod
+    env_file:
+      - .env
     environment:
       NODE_ENV: production
       PORT: 6015
       HOSTNAME: "0.0.0.0"
-      # Database — production Supabase PostgreSQL
-      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@supabase_db_hdpulse2000:5432/e_credentialing_db
-      # Redis
+      # Database — shared production Supabase PostgreSQL
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-postgres}@supabase_db_hdpulse2000:5432/e_credentialing_db
+      # Redis — shared production Redis
       REDIS_HOST: ${REDIS_HOST:-host.docker.internal}
       REDIS_PORT: ${REDIS_PORT:-6379}
-      # Azure AD
+      # Azure AD (Staff SSO)
       AZURE_AD_TENANT_ID: ${AZURE_AD_TENANT_ID}
       AZURE_AD_CLIENT_ID: ${AZURE_AD_CLIENT_ID}
+      AZURE_AD_CLIENT_SECRET: ${AZURE_AD_CLIENT_SECRET}
       # Azure Resources
       AZURE_KEY_VAULT_URL: ${AZURE_KEY_VAULT_URL}
       AZURE_BLOB_ACCOUNT_URL: ${AZURE_BLOB_ACCOUNT_URL}
       AZURE_BLOB_CONTAINER: essen-credentialing
       AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: ${AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT}
+      AZURE_DOCUMENT_INTELLIGENCE_KEY: ${AZURE_DOCUMENT_INTELLIGENCE_KEY}
       AZURE_COMMUNICATION_SERVICES_ENDPOINT: ${AZURE_COMMUNICATION_SERVICES_ENDPOINT}
       # Email
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
       SENDGRID_FROM_EMAIL: cred_onboarding@essenmed.com
+      # PHI Encryption
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       # App URLs
       NEXT_PUBLIC_APP_URL: https://credentialing.essenmed.com
       WORKER_INTERNAL_URL: http://ecred-worker-prod:6025
-      # Security
+      # NextAuth / Security
       NEXTAUTH_URL: https://credentialing.essenmed.com
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       # Misc
@@ -51,8 +58,7 @@ services:
       - supabase_network_hdpulse2000
       - ecred-prod-network
     depends_on:
-      ecred-worker-prod:
-        condition: service_healthy
+      - ecred-worker-prod
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:6015/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
@@ -60,6 +66,19 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
   # -------------------------------------------------------------------------
   # Worker Container — BullMQ + Playwright PSV Bots (Production)
@@ -69,18 +88,21 @@ services:
       context: .
       dockerfile: Dockerfile.worker.prod
     container_name: ecred-worker-prod
+    env_file:
+      - .env
     environment:
       NODE_ENV: production
       BULL_BOARD_PORT: 6025
-      # Database — production Supabase PostgreSQL
-      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@supabase_db_hdpulse2000:5432/e_credentialing_db
-      # Redis
+      # Database — shared production Supabase PostgreSQL
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-postgres}@supabase_db_hdpulse2000:5432/e_credentialing_db
+      # Redis — shared production Redis
       REDIS_HOST: ${REDIS_HOST:-host.docker.internal}
       REDIS_PORT: ${REDIS_PORT:-6379}
       # Azure Resources
       AZURE_KEY_VAULT_URL: ${AZURE_KEY_VAULT_URL}
       AZURE_BLOB_ACCOUNT_URL: ${AZURE_BLOB_ACCOUNT_URL}
       AZURE_BLOB_CONTAINER: essen-credentialing
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
     ports:
       - "6025:6025"
     volumes:
@@ -94,7 +116,20 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 90s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
 
 networks:
   ecred-prod-network:

@@ -96,10 +96,31 @@ def deploy():
     return True
 
 
+def create_db():
+    """Create the e_credentialing_db database on the shared PostgreSQL container."""
+    print('=== Creating database ===')
+    ssh_run([
+        "docker exec supabase_db_hdpulse2000 psql -U postgres -c 'CREATE DATABASE e_credentialing_db;'",
+    ])
+
+
+def migrate():
+    """Run Prisma migrations inside the running web container."""
+    path = APP['server_path']
+    print('=== Running Prisma migrations ===')
+    ssh_run([
+        f'docker exec ecred-web-prod npx prisma migrate deploy',
+    ])
+
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         deploy()
     elif sys.argv[1] == 'deploy':
         deploy()
+    elif sys.argv[1] == 'create-db':
+        create_db()
+    elif sys.argv[1] == 'migrate':
+        migrate()
     else:
         ssh_run(' && '.join(sys.argv[1:]))
