@@ -2,7 +2,7 @@
 #
 # Uses shared production infrastructure on supabase_network_hdpulse2000:
 #   - PostgreSQL: supabase_db_hdpulse2000 (port 5432 internal)
-#   - Redis:      host.docker.internal (port 6379)
+#   - Redis:      vms-redis-prod (port 6379, on supabase_network_hdpulse2000)
 #
 # Ports:
 #   - 6015 → Next.js web app  (UI + tRPC API + Socket.io)
@@ -26,7 +26,7 @@ services:
       # Database — shared production Supabase PostgreSQL
       DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-postgres}@supabase_db_hdpulse2000:5432/e_credentialing_db
       # Redis — shared production Redis
-      REDIS_HOST: ${REDIS_HOST:-host.docker.internal}
+      REDIS_HOST: ${REDIS_HOST:-vms-redis-prod}
       REDIS_PORT: ${REDIS_PORT:-6379}
       # Azure AD (Staff SSO)
       AZURE_AD_TENANT_ID: ${AZURE_AD_TENANT_ID}
@@ -96,7 +96,7 @@ services:
       # Database — shared production Supabase PostgreSQL
       DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-postgres}@supabase_db_hdpulse2000:5432/e_credentialing_db
       # Redis — shared production Redis
-      REDIS_HOST: ${REDIS_HOST:-host.docker.internal}
+      REDIS_HOST: ${REDIS_HOST:-vms-redis-prod}
       REDIS_PORT: ${REDIS_PORT:-6379}
       # Azure Resources
       AZURE_KEY_VAULT_URL: ${AZURE_KEY_VAULT_URL}
