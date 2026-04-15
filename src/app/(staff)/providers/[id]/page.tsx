@@ -5,6 +5,7 @@ import { ChecklistPanel } from "@/components/checklist/ChecklistPanel";
 import { ProviderHeaderActions } from "@/components/providers/ProviderHeaderActions";
 import { TaskManager } from "@/components/tasks/TaskManager";
 import { AddEnrollmentModal } from "@/components/enrollments/AddEnrollmentModal";
+import { AuditTrailPanel } from "@/components/audit/AuditTrailPanel";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -347,14 +348,7 @@ export default async function ProviderDetailPage({ params, searchParams }: Props
         )}
 
         {tab === "audit" && (
-          <div className="bg-white rounded-lg border">
-            <div className="p-4 border-b">
-              <h3 className="font-semibold">Audit Trail</h3>
-            </div>
-            <div className="p-6 text-center text-gray-500">
-              Audit trail is available via the full audit log page.
-            </div>
-          </div>
+          <AuditTrailPanel providerId={provider.id} />
         )}
       </div>
     </div>
