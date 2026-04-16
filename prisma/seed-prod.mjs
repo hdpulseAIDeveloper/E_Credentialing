@@ -124,6 +124,7 @@ async function main() {
       email: adminEmail,
       firstName: "System",
       lastName: "Administrator",
+      displayName: "System Administrator",
       role: "ADMIN",
       isActive: true,
       passwordHash,
