@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/trpc/react";
+import { formatDate } from "@/lib/format-date";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -369,7 +370,7 @@ export function ProviderReviewCard({
                 p.npdbRecords.map((n) => (
                   <div key={n.id} className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">
-                      {new Date(n.queryDate).toLocaleDateString()}
+                      {formatDate(n.queryDate)}
                     </span>
                     <Badge
                       variant={n.result === "CLEAR" ? "success" : "destructive"}
@@ -391,7 +392,7 @@ export function ProviderReviewCard({
                 {entry.decisionBy.displayName}
                 {entry.decisionDate && (
                   <span className="text-muted-foreground">
-                    {" "}on {new Date(entry.decisionDate).toLocaleDateString()}
+                    {" "}on {formatDate(entry.decisionDate)}
                   </span>
                 )}
               </p>

@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
+import { formatDateTime } from "@/lib/format-date";
 
 const ATTESTATION_QUESTIONS = [
   "I certify that all information provided in this application is complete, accurate, and true to the best of my knowledge.",
@@ -32,9 +33,18 @@ function AttestationContent() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [signedAt, setSignedAt] = useState<string>("");
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const { register, handleSubmit, formState: { errors } } = useForm<AttestationForm>();
+
+  // Render the timestamp only after mount — avoids hydration mismatch since
+  // `new Date()` on server and client produce different values.
+  useEffect(() => {
+    setSignedAt(formatDateTime(new Date()));
+    const id = setInterval(() => setSignedAt(formatDateTime(new Date())), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const onSubmit = async (data: AttestationForm) => {
     setSubmitting(true);
@@ -120,7 +130,7 @@ function AttestationContent() {
           </div>
           <p className="text-xs text-gray-400">
             By typing your name above, you are electronically signing this attestation.
-            Date and time will be recorded automatically: {new Date().toLocaleString()}
+            Date and time will be recorded automatically: <span suppressHydrationWarning>{signedAt || "—"}</span>
           </p>
         </div>
 

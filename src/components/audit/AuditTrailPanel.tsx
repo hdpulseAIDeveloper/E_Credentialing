@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { keepPreviousData } from "@tanstack/react-query";
 import { api } from "@/trpc/react";
+import { formatDate, formatDateTime } from "@/lib/format-date";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -238,7 +239,7 @@ function relativeTime(date: Date): string {
   if (hours < 24) return `${hours}h ago`;
   if (days < 7) return `${days}d ago`;
   if (days < 30) return `${Math.floor(days / 7)}w ago`;
-  return new Date(date).toLocaleDateString();
+  return formatDate(date);
 }
 
 // ─── Diff viewer ─────────────────────────────────────────────────────────────
@@ -444,7 +445,7 @@ export function AuditTrailPanel({ providerId }: AuditTrailPanelProps) {
                         {/* Timestamp */}
                         <span
                           className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0 mt-0.5 cursor-default"
-                          title={new Date(log.timestamp).toLocaleString()}
+                          title={formatDateTime(log.timestamp)}
                         >
                           {relativeTime(log.timestamp)}
                         </span>

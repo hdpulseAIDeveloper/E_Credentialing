@@ -902,6 +902,36 @@ async function main() {
       description: "Alert escalation flow — specialist notification, SLA thresholds (bot failure 4h, expirable 48h, enrollment follow-up 24h, sanctions/NPDB 2h), manager escalation.",
       category: "general",
     },
+    {
+      name: "Recredentialing Cycle",
+      description: "36-month recredentialing cycle — bulk initiation, application refresh, PSV re-run, committee re-approval, and OVERDUE handling. Runs in parallel with an APPROVED provider.",
+      category: "recredentialing",
+    },
+    {
+      name: "Reference & Work-History Verification",
+      description: "Public token-based forms for employer work-history and professional reference checks — send, remind (7d/14d), capture response, and mark verification complete.",
+      category: "verifications",
+    },
+    {
+      name: "Roster Generation & Submission",
+      description: "Payer roster lifecycle — generate CSV from template, validate, submit via portal/SFTP/email, and track payer acknowledgment.",
+      category: "roster",
+    },
+    {
+      name: "OPPE / FPPE Evaluation Lifecycle",
+      description: "Ongoing (periodic) and Focused (event-triggered) Professional Practice Evaluations — scheduling, evaluator assignment, indicator capture, recommendation, and privilege outcomes.",
+      category: "evaluation",
+    },
+    {
+      name: "CME Tracking & Attestation",
+      description: "CME credit logging (Category 1/2), cycle-end shortfall alerts at 60 days, auto-regenerated CV, and attestation close-out.",
+      category: "cme",
+    },
+    {
+      name: "Public REST API & FHIR Access",
+      description: "API key issuance and authenticated access to /api/v1 (REST) and /api/fhir/Practitioner (FHIR R4, CMS-0057-F) with permission checks, rate limiting, PHI redaction, and tamper-evident audit.",
+      category: "api",
+    },
   ];
 
   const defaultScene = { elements: [], appState: { viewBackgroundColor: "#ffffff" }, files: {} };

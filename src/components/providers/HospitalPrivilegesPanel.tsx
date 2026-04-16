@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/trpc/react";
+import { formatDate } from "@/lib/format-date";
 
 const STATUS_COLORS: Record<string, string> = {
   APPLIED: "bg-yellow-100 text-yellow-700",
@@ -60,9 +61,9 @@ export function HospitalPrivilegesPanel({ providerId, privileges }: Props) {
                 </span>
               </div>
               <div className="flex gap-4 text-xs text-gray-500">
-                {hp.appliedDate && <span>Applied: {new Date(hp.appliedDate).toLocaleDateString()}</span>}
-                {hp.approvedDate && <span>Approved: {new Date(hp.approvedDate).toLocaleDateString()}</span>}
-                {hp.expirationDate && <span>Expires: {new Date(hp.expirationDate).toLocaleDateString()}</span>}
+                {hp.appliedDate && <span>Applied: {formatDate(hp.appliedDate)}</span>}
+                {hp.approvedDate && <span>Approved: {formatDate(hp.approvedDate)}</span>}
+                {hp.expirationDate && <span>Expires: {formatDate(hp.expirationDate)}</span>}
               </div>
               {hp.notes && <div className="text-xs text-gray-600 bg-gray-50 rounded p-2">{hp.notes}</div>}
 

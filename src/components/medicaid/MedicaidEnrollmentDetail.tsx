@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/trpc/react";
 import Link from "next/link";
 import { EtinConfirmationModal } from "./EtinConfirmationModal";
+import { formatDate } from "@/lib/format-date";
 
 const PATH_LABELS: Record<string, string> = {
   NEW_PSP: "New Enrollment (PSP)",
@@ -195,11 +196,11 @@ export function MedicaidEnrollmentDetail({ enrollment: initialData }: Props) {
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between"><dt className="text-gray-500">Subtype</dt><dd>{enrollment.enrollmentSubtype}</dd></div>
               <div className="flex justify-between"><dt className="text-gray-500">Payer</dt><dd>{enrollment.payer}</dd></div>
-              {enrollment.submissionDate && <div className="flex justify-between"><dt className="text-gray-500">Submitted</dt><dd>{new Date(enrollment.submissionDate).toLocaleDateString()}</dd></div>}
-              {enrollment.enrollmentEffectiveDate && <div className="flex justify-between"><dt className="text-gray-500">Effective</dt><dd>{new Date(enrollment.enrollmentEffectiveDate).toLocaleDateString()}</dd></div>}
-              {enrollment.revalidationDueDate && <div className="flex justify-between"><dt className="text-gray-500">Revalidation Due</dt><dd>{new Date(enrollment.revalidationDueDate).toLocaleDateString()}</dd></div>}
+              {enrollment.submissionDate && <div className="flex justify-between"><dt className="text-gray-500">Submitted</dt><dd>{formatDate(enrollment.submissionDate)}</dd></div>}
+              {enrollment.enrollmentEffectiveDate && <div className="flex justify-between"><dt className="text-gray-500">Effective</dt><dd>{formatDate(enrollment.enrollmentEffectiveDate)}</dd></div>}
+              {enrollment.revalidationDueDate && <div className="flex justify-between"><dt className="text-gray-500">Revalidation Due</dt><dd>{formatDate(enrollment.revalidationDueDate)}</dd></div>}
               {enrollment.etinNumber && <div className="flex justify-between"><dt className="text-gray-500">ETIN</dt><dd className="font-mono">{enrollment.etinNumber}</dd></div>}
-              {enrollment.etinExpirationDate && <div className="flex justify-between"><dt className="text-gray-500">ETIN Expires</dt><dd>{new Date(enrollment.etinExpirationDate).toLocaleDateString()}</dd></div>}
+              {enrollment.etinExpirationDate && <div className="flex justify-between"><dt className="text-gray-500">ETIN Expires</dt><dd>{formatDate(enrollment.etinExpirationDate)}</dd></div>}
             </dl>
           </div>
 

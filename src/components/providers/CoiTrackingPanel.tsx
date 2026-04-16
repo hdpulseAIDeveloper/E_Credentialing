@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/trpc/react";
+import { formatDate } from "@/lib/format-date";
 
 type CoiStatusValue = "PENDING_OUTREACH" | "INFO_REQUESTED" | "SENT_TO_BROKER" | "OBTAINED";
 
@@ -87,9 +88,9 @@ export function CoiTrackingPanel({ providerId, coiStatus, coiBrokerName, coiRequ
                 <span className="cursor-pointer hover:text-blue-600" onClick={() => setEditingBroker(true)}>{coiBrokerName || "Click to set"}</span>
               )}
             </div>
-            {coiRequestedDate && <div className="flex"><span className="text-gray-500 w-28">Requested:</span><span>{new Date(coiRequestedDate).toLocaleDateString()}</span></div>}
-            {coiObtainedDate && <div className="flex"><span className="text-gray-500 w-28">Obtained:</span><span>{new Date(coiObtainedDate).toLocaleDateString()}</span></div>}
-            {coiExpirationDate && <div className="flex"><span className="text-gray-500 w-28">Expires:</span><span>{new Date(coiExpirationDate).toLocaleDateString()}</span></div>}
+            {coiRequestedDate && <div className="flex"><span className="text-gray-500 w-28">Requested:</span><span>{formatDate(coiRequestedDate)}</span></div>}
+            {coiObtainedDate && <div className="flex"><span className="text-gray-500 w-28">Obtained:</span><span>{formatDate(coiObtainedDate)}</span></div>}
+            {coiExpirationDate && <div className="flex"><span className="text-gray-500 w-28">Expires:</span><span>{formatDate(coiExpirationDate)}</span></div>}
           </div>
 
           {config.next && (

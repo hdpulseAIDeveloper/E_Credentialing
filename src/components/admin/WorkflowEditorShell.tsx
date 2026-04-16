@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/trpc/react";
 import { ExcalidrawEditor } from "@/components/admin/ExcalidrawEditor";
 import { ArrowLeft, Check, X } from "lucide-react";
+import { formatDate } from "@/lib/format-date";
 
 interface WorkflowData {
   id: string;
@@ -109,7 +110,7 @@ export function WorkflowEditorShell({ workflow, isAdmin }: WorkflowEditorShellPr
 
         <div className="flex items-center gap-3 text-xs text-gray-400 shrink-0">
           <span>by {workflow.creator}</span>
-          <span>{new Date(workflow.updatedAt).toLocaleDateString()}</span>
+          <span>{formatDate(workflow.updatedAt)}</span>
           {!isAdmin && (
             <span className="rounded bg-yellow-100 px-2 py-0.5 text-yellow-700 font-medium">View Only</span>
           )}

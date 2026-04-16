@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/trpc/react";
 import type { Task, User } from "@prisma/client";
+import { formatDate } from "@/lib/format-date";
 
 type TaskWithUser = Task & {
   assignedTo: Pick<User, "id" | "displayName"> | null;
@@ -265,7 +266,7 @@ export function TaskManager({ providerId, tasks, staffUsers }: Props) {
                   {task.assignedTo?.displayName ?? "Unassigned"}
                   {task.dueDate && (
                     <span className={new Date(task.dueDate) < new Date() ? " · text-red-600 font-medium" : ""}>
-                      {" · Due: "}{new Date(task.dueDate).toLocaleDateString()}
+                      {" · Due: "}{formatDate(task.dueDate)}
                     </span>
                   )}
                   {task.status !== "OPEN" && (

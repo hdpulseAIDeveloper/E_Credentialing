@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api } from "@/trpc/react";
+import { formatDate } from "@/lib/format-date";
 
 interface Props {
   sessionId: string;
@@ -49,7 +50,7 @@ export function CommitteePdfActions({ sessionId, providerIds, agendaVersion, age
         className="w-full text-left text-sm bg-purple-50 border border-purple-200 rounded px-3 py-2 hover:bg-purple-100 disabled:opacity-50"
       >
         {sendAgenda.isPending ? "Sending..." : "Send Agenda to Committee"}
-        {agendaSentAt && <span className="text-xs text-purple-500 ml-2">Last sent: {new Date(agendaSentAt).toLocaleDateString()}</span>}
+        {agendaSentAt && <span className="text-xs text-purple-500 ml-2">Last sent: {formatDate(agendaSentAt)}</span>}
       </button>
 
       {sendAgenda.data && (

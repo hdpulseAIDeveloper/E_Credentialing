@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { WorkflowCardActions } from "@/components/admin/WorkflowActions";
 import { Network } from "lucide-react";
+import { formatDate } from "@/lib/format-date";
 
 const CATEGORY_LABELS: Record<string, string> = {
   general: "General",
@@ -16,6 +17,12 @@ const CATEGORY_LABELS: Record<string, string> = {
   medicaid: "Medicaid / ETIN",
   npdb: "NPDB",
   privileges: "Privileges",
+  recredentialing: "Recredentialing",
+  verifications: "Verifications",
+  roster: "Roster",
+  evaluation: "OPPE / FPPE",
+  cme: "CME & CV",
+  api: "Public API / FHIR",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -29,6 +36,12 @@ const CATEGORY_COLORS: Record<string, string> = {
   medicaid: "bg-teal-100 text-teal-700",
   npdb: "bg-indigo-100 text-indigo-700",
   privileges: "bg-pink-100 text-pink-700",
+  recredentialing: "bg-cyan-100 text-cyan-700",
+  verifications: "bg-lime-100 text-lime-700",
+  roster: "bg-amber-100 text-amber-700",
+  evaluation: "bg-fuchsia-100 text-fuchsia-700",
+  cme: "bg-emerald-100 text-emerald-700",
+  api: "bg-slate-100 text-slate-700",
 };
 
 interface WorkflowItem {
@@ -111,7 +124,7 @@ export function WorkflowGrid({ workflows, isAdmin }: WorkflowGridProps) {
                   {CATEGORY_LABELS[w.category] ?? w.category}
                 </span>
                 <span>
-                  Updated {new Date(w.updatedAt).toLocaleDateString()}
+                  Updated {formatDate(w.updatedAt)}
                 </span>
               </div>
 
