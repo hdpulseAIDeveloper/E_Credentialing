@@ -40,7 +40,10 @@ export async function verifyProviderInviteToken(
     if (payload.type !== "magic-link") {
       throw new ProviderTokenError("invalid_token_type", 401);
     }
-  } catch {
+  } catch (err) {
+    // Re-raise our own typed errors unchanged; only collapse jose/JWT
+    // failures into the generic "invalid_or_expired_token" signal.
+    if (err instanceof ProviderTokenError) throw err;
     throw new ProviderTokenError("invalid_or_expired_token", 401);
   }
 
