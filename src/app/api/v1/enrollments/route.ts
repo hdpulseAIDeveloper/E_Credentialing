@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { authenticateApiKey } from "../middleware";
+import { auditApiRequest } from "@/lib/api/audit-api";
 
 export async function GET(request: Request) {
   const auth = await authenticateApiKey(request);
@@ -38,6 +39,15 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
     }),
   ]);
+
+  void auditApiRequest({
+    apiKeyId: auth.keyId!,
+    method: "GET",
+    path: "/api/v1/enrollments",
+    status: 200,
+    resultCount: enrollments.length,
+    query: { status, payer: payerName, page: String(page), limit: String(limit) },
+  });
 
   return NextResponse.json({
     data: enrollments,
