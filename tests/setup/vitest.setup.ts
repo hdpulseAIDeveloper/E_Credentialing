@@ -15,5 +15,5 @@ beforeAll(() => {
   if (!process.env.NEXTAUTH_SECRET) {
     process.env.NEXTAUTH_SECRET = "test-secret-do-not-use-in-prod";
   }
-  process.env.NODE_ENV = "test";
+  (process.env as Record<string, string>).NODE_ENV = "test";
 });
