@@ -10,7 +10,7 @@
 
 ### Signing In
 
-1. Open your browser and navigate to `credentialing.essenmed.com` (or `http://localhost:6015` during development)
+1. Open your browser and navigate to `credentialing.hdpulseai.com` (or `http://localhost:6015` during development)
 2. Click **Sign in with Microsoft**
 3. Enter your Essen Medical email address and password (the same credentials you use for Outlook)
 4. If prompted for Multi-Factor Authentication, complete it as usual

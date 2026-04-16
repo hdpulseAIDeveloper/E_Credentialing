@@ -221,7 +221,7 @@ npm run build:worker # Production build (worker)
 - **Branch**: `master`
 - **Compose file**: `docker-compose.prod.yml`
 - **Containers**: `ecred-web-prod`, `ecred-worker-prod`
-- **Prod URL**: `credentialing.hdpulseai.com` (TBD — confirm domain before go-live)
+- **Prod URL**: `credentialing.hdpulseai.com`
 
 ### Push & Deploy Workflow
 

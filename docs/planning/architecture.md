@@ -398,7 +398,7 @@ The platform is hosted on the shared HDPulse production VPS. **This is the actua
 | Compose file | `docker-compose.prod.yml` |
 | Web container | `ecred-web-prod` (port 6015) |
 | Worker container | `ecred-worker-prod` (port 6025) |
-| Production URL | `credentialing.essenmed.com` *(TBD — confirm before go-live)* |
+| Production URL | `credentialing.hdpulseai.com` |
 
 ### Production Infrastructure (shared on server)
 
@@ -471,7 +471,7 @@ No secrets are stored in environment variables. All secrets are retrieved from A
 # .env.example (commit this — no secrets)
 
 # App
-NEXT_PUBLIC_APP_URL=https://credentialing.essenmed.com
+NEXT_PUBLIC_APP_URL=https://credentialing.hdpulseai.com
 NODE_ENV=production
 
 # Azure AD
