@@ -5,6 +5,19 @@ import { BotRunRow } from "./BotRunRow";
 import { api } from "@/trpc/react";
 import type { BotRun, BotType, User, VerificationRecord } from "@prisma/client";
 
+type TriggerableBotType =
+  | "LICENSE_VERIFICATION"
+  | "DEA_VERIFICATION"
+  | "BOARD_NCCPA"
+  | "BOARD_ABIM"
+  | "BOARD_ABFM"
+  | "OIG_SANCTIONS"
+  | "SAM_SANCTIONS"
+  | "NPDB"
+  | "EMEDRAL_ETIN"
+  | "EDUCATION_AMA"
+  | "EDUCATION_ECFMG";
+
 type BotRunWithRelations = BotRun & {
   triggeredByUser: Pick<User, "id" | "displayName"> | null;
   verificationRecords: Pick<VerificationRecord, "id" | "status" | "isFlagged" | "credentialType">[];
@@ -16,7 +29,7 @@ interface Props {
   botRuns: BotRunWithRelations[];
 }
 
-const BOT_TYPES_BY_PROVIDER: Record<string, BotType[]> = {
+const BOT_TYPES_BY_PROVIDER: Record<string, TriggerableBotType[]> = {
   MD: ["LICENSE_VERIFICATION", "DEA_VERIFICATION", "BOARD_ABIM", "BOARD_ABFM", "OIG_SANCTIONS", "SAM_SANCTIONS", "NPDB"],
   DO: ["LICENSE_VERIFICATION", "DEA_VERIFICATION", "OIG_SANCTIONS", "SAM_SANCTIONS", "NPDB"],
   PA: ["LICENSE_VERIFICATION", "BOARD_NCCPA", "OIG_SANCTIONS", "SAM_SANCTIONS", "NPDB"],
@@ -59,7 +72,7 @@ export function BotStatusPanel({ providerId, providerType, botRuns: initialBotRu
   const getLatestRun = (botType: BotType) =>
     botRuns.find((r) => r.botType === botType);
 
-  const handleTriggerBot = (botType: BotType) => {
+  const handleTriggerBot = (botType: TriggerableBotType) => {
     triggerMutation.mutate({ providerId, botType });
   };
 

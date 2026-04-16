@@ -6,6 +6,7 @@
  * PHI fields (SSN, date of birth) are AES-256-GCM encrypted before storage.
  */
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/server/db";
 import { encryptOptional } from "@/lib/encryption";
 import {
@@ -167,15 +168,14 @@ export async function POST(req: NextRequest) {
           select: { caqhDataSnapshot: true },
         });
         const snapshot = (existing?.caqhDataSnapshot as Record<string, unknown>) ?? {};
+        const nextSnapshot = {
+          ...snapshot,
+          [`applicationSection${section}`]: data,
+        } as Prisma.InputJsonValue;
         await db.providerProfile.upsert({
           where: { providerId },
-          update: {
-            caqhDataSnapshot: { ...snapshot, [`applicationSection${section}`]: data },
-          },
-          create: {
-            providerId,
-            caqhDataSnapshot: { [`applicationSection${section}`]: data },
-          },
+          update: { caqhDataSnapshot: nextSnapshot },
+          create: { providerId, caqhDataSnapshot: nextSnapshot },
         });
       }
     }

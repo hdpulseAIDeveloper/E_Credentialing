@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
       documentType: updatedDoc.documentType,
       originalFilename: updatedDoc.originalFilename,
       fileSizeBytes: updatedDoc.fileSizeBytes,
-      uploadedAt: updatedDoc.uploadedAt,
+      uploadedAt: updatedDoc.createdAt,
     },
   });
 }

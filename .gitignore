@@ -56,3 +56,4 @@ tmp/
 .tmp/
 temp/
 uploads/
+tsconfig.tsbuildinfo
