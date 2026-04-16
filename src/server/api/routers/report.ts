@@ -6,6 +6,13 @@ import { z } from "zod";
 import { createTRPCRouter, staffProcedure, managerProcedure } from "@/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { writeAuditLog } from "@/lib/audit";
+import {
+  Prisma,
+  ProviderStatus,
+  EnrollmentStatus,
+  EnrollmentType,
+  ExpirableStatus,
+} from "@prisma/client";
 
 function toCsv(headers: string[], rows: string[][]): string {
   const escape = (val: string) => `"${val.replace(/"/g, '""')}"`;
@@ -44,8 +51,8 @@ export const reportRouter = createTRPCRouter({
           name: input.name,
           description: input.description,
           category: input.category,
-          filters: input.filters as unknown as import("@prisma/client").Prisma.InputJsonValue,
-          columns: input.columns as unknown as import("@prisma/client").Prisma.InputJsonValue,
+          filters: input.filters as Prisma.InputJsonValue,
+          columns: input.columns as Prisma.InputJsonValue,
           schedule: input.schedule,
           createdById: ctx.session!.user.id,
         },
@@ -86,8 +93,8 @@ export const reportRouter = createTRPCRouter({
           ...(input.name !== undefined && { name: input.name }),
           ...(input.description !== undefined && { description: input.description }),
           ...(input.category !== undefined && { category: input.category }),
-          ...(input.filters !== undefined && { filters: input.filters as unknown as import("@prisma/client").Prisma.InputJsonValue }),
-          ...(input.columns !== undefined && { columns: input.columns as unknown as import("@prisma/client").Prisma.InputJsonValue }),
+          ...(input.filters !== undefined && { filters: input.filters as Prisma.InputJsonValue }),
+          ...(input.columns !== undefined && { columns: input.columns as Prisma.InputJsonValue }),
           ...(input.schedule !== undefined && { schedule: input.schedule }),
         },
       });
@@ -130,12 +137,12 @@ export const reportRouter = createTRPCRouter({
   exportProviders: staffProcedure
     .input(
       z.object({
-        status: z.string().optional(),
+        status: z.nativeEnum(ProviderStatus).optional(),
         providerTypeId: z.string().uuid().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
-      const where: Record<string, unknown> = {};
+      const where: Prisma.ProviderWhereInput = {};
       if (input.status) where.status = input.status;
       if (input.providerTypeId) where.providerTypeId = input.providerTypeId;
 
@@ -178,13 +185,13 @@ export const reportRouter = createTRPCRouter({
   exportEnrollments: staffProcedure
     .input(
       z.object({
-        status: z.string().optional(),
+        status: z.nativeEnum(EnrollmentStatus).optional(),
         payerName: z.string().optional(),
-        enrollmentType: z.string().optional(),
+        enrollmentType: z.nativeEnum(EnrollmentType).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
-      const where: Record<string, unknown> = {};
+      const where: Prisma.EnrollmentWhereInput = {};
       if (input.status) where.status = input.status;
       if (input.payerName) where.payerName = { contains: input.payerName, mode: "insensitive" };
       if (input.enrollmentType) where.enrollmentType = input.enrollmentType;
@@ -221,12 +228,12 @@ export const reportRouter = createTRPCRouter({
   exportExpirables: staffProcedure
     .input(
       z.object({
-        status: z.string().optional(),
+        status: z.nativeEnum(ExpirableStatus).optional(),
         expiringWithinDays: z.number().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
-      const where: Record<string, unknown> = {};
+      const where: Prisma.ExpirableWhereInput = {};
       if (input.status) where.status = input.status;
       if (input.expiringWithinDays) {
         const cutoff = new Date();
