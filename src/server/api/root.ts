@@ -25,6 +25,7 @@ import { privilegingRouter } from "@/server/api/routers/privileging";
 import { cmeRouter } from "@/server/api/routers/cme";
 import { apiKeyRouter } from "@/server/api/routers/apiKey";
 import { trainingRouter } from "@/server/api/routers/training";
+import { ncqaRouter } from "@/server/api/routers/ncqa";
 
 export const appRouter = createTRPCRouter({
   provider: providerRouter,
@@ -49,6 +50,7 @@ export const appRouter = createTRPCRouter({
   cme: cmeRouter,
   apiKey: apiKeyRouter,
   training: trainingRouter,
+  ncqa: ncqaRouter,
 });
 
 export type AppRouter = typeof appRouter;

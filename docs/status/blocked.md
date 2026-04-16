@@ -83,6 +83,17 @@ When an item is unblocked, move it to `docs/status/resolved.md` (create as neede
 - **Detail:** Several secrets referenced by the app are expected to live in `/var/www/E_Credentialing/.env` on the prod server: `NEXTAUTH_SECRET`, `ENCRYPTION_KEY` (32-byte base64), `AUDIT_HMAC_KEY` (32+ character secret for audit chain integrity — NEW), Entra IDs, SendGrid key, Azure Communication Services connection string, Datadog/Sentry DSNs. Confirm each exists; document names/rotations here.
 - **Unblocks:** production smoke test passing all feature flags on.
 
+### B-011  Apply NCQA catalog migration on existing prod DB
+- **Added:** 2026-04-16
+- **Owner:** DB admin
+- **Detail:** Migration `20260416140000_ncqa_catalog` adds `ncqa_criteria`,
+  `ncqa_criterion_assessments`, `ncqa_compliance_snapshots` tables plus
+  `NcqaCategory` and `NcqaAssessmentStatus` enums. Rolls forward cleanly on
+  an empty DB. On prod, run `prisma migrate deploy` as usual; no data
+  migration is required since the tables start empty. Content (rows in
+  `ncqa_criteria`) is governed by B-006.
+- **Unblocks:** compliance dashboard v2, auditor-package export.
+
 ### B-010  Apply audit tamper-evidence migration on existing prod DB
 - **Added:** 2026-04-16
 - **Owner:** DB admin

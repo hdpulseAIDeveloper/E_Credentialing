@@ -388,6 +388,8 @@ model User {
   savedReports           SavedReport[]       @relation("SavedReportCreator")
   evaluationsAsEvaluator PracticeEvaluation[] @relation("EvaluationEvaluator")
   trainingRecords        StaffTrainingRecord[] @relation("UserTrainingRecords")
+  ncqaAssessments        NcqaCriterionAssessment[] @relation("NcqaAssessments")
+  ncqaSnapshots          NcqaComplianceSnapshot[]  @relation("NcqaSnapshots")
 
   @@map("users")
 }
@@ -1381,4 +1383,95 @@ model StaffTrainingRecord {
 
   @@index([userId])
   @@map("staff_training_records")
+}
+
+// ─── NCQA CVO Readiness: Criteria Catalog + Assessments + Snapshots ─────────
+//
+// Models the NCQA CVO standards as a structured, queryable catalog.
+// `NcqaCriterion` = one standard (e.g., "CR 1.A License verification").
+// `NcqaCriterionAssessment` = evidence for a criterion for a given
+//   assessment period (monthly / quarterly / per-audit).
+// `NcqaComplianceSnapshot` = a frozen point-in-time score for the whole
+//   catalog, used by the Compliance dashboard timeline and auditor export.
+//
+// Rows (the actual content of the criteria) are authored by Compliance —
+// see docs/status/blocked.md B-006. The tables / routers ship empty-ready.
+
+enum NcqaCategory {
+  CREDENTIALING
+  RECREDENTIALING
+  DELEGATION
+  PRACTITIONER_RIGHTS
+  CONFIDENTIALITY
+  OPERATIONS
+  QUALITY_MANAGEMENT
+}
+
+enum NcqaAssessmentStatus {
+  NOT_ASSESSED
+  COMPLIANT
+  PARTIAL
+  NON_COMPLIANT
+  NOT_APPLICABLE
+}
+
+model NcqaCriterion {
+  id              String       @id @default(uuid())
+  code            String       @unique
+  category        NcqaCategory
+  title           String
+  description     String
+  evidenceRequired String?     @map("evidence_required")
+  weight          Int          @default(1)
+  isActive        Boolean      @default(true) @map("is_active")
+  sortOrder       Int          @default(0) @map("sort_order")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  assessments NcqaCriterionAssessment[] @relation("CriterionAssessments")
+
+  @@index([category])
+  @@index([isActive])
+  @@map("ncqa_criteria")
+}
+
+model NcqaCriterionAssessment {
+  id              String               @id @default(uuid())
+  criterionId     String               @map("criterion_id")
+  periodStart     DateTime             @map("period_start")
+  periodEnd       DateTime             @map("period_end")
+  status          NcqaAssessmentStatus @default(NOT_ASSESSED)
+  score           Int?
+  evidence        Json                 @default("{}")
+  notes           String?
+  assessedById    String?              @map("assessed_by")
+  assessedAt      DateTime?            @map("assessed_at")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+
+  criterion  NcqaCriterion @relation("CriterionAssessments", fields: [criterionId], references: [id], onDelete: Cascade)
+  assessedBy User?         @relation("NcqaAssessments", fields: [assessedById], references: [id])
+
+  @@index([criterionId, periodStart])
+  @@index([status])
+  @@map("ncqa_criterion_assessments")
+}
+
+model NcqaComplianceSnapshot {
+  id                String   @id @default(uuid())
+  takenAt           DateTime @default(now()) @map("taken_at")
+  totalCriteria     Int      @map("total_criteria")
+  compliantCount    Int      @map("compliant_count")
+  partialCount      Int      @map("partial_count")
+  nonCompliantCount Int      @map("non_compliant_count")
+  notApplicableCount Int     @map("not_applicable_count")
+  overallScore      Int      @map("overall_score")
+  breakdown         Json     @default("{}")
+  takenById         String?  @map("taken_by")
+  notes             String?
+
+  takenBy User? @relation("NcqaSnapshots", fields: [takenById], references: [id])
+
+  @@index([takenAt])
+  @@map("ncqa_compliance_snapshots")
 }

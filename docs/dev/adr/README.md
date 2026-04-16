@@ -24,6 +24,7 @@ Process:
 | 0009 | [Auth.js v5 with Entra ID for staff](0009-authjs-entra.md) | Accepted |
 | 0010 | [Pino for structured logs with PHI redaction](0010-pino-redaction.md) | Accepted |
 | 0011 | [Tamper-evident audit log (HMAC chain + DB triggers)](0011-audit-tamper-evidence.md) | Accepted |
+| 0012 | [NCQA CVO criteria catalog + snapshots](0012-ncqa-catalog.md) | Accepted |
 
 ## Template
 
