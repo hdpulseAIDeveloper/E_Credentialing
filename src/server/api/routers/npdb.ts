@@ -6,6 +6,16 @@ import { z } from "zod";
 import { createTRPCRouter, staffProcedure, managerProcedure } from "@/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { writeAuditLog } from "@/lib/audit";
+import { Queue } from "bullmq";
+import { createRedisConnection } from "@/lib/redis";
+
+let _psvQueue: Queue | null = null;
+function getPsvQueue(): Queue {
+  if (!_psvQueue) {
+    _psvQueue = new Queue("psv-bot", { connection: createRedisConnection() });
+  }
+  return _psvQueue;
+}
 
 export const npdbRouter = createTRPCRouter({
   // ─── List NPDB records for provider ────────────────────────────────────
@@ -62,6 +72,16 @@ export const npdbRouter = createTRPCRouter({
             queryType: input.queryType,
           },
         },
+      });
+
+      // Enqueue the NPDB bot job
+      await getPsvQueue().add("npdb-query", {
+        botRunId: botRun.id,
+        providerId: input.providerId,
+      }, {
+        priority: 5,
+        attempts: 3,
+        backoff: { type: "exponential", delay: 30000 },
       });
 
       await writeAuditLog({

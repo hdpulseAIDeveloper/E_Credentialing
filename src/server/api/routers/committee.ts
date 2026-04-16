@@ -244,6 +244,15 @@ export const committeeRouter = createTRPCRouter({
         updateData.approvedAt = new Date();
         updateData.approvedBy = ctx.session!.user.id;
         updateData.approvalSessionId = entry.committeeSessionId;
+
+        // Set initial approval date for recredentialing cycle calculation (first approval only)
+        const currentProvider = await ctx.db.provider.findUnique({
+          where: { id: entry.providerId },
+          select: { initialApprovalDate: true },
+        });
+        if (!currentProvider?.initialApprovalDate) {
+          updateData.initialApprovalDate = new Date();
+        }
       }
 
       if (input.denialReason) {
@@ -254,6 +263,48 @@ export const committeeRouter = createTRPCRouter({
         where: { id: entry.providerId },
         data: updateData,
       });
+
+      // Create or link recredentialing cycle on approval
+      if (input.decision === "APPROVED") {
+        const existingCycle = await ctx.db.recredentialingCycle.findFirst({
+          where: {
+            providerId: entry.providerId,
+            status: { in: ["PENDING", "APPLICATION_SENT", "IN_PROGRESS", "PSV_RUNNING", "COMMITTEE_READY"] },
+          },
+        });
+
+        if (existingCycle) {
+          // Link existing recredentialing cycle to this committee session and mark completed
+          await ctx.db.recredentialingCycle.update({
+            where: { id: existingCycle.id },
+            data: {
+              committeeSessionId: entry.committeeSessionId,
+              status: "COMPLETED",
+              completedAt: new Date(),
+            },
+          });
+        } else {
+          // Create initial recredentialing cycle (36 months from approval)
+          const dueDate = new Date();
+          dueDate.setMonth(dueDate.getMonth() + 36);
+
+          const cycleCount = await ctx.db.recredentialingCycle.count({
+            where: { providerId: entry.providerId },
+          });
+
+          await ctx.db.recredentialingCycle.create({
+            data: {
+              providerId: entry.providerId,
+              cycleNumber: cycleCount + 1,
+              cycleLengthMonths: 36,
+              dueDate,
+              status: "PENDING",
+              committeeSessionId: entry.committeeSessionId,
+              notes: "Auto-created on initial committee approval",
+            },
+          });
+        }
+      }
 
       await writeAuditLog({
         actorId: ctx.session!.user.id,
@@ -300,11 +351,29 @@ export const committeeRouter = createTRPCRouter({
   // ─── Get committee queue (providers ready for review) ─────────────────
   getQueue: staffProcedure
     .query(async ({ ctx }) => {
-      return ctx.db.provider.findMany({
-        where: { status: "COMMITTEE_READY" },
-        include: { providerType: true },
-        orderBy: { committeeReadyAt: "asc" },
-      });
+      const [committeeReady, recredReady] = await Promise.all([
+        ctx.db.provider.findMany({
+          where: { status: "COMMITTEE_READY" },
+          include: { providerType: true },
+          orderBy: { committeeReadyAt: "asc" },
+        }),
+        ctx.db.provider.findMany({
+          where: {
+            status: "APPROVED",
+            recredentialingCycles: {
+              some: { status: "COMMITTEE_READY" },
+            },
+          },
+          include: {
+            providerType: true,
+            recredentialingCycles: {
+              where: { status: "COMMITTEE_READY" },
+              take: 1,
+            },
+          },
+        }),
+      ]);
+      return { initialCredentialing: committeeReady, recredentialing: recredReady };
     }),
 
   // ─── Generate committee summary for a provider ──────────────────────
@@ -368,7 +437,7 @@ export const committeeRouter = createTRPCRouter({
         for (const member of members) {
           await ctx.db.communication.create({
             data: {
-              providerId: null as any,
+              providerId: null,
               communicationType: "COMMITTEE_AGENDA_EMAIL",
               direction: "OUTBOUND",
               channel: "EMAIL",

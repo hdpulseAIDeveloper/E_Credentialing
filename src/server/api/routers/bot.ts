@@ -30,6 +30,8 @@ const BOT_TYPE_MAP: Record<string, string> = {
   EMEDRAL_ETIN: "emedral-enrollment",
   EXPIRABLE_RENEWAL: "expirable-renewal",
   ENROLLMENT_SUBMISSION: "enrollment-submission",
+  EDUCATION_AMA: "education-ama",
+  EDUCATION_ECFMG: "education-ecfmg",
 };
 
 export const botRouter = createTRPCRouter({
@@ -140,6 +142,8 @@ export const botRouter = createTRPCRouter({
           "EMEDRAL_ETIN",
           "EXPIRABLE_RENEWAL",
           "ENROLLMENT_SUBMISSION",
+          "EDUCATION_AMA",
+          "EDUCATION_ECFMG",
         ]),
         inputData: z.record(z.unknown()).optional(),
       })

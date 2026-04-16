@@ -22,6 +22,16 @@ const MAIN_NAV = [
   { href: "/enrollments", label: "Enrollments" },
   { href: "/medicaid", label: "NY Medicaid" },
   { href: "/expirables", label: "Expirables" },
+  { href: "/recredentialing", label: "Recredentialing" },
+  { href: "/verifications", label: "Verifications" },
+  { href: "/evaluations", label: "OPPE/FPPE" },
+  { href: "/roster", label: "Rosters" },
+  { href: "/cme", label: "CME Tracking" },
+  { href: "/telehealth", label: "Telehealth" },
+  { href: "/reports", label: "Reports" },
+  { href: "/compliance", label: "Compliance" },
+  { href: "/scorecards", label: "Scorecards" },
+  { href: "/analytics", label: "Analytics" },
 ];
 
 const ADMIN_NAV = [
@@ -48,8 +58,8 @@ export function Sidebar({ user }: SidebarProps) {
       </Link>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 flex flex-col">
-        <div className="space-y-1">
+      <nav className="flex-1 p-4 flex flex-col overflow-y-auto">
+        <div className="space-y-0.5">
           {MAIN_NAV.map((item) => {
             const isActive = pathname.startsWith(item.href);
             return (
@@ -57,7 +67,7 @@ export function Sidebar({ user }: SidebarProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  "flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
                   isActive
                     ? "bg-blue-600 text-white"
                     : "text-gray-300 hover:bg-gray-800 hover:text-white"
@@ -71,7 +81,7 @@ export function Sidebar({ user }: SidebarProps) {
 
         {/* Separator + Admin section */}
         {ADMIN_NAV.filter((item) => item.roles.includes(user.role)).length > 0 && (
-          <div className="mt-auto pt-4 border-t border-gray-700 space-y-1">
+          <div className="mt-auto pt-4 border-t border-gray-700 space-y-0.5">
             {ADMIN_NAV.map((item) => {
               if (!item.roles.includes(user.role)) return null;
               const isActive = pathname.startsWith(item.href);
@@ -80,7 +90,7 @@ export function Sidebar({ user }: SidebarProps) {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                    "flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
                     isActive
                       ? "bg-blue-600 text-white"
                       : "text-gray-300 hover:bg-gray-800 hover:text-white"

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, Trash2 } from "lucide-react";
+import { api } from "@/trpc/react";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -255,6 +256,8 @@ function SectionForm({ section, onNext, onPrev, token }: Props) {
   const hasMalpracticeClaim = watch("hasMalpracticeClaim");
   const watchedWork = watch("workHistory");
 
+  const [saving, setSaving] = useState(false);
+
   useEffect(() => {
     const interval = setInterval(() => {
       console.log("[ApplicationForm] Auto-saving section", section);
@@ -262,8 +265,21 @@ function SectionForm({ section, onNext, onPrev, token }: Props) {
     return () => clearInterval(interval);
   }, [section]);
 
-  const onSubmit = (data: unknown) => {
-    console.log(`[ApplicationForm] Section ${section} data:`, data);
+  const onSubmit = async (data: unknown) => {
+    setSaving(true);
+    try {
+      const payload = { token, section, data: data as Record<string, unknown> };
+      const res = await fetch("/api/application/save-section", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) console.error("[ApplicationForm] Save failed:", await res.text());
+    } catch (err) {
+      console.error("[ApplicationForm] Save error:", err);
+    } finally {
+      setSaving(false);
+    }
     onNext();
   };
 

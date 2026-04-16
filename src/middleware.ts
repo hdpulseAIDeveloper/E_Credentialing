@@ -18,7 +18,12 @@ export default authMiddleware((req) => {
     pathname.startsWith("/auth/") ||
     pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/api/webhooks/") ||
-    pathname.startsWith("/api/health")
+    pathname.startsWith("/api/health") ||
+    pathname.startsWith("/api/v1/") ||
+    pathname.startsWith("/api/fhir/") ||
+    pathname.startsWith("/api/application/") ||
+    pathname.startsWith("/api/attestation") ||
+    pathname.startsWith("/verify/")
   ) {
     return NextResponse.next();
   }

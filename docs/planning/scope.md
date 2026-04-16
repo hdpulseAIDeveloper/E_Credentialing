@@ -1,14 +1,14 @@
 # ESSEN Credentialing Platform — Functional Scope
 
-**Version**: 0.1 (Pre-Implementation)
-**Last Updated**: 2026-04-14
-**Status**: Draft — Pending stakeholder review
+**Version**: 2.0
+**Last Updated**: 2026-04-16
+**Status**: Active — Feature expansion complete (Modules 11–20 added)
 
 ---
 
 ## Overview
 
-This document defines the complete functional scope of the ESSEN Credentialing Platform across all 10 modules. It serves as the primary specification artifact and should be kept in sync with any implementation changes.
+This document defines the complete functional scope of the ESSEN Credentialing Platform across all 20 modules. It serves as the primary specification artifact and should be kept in sync with any implementation changes.
 
 Every feature is described with:
 - **What** it does
@@ -908,6 +908,628 @@ Query the National Practitioner Data Bank for malpractice payment history and ad
 - NPDB results must be retained per NPDB policy (typically duration of credentialing file).
 - NPDB query credentials (API key, entity ID) are stored in Azure Key Vault.
 - Providers cannot be approved by committee if NPDB shows unreviewed adverse reports.
+
+---
+
+## Module 11: Recredentialing
+
+### 11.1 Purpose
+
+Manage the 36-month recredentialing cycle required for all credentialed providers. NCQA and CMS mandate that providers be re-verified at least every three years (36 months). This module automates cycle creation, status tracking, bulk initiation, and integration with the committee review process.
+
+### 11.2 Recredentialing Cycle
+
+**What**: A `RecredentialingCycle` record represents a single recredentialing period for a provider. Each cycle tracks the full re-verification from initiation through committee re-approval.
+
+**Cycle fields**:
+- Provider (linked)
+- Cycle number (sequential per provider: 1, 2, 3, ...)
+- Start date (auto-calculated: 36 months from initial approval or prior cycle end)
+- Due date (date by which re-verification must be complete)
+- Status: `PENDING` / `IN_PROGRESS` / `DOCUMENTS_REQUESTED` / `VERIFICATION_IN_PROGRESS` / `COMMITTEE_READY` / `APPROVED` / `OVERDUE` / `TERMINATED`
+- Initiated by (staff user)
+- Completed date
+- Committee session (linked, if reviewed)
+- Notes
+
+**Business rules**:
+- A new cycle is automatically created when a provider is approved (initial credentialing) with `startDate` = approval date + 36 months.
+- When a cycle's due date is approaching (90, 60, 30, 14, 7 days), notifications are sent to the assigned specialist and Credentialing Manager.
+- If a cycle passes its due date without completion, it is automatically marked `OVERDUE` by a nightly scheduled job (`recredentialing-check`).
+- Only one active cycle per provider at any time.
+- Completed cycles are retained for audit purposes and are never deleted.
+
+### 11.3 Bulk Initiation
+
+**What**: Credentialing Managers can bulk-initiate recredentialing for multiple providers at once — typically for all providers whose cycles are coming due within the next 90 days.
+
+**Business rules**:
+- Bulk initiation creates individual `RecredentialingCycle` records for each selected provider.
+- The system validates that no provider already has an active in-progress cycle before creating a new one.
+- Bulk initiation is recorded in the audit trail with the list of affected providers.
+
+### 11.4 Dashboard
+
+**What**: A summary dashboard displaying recredentialing status across all providers.
+
+**Dashboard cards**:
+- Total active cycles
+- Cycles due within 30 days
+- Overdue cycles
+- Cycles completed this month/quarter
+
+**Filters**: Status, due date range, assigned specialist, provider type.
+
+**Data table**: Full list of recredentialing cycles with sortable columns, search, and inline status updates.
+
+### 11.5 Committee Integration
+
+When a recredentialing cycle reaches `COMMITTEE_READY` status, the provider is added to the committee queue (Module 3) for re-approval. The committee review follows the same workflow as initial credentialing — summary sheet generation, agenda inclusion, and approval/denial.
+
+---
+
+## Module 12: Compliance & Reporting
+
+### 12.1 Purpose
+
+Provide NCQA CVO (Credentials Verification Organization) readiness tracking, ad-hoc report building, saved report management, and CSV exports. This module ensures Essen can demonstrate compliance with accreditation standards and generate operational reports on demand.
+
+### 12.2 NCQA CVO Readiness Dashboard
+
+**What**: A compliance dashboard that scores the organization's readiness against NCQA CVO accreditation criteria.
+
+**Compliance checklist categories**:
+- PSV completion rates (licenses, DEA, boards, education, work history)
+- Sanctions checking frequency and coverage
+- Recredentialing cycle adherence (36-month compliance)
+- NPDB query completeness
+- Document retention compliance
+- Audit trail integrity
+- Policy and procedure documentation
+- Committee review documentation
+
+**Scoring**:
+- Each checklist item is scored as: `Met` / `Partially Met` / `Not Met`
+- Overall compliance score is calculated as a percentage of `Met` items
+- Items scored `Not Met` include remediation guidance
+
+**Business rules**:
+- The compliance dashboard is accessible to Credentialing Managers and Admins.
+- Compliance scores are calculated in real-time from live data (not cached snapshots).
+- Historical compliance scores can be tracked over time for trend analysis.
+
+### 12.3 Ad-Hoc Report Builder
+
+**What**: Staff can generate reports across multiple data domains with configurable filters.
+
+**Report domains**:
+- Providers (status, type, specialist, date ranges)
+- Enrollments (payer, status, submission date ranges)
+- Expirables (credential type, status, expiration windows)
+- Recredentialing (cycle status, due dates, overdue)
+
+**Features**:
+- Column selection per report domain
+- Filters: date ranges, status, provider type, assigned specialist, payer
+- Sort and group by any selected column
+- Preview results in-app before exporting
+
+### 12.4 Saved Reports
+
+**What**: Staff can save report configurations (filters, columns, sorting) for reuse.
+
+**Fields**:
+- Report name
+- Report type (domain)
+- Filter configuration (JSON)
+- Created by (staff user)
+- Last run date
+
+**Business rules**:
+- Saved reports are visible to all staff members (shared, not private).
+- Any staff member can run a saved report; only the creator or a Manager can edit/delete it.
+- Running a saved report uses the current live data with the saved filter configuration.
+
+### 12.5 CSV Export
+
+**What**: All reports can be exported as CSV files for use in Excel, Power BI, or other tools.
+
+**Export domains**:
+- Provider roster (all providers with key fields)
+- Enrollment status (all enrollments with payer, status, dates)
+- Expirables summary (all expiring credentials with dates and status)
+- Recredentialing cycles (all cycles with status and dates)
+- NCQA compliance summary (checklist items with scores)
+
+**Business rules**:
+- CSV exports include a header row with column names.
+- PHI fields (SSN, DOB) are excluded from CSV exports by default. Managers can opt-in to include them with an explicit confirmation.
+- Each export is logged in the audit trail with the exporting user, report type, and timestamp.
+- The `ExportHandler` component manages client-side CSV download after server-side generation.
+
+---
+
+## Module 13: Verifications (Work History & References)
+
+### 13.1 Purpose
+
+Manage primary source verification of provider work history (employer confirmation) and professional references (peer/colleague evaluation). These verifications complement automated bot-driven PSV by handling verification types that require human responses from external parties.
+
+### 13.2 Work History Verification
+
+**What**: The system sends verification requests to a provider's listed employers to confirm employment dates, role, and performance. Each request generates a unique token-based public form that the employer can complete without logging in.
+
+**Workflow**:
+
+1. **Request creation**: Staff initiates a work history verification for a provider, selecting the employer from the provider's work history entries. A `WorkHistoryVerification` record is created with status `PENDING`.
+
+2. **Outreach**: The system sends an email to the employer contact with a secure link to the public verification form (`/verify/work-history/[token]`). The link contains a unique, time-limited token.
+
+3. **Public form**: The employer fills out the `WorkHistoryResponseForm`:
+   - Confirm/deny employment
+   - Employment dates (start, end)
+   - Job title / role
+   - Reason for departure
+   - Eligible for rehire (yes/no)
+   - Performance rating (if willing to disclose)
+   - Additional comments
+   - Respondent name, title, contact information
+
+4. **Response received**: The system records the response, updates the verification status to `COMPLETED`, and notifies the assigned specialist.
+
+5. **Reminders**: If no response is received within 7 days, an automatic reminder is sent. Up to 3 reminders at 7-day intervals before the verification is flagged `NO_RESPONSE`.
+
+**Verification record fields**:
+- Provider (linked)
+- Employer name, contact name, contact email
+- Request sent date
+- Token (hashed, with expiration)
+- Status: `PENDING` / `SENT` / `COMPLETED` / `NO_RESPONSE` / `UNABLE_TO_VERIFY`
+- Response data (JSON — employer's form submission)
+- Response date
+- Reminder count
+- Notes
+
+**Business rules**:
+- Tokens expire after 30 days.
+- Expired tokens display a friendly message directing the employer to contact Essen's credentialing department.
+- All verification responses are stored and linked to the provider's credentialing file.
+- Work history verification is logged in the audit trail.
+
+### 13.3 Professional Reference Verification
+
+**What**: The system sends reference requests to peers or colleagues identified by the provider. References provide a structured evaluation of the provider's clinical competence and professional conduct.
+
+**Workflow**:
+
+1. **Request creation**: Staff creates a `ProfessionalReference` record, entering the reference's name, title, email, and relationship to the provider.
+
+2. **Outreach**: The system sends an email with a secure link to the public reference form (`/verify/reference/[token]`).
+
+3. **Public form**: The reference completes the `ReferenceResponseForm`:
+   - Relationship to provider (colleague, supervisor, training director, etc.)
+   - Duration of professional relationship
+   - Likert-scale evaluations (1–5) for:
+     - Clinical knowledge
+     - Clinical judgment
+     - Technical skill / procedural competence
+     - Patient management
+     - Interpersonal and communication skills
+     - Professionalism and ethics
+     - Overall recommendation
+   - Narrative comments (free text)
+   - Would you recommend this provider for clinical privileges? (Yes / With reservations / No)
+   - Respondent credentials and contact information
+
+4. **Response received**: Status updates to `COMPLETED`. Specialist is notified.
+
+5. **Reminders**: Same cadence as work history (7-day intervals, up to 3 reminders).
+
+**Reference record fields**:
+- Provider (linked)
+- Reference name, title, email, relationship
+- Request sent date
+- Token (hashed, with expiration)
+- Status: `PENDING` / `SENT` / `COMPLETED` / `NO_RESPONSE` / `DECLINED`
+- Response data (JSON — Likert scores + narrative)
+- Response date
+- Reminder count
+
+**Business rules**:
+- A minimum of 3 professional references are typically required per provider (configurable per provider type).
+- References from the same organization as the provider are flagged but not prohibited.
+- Reference responses are confidential — only Credentialing Managers and the assigned specialist can view them.
+- All reference activity is logged in the audit trail.
+
+---
+
+## Module 14: Roster Management
+
+### 14.1 Purpose
+
+Generate, validate, and track payer roster submissions. Rosters are formatted CSV/Excel files listing all providers enrolled with a specific payer, used for ongoing maintenance of provider directories and enrollment records.
+
+### 14.2 Payer Roster Generation
+
+**What**: The system generates roster files per payer template. Each payer has specific column requirements and formatting rules.
+
+**Workflow**:
+
+1. **Roster creation**: Staff selects a payer and the system generates a `PayerRoster` record. The roster is auto-populated with all providers currently enrolled with that payer.
+
+2. **Validation**: The system validates the roster data against the payer's template requirements:
+   - Required fields are present and non-empty
+   - NPI format validation (10-digit)
+   - Date format compliance (per payer specification)
+   - Address standardization
+   - Duplicate detection (same provider listed twice)
+   - Provider status check (only active/enrolled providers included)
+
+3. **CSV generation**: The validated roster is exported as a CSV file matching the payer's column layout. The CSV is stored in Azure Blob Storage and linked to the roster record.
+
+4. **Submission**: Staff submits the roster via the payer's required method (FTP, portal upload, email). The submission date and method are recorded.
+
+5. **Acknowledgment**: When the payer acknowledges receipt or provides feedback, staff updates the roster record.
+
+**Roster record fields**:
+- Payer name
+- Roster type (new enrollment, update, termination)
+- Provider count
+- Generated date
+- CSV file (Azure Blob link)
+- Validation status: `DRAFT` / `VALIDATED` / `VALIDATION_ERRORS` / `SUBMITTED` / `ACKNOWLEDGED` / `REJECTED`
+- Validation errors (JSON array)
+- Submitted date
+- Submitted by (staff user)
+- Submission method (FTP, portal, email)
+- Payer acknowledgment date
+- Notes
+
+**Submission tracking** (`RosterSubmission`):
+- Each submission attempt is tracked separately, allowing resubmission after corrections.
+- Submission status: `PENDING` / `SUBMITTED` / `ACCEPTED` / `REJECTED`
+- Rejection reason (from payer)
+
+**Business rules**:
+- Rosters can be generated on demand or on a scheduled basis (e.g., monthly for MetroPlus).
+- The validation step prevents submission of rosters with critical errors (missing NPI, invalid dates).
+- Warning-level issues (e.g., provider with upcoming expirable) are flagged but do not block submission.
+- All roster generation and submission activity is logged in the audit trail.
+
+---
+
+## Module 15: OPPE/FPPE (Practice Evaluations)
+
+### 15.1 Purpose
+
+Track Ongoing Professional Practice Evaluation (OPPE) and Focused Professional Practice Evaluation (FPPE) activities for credentialed providers. Joint Commission and CMS require these evaluations to ensure continued competency.
+
+### 15.2 Evaluation Types
+
+**OPPE** (Ongoing Professional Practice Evaluation):
+- Routine, periodic evaluation of all credentialed providers
+- Typically conducted every 6–12 months
+- Reviews clinical performance indicators, patient outcomes, peer feedback, and compliance metrics
+- Results inform recredentialing decisions
+
+**FPPE** (Focused Professional Practice Evaluation):
+- Triggered by specific events: new privileges, new provider, performance concerns, or adverse events
+- More intensive evaluation with defined monitoring period
+- Includes direct observation, chart review, and proctoring as applicable
+- Must be completed before unrestricted privileges are granted
+
+### 15.3 Practice Evaluation Record
+
+**Fields**:
+- Provider (linked)
+- Evaluation type: `OPPE` / `FPPE`
+- Status: `SCHEDULED` / `IN_PROGRESS` / `PENDING_REVIEW` / `COMPLETED` / `OVERDUE`
+- Evaluation period (start date — end date)
+- Evaluator (staff user or external reviewer)
+- Clinical indicators reviewed (JSON — configurable per specialty)
+- Findings / summary (rich text)
+- Recommendation: `Satisfactory` / `Needs Improvement` / `Unsatisfactory` / `Refer to Committee`
+- Scheduled date
+- Completed date
+- Next evaluation due date
+- Attachments (document links)
+
+### 15.4 Dashboard
+
+**What**: An evaluation management dashboard showing all scheduled, in-progress, and completed evaluations.
+
+**Views**:
+- Calendar view of upcoming evaluations
+- Provider-centric view (all evaluations for a single provider)
+- Evaluator workload view
+- Overdue evaluations alert list
+
+**Business rules**:
+- OPPE evaluations are auto-scheduled based on configurable intervals per provider type (default: every 12 months).
+- FPPE evaluations are manually initiated by Credentialing Managers when triggered by specific events.
+- Overdue evaluations (past scheduled date without completion) are flagged with ❗ and escalated to the Credentialing Manager.
+- Evaluation results are linked to the provider's credentialing file and inform recredentialing decisions (Module 11).
+- All evaluation actions are recorded in the audit trail.
+
+---
+
+## Module 16: Privileging Library
+
+### 16.1 Purpose
+
+Maintain a delineation catalog of clinical privileges organized by specialty. This library defines which procedures, services, and clinical activities a provider may be granted based on their specialty, training, and competency.
+
+### 16.2 Privilege Categories
+
+**What**: Privileges are organized into categories (by specialty or service line) and individual privilege items within each category.
+
+**Privilege Category fields**:
+- Category name (e.g., "Internal Medicine", "General Surgery", "Psychiatry")
+- Specialty code (mapped to standard specialty taxonomy)
+- Description
+- Active (boolean)
+
+**Privilege Item fields**:
+- Category (linked)
+- Privilege name (e.g., "Central Venous Catheter Insertion", "Lumbar Puncture")
+- CPT code(s) (optional — mapped to procedure codes)
+- ICD-10 code(s) (optional — mapped to diagnosis codes)
+- Privilege type: `CORE` (standard for the specialty) / `REQUESTED` (requires additional justification)
+- FPPE required (boolean — whether FPPE is required before granting)
+- Minimum training requirements (text description)
+- Minimum case volume (integer, optional)
+- Active (boolean)
+
+### 16.3 Administration
+
+**What**: Admins manage the privileging library via the `/admin/privileging` page.
+
+**Features**:
+- CRUD operations for categories and items
+- Search across all privilege items by name, CPT code, or ICD-10 code
+- Bulk import of privilege items via CSV (using `BulkImportModal`)
+- Bulk export of the current library as CSV
+
+**Business rules**:
+- Changes to the privilege library do not retroactively affect already-granted privileges.
+- Deactivated items are hidden from new privilege requests but remain visible on existing records.
+- The privilege library is version-controlled — changes are logged in the audit trail with before/after values.
+- Core privileges are automatically included when a provider's specialty matches the category; requested privileges require individual justification.
+
+---
+
+## Module 17: CME & CV
+
+### 17.1 Purpose
+
+Track Continuing Medical Education (CME) credits for all credentialed providers and auto-generate curriculum vitae (CV) documents from provider profile data.
+
+### 17.2 CME Credit Tracking
+
+**What**: Each `CmeCredit` record represents a single CME activity completed by a provider.
+
+**Fields**:
+- Provider (linked)
+- Activity title
+- Activity date
+- Credit type: `CATEGORY_1` (AMA PRA Category 1) / `CATEGORY_2` (AMA PRA Category 2) / `OTHER`
+- Credit hours (decimal)
+- Accrediting body (e.g., ACCME, AOA)
+- Certificate document (linked to `Document`)
+- Verified (boolean — whether the certificate has been confirmed)
+- Notes
+
+### 17.3 Requirements Monitoring
+
+**What**: The system tracks CME requirements per provider type and alerts when a provider is falling short.
+
+**Business rules**:
+- CME requirements are configured per provider type and per state licensure (some states mandate specific CME hours for license renewal).
+- The dashboard shows each provider's CME credit balance vs. requirement for their current renewal period.
+- Providers approaching a CME deadline with insufficient credits receive automated reminders (60, 30, 14 days before deadline).
+- CME credits are linked to supporting documents in the provider's document repository.
+
+### 17.4 Auto-Generated CV
+
+**What**: The system auto-generates a formatted CV document from a provider's profile data.
+
+**CV sections** (auto-populated):
+- Personal and contact information
+- Education and training (medical school, residency, fellowship)
+- Board certifications
+- Licensure (all states)
+- Hospital affiliations and privileges
+- Work history
+- CME credits summary
+- Publications (if entered)
+- Professional memberships (if entered)
+
+**Business rules**:
+- CV generation pulls live data from the provider's profile — no manual entry required.
+- CVs are generated as PDF documents and stored in Azure Blob Storage.
+- Providers and staff can trigger CV regeneration at any time.
+- The CV template is configurable by Admins.
+
+---
+
+## Module 18: Public REST API & FHIR
+
+### 18.1 Purpose
+
+Expose provider and enrollment data through a public REST API for integration with external systems, and provide a FHIR R4-compliant Practitioner endpoint for interoperability with EHR systems and CMS-0057-F compliance.
+
+### 18.2 Public REST API (v1)
+
+**Base URL**: `/api/v1/`
+
+**Authentication**: API key-based authentication. Each API key is a `ApiKey` record with:
+- Key name (descriptive label)
+- Hashed key value (SHA-256; plaintext shown only once at creation)
+- Created by (staff user)
+- Active (boolean)
+- Last used timestamp
+- Scopes (optional — future use for fine-grained access control)
+
+**Endpoints**:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/providers` | GET | List providers with pagination, filters (status, type, NPI) |
+| `/api/v1/providers/[id]` | GET | Single provider detail (profile, licenses, enrollments) |
+| `/api/v1/enrollments` | GET | List enrollments with pagination, filters (payer, status) |
+| `/api/v1/sanctions` | GET | List sanctions check results with pagination, filters |
+
+**Request validation**: All requests must include a valid API key in the `X-API-Key` header. The middleware (`/api/v1/middleware.ts`) validates the key, checks active status, and updates the `lastUsedAt` timestamp.
+
+**Response format**: JSON with standard envelope:
+```json
+{
+  "data": [...],
+  "pagination": { "page": 1, "pageSize": 50, "total": 234 },
+  "timestamp": "2026-04-16T12:00:00Z"
+}
+```
+
+**Business rules**:
+- API keys are managed via the `/admin/api-keys` page by Admins only.
+- PHI fields (SSN, DOB) are never exposed through the public API.
+- All API requests are logged with the key used, endpoint accessed, and response status.
+- Rate limiting: 100 requests per minute per API key (enforced via middleware).
+
+### 18.3 FHIR R4 Practitioner Endpoint
+
+**Endpoint**: `GET /api/fhir/Practitioner`
+
+**What**: Returns a FHIR R4-compliant Bundle of Practitioner resources. This endpoint supports CMS-0057-F (Provider Directory API) compliance requirements.
+
+**FHIR resource mapping**:
+- `Practitioner.identifier` → NPI, DEA, state license numbers
+- `Practitioner.name` → Legal name
+- `Practitioner.qualification` → Board certifications, licenses, education
+- `Practitioner.telecom` → Contact information (non-PHI only)
+- `Practitioner.address` → Practice address (not home address)
+
+**Business rules**:
+- Only `APPROVED` providers are included in the FHIR response.
+- The endpoint returns a FHIR Bundle with `type: searchset`.
+- Supports `_count` parameter for pagination.
+- Content-Type: `application/fhir+json`
+- No authentication required for the FHIR endpoint (public directory data per CMS requirements).
+
+---
+
+## Module 19: Telehealth Credentialing
+
+### 19.1 Purpose
+
+Track telehealth-specific credentialing requirements including platform certifications, multi-state licensure for telehealth practice, and telehealth-specific training requirements.
+
+### 19.2 Telehealth Provider Profile
+
+**Additional fields on `ProviderProfile`**:
+- Telehealth platform(s) used (e.g., Doxy.me, Zoom for Healthcare, proprietary)
+- Telehealth training certification date
+- Telehealth training expiration date
+- States authorized for telehealth practice (may differ from in-person license states)
+- Telehealth modalities (video, audio-only, asynchronous)
+- Equipment compliance verified (boolean)
+
+### 19.3 Multi-State Licensure Management
+
+**What**: Providers practicing telehealth may need licenses in multiple states where their patients reside. This module tracks which states a provider is licensed for telehealth and monitors compact license agreements.
+
+**Features**:
+- Dashboard view of all providers with telehealth authorizations
+- State-by-state license tracking with telehealth eligibility flags
+- Interstate Medical Licensure Compact (IMLC) tracking
+- Alerts for state licensure gaps (provider seeing patients in a state where they lack licensure)
+
+### 19.4 Cross-State Credential Management
+
+**Business rules**:
+- Telehealth providers must have an active license in each state where they provide services.
+- The system flags providers who have telehealth authorizations in states where their license is expired or absent.
+- Telehealth training certifications are tracked as expirables (Module 5) with appropriate renewal cadences.
+- State-specific telehealth regulations (e.g., prescribing restrictions, consent requirements) are documented per state in the admin configuration.
+
+---
+
+## Module 20: Performance & Analytics
+
+### 20.1 Purpose
+
+Provide operational intelligence through provider scorecards, turnaround time analytics, pipeline visualization, and staff training/LMS tracking. This module gives leadership visibility into credentialing operations performance.
+
+### 20.2 Provider Scorecards
+
+**What**: Each provider receives a composite scorecard measuring compliance across multiple dimensions.
+
+**Scorecard dimensions** (each scored 0–100):
+- **PSV Completeness** — percentage of required primary source verifications completed and current
+- **Sanctions Compliance** — sanctions checks up-to-date and clear
+- **Expirables Health** — percentage of expirable credentials that are current (not expired or expiring within 30 days)
+- **Document Completeness** — percentage of required documents uploaded and current
+- **Recredentialing Status** — on-track vs. overdue for recredentialing cycle
+
+**Composite score**: Weighted average of all dimensions (weights configurable by Admin).
+
+**Business rules**:
+- Scorecards are calculated in real-time from live data.
+- Providers scoring below a configurable threshold (default: 70) are flagged for attention.
+- Scorecard history is tracked for trend analysis over time.
+- Scorecards are accessible to Specialists, Managers, and Admins.
+
+### 20.3 Turnaround Time Analytics
+
+**What**: Measures and visualizes the time taken at each stage of the credentialing process.
+
+**Metrics tracked**:
+- Average days from invite to application submission
+- Average days from submission to PSV completion
+- Average days from PSV completion to committee review
+- Average days from committee review to approval
+- Total average days from invite to approval (end-to-end)
+- Average enrollment processing time per payer
+
+**Visualizations**:
+- Pipeline funnel chart (providers at each stage with average time per stage)
+- Trend lines (monthly averages over time)
+- Payer comparison charts (enrollment turnaround by payer)
+- Bottleneck identification (stages where providers spend the most time)
+
+### 20.4 EFT/ERA Enrollment Tracking
+
+**What**: Track Electronic Funds Transfer (EFT) and Electronic Remittance Advice (ERA) enrollment status per provider per payer.
+
+**Additional fields on `Enrollment`**:
+- EFT enrolled (boolean)
+- EFT effective date
+- ERA enrolled (boolean)
+- ERA effective date
+
+**Business rules**:
+- EFT/ERA enrollment is tracked alongside standard enrollment records.
+- Enrollment records missing EFT/ERA are flagged as incomplete.
+- EFT/ERA status is included in enrollment reports and exports.
+
+### 20.5 Staff Training & LMS Integration
+
+**What**: Track staff completion of required training modules for credentialing operations.
+
+**`StaffTrainingRecord` fields**:
+- Staff user (linked)
+- Training module name
+- Training provider / LMS system
+- Completion date
+- Expiration date (if certification-based)
+- Certificate document (linked)
+- Status: `ASSIGNED` / `IN_PROGRESS` / `COMPLETED` / `EXPIRED`
+
+**Business rules**:
+- Training requirements are configured per staff role.
+- Overdue or expired training records are flagged with ❗.
+- Training completion is tracked on the analytics dashboard.
+- Integration with external LMS systems is via manual entry or CSV import (`BulkImportModal`).
 
 ---
 

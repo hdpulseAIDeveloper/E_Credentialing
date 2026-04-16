@@ -16,6 +16,8 @@ const BOT_LABELS: Record<BotType, string> = {
   EMEDRAL_ETIN: "eMedNY Enrollment",
   EXPIRABLE_RENEWAL: "Expirable Renewal Check",
   ENROLLMENT_SUBMISSION: "Enrollment Submission",
+  EDUCATION_AMA: "AMA Education Verification",
+  EDUCATION_ECFMG: "ECFMG Certification Verification",
 };
 
 const STATUS_CONFIG = {

@@ -63,6 +63,10 @@ export default async function DashboardPage() {
     upcomingExpirations,
     overdueFollowUps,
     recentActivity,
+    recredOverdue,
+    evalsDueSoon,
+    workHistoryPending,
+    referencesPending,
   ] = await Promise.all([
     db.provider.findMany({
       where: {
@@ -133,6 +137,36 @@ export default async function DashboardPage() {
       },
       orderBy: { timestamp: "desc" },
       take: 10,
+    }),
+    // New module integration queries
+    db.recredentialingCycle.count({
+      where: {
+        status: "OVERDUE",
+      },
+    }),
+    db.practiceEvaluation.count({
+      where: {
+        status: { in: ["SCHEDULED", "OVERDUE"] },
+        dueDate: {
+          lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      },
+    }),
+    db.workHistoryVerification.count({
+      where: {
+        status: "SENT",
+        requestSentAt: {
+          lte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        },
+      },
+    }),
+    db.professionalReference.count({
+      where: {
+        status: "SENT",
+        requestSentAt: {
+          lte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        },
+      },
     }),
   ]);
 
@@ -249,7 +283,7 @@ export default async function DashboardPage() {
           {/* Upcoming Expirations */}
           <div className="bg-white rounded-lg border">
             <div className="px-3 py-2 border-b">
-              <h2 className="text-xs font-semibold text-gray-900">Upcoming Expirations</h2>
+              <a href="/expirables" className="text-xs font-semibold text-gray-900 hover:text-blue-600">Upcoming Expirations →</a>
             </div>
             {upcomingExpirations.length === 0 ? (
               <div className="px-3 py-4 text-center text-sm text-gray-400">
@@ -286,7 +320,7 @@ export default async function DashboardPage() {
           {/* Overdue Follow-ups */}
           <div className="bg-white rounded-lg border">
             <div className="px-3 py-2 border-b">
-              <h2 className="text-xs font-semibold text-gray-900">Overdue Follow-ups</h2>
+              <a href="/enrollments?status=overdue" className="text-xs font-semibold text-gray-900 hover:text-blue-600">Overdue Follow-ups →</a>
             </div>
             {overdueFollowUps.length === 0 ? (
               <div className="px-3 py-4 text-center text-sm text-gray-400">
@@ -317,6 +351,41 @@ export default async function DashboardPage() {
               </ul>
             )}
           </div>
+
+          {/* Cross-Module Alerts */}
+          {(recredOverdue > 0 || evalsDueSoon > 0 || workHistoryPending + referencesPending > 0) && (
+            <div className="bg-white rounded-lg border">
+              <div className="px-3 py-2 border-b">
+                <h2 className="text-xs font-semibold text-gray-900">Module Alerts</h2>
+              </div>
+              <ul className="divide-y">
+                {recredOverdue > 0 && (
+                  <li className="px-3 py-2">
+                    <a href="/recredentialing?status=OVERDUE" className="flex items-center justify-between hover:text-blue-600">
+                      <span className="text-sm text-gray-900">Recredentialing Overdue</span>
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-50 text-red-600">{recredOverdue}</span>
+                    </a>
+                  </li>
+                )}
+                {evalsDueSoon > 0 && (
+                  <li className="px-3 py-2">
+                    <a href="/evaluations" className="flex items-center justify-between hover:text-blue-600">
+                      <span className="text-sm text-gray-900">OPPE/FPPE Due Soon</span>
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-600">{evalsDueSoon}</span>
+                    </a>
+                  </li>
+                )}
+                {workHistoryPending + referencesPending > 0 && (
+                  <li className="px-3 py-2">
+                    <a href="/verifications" className="flex items-center justify-between hover:text-blue-600">
+                      <span className="text-sm text-gray-900">Pending Verifications (7d+)</span>
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-orange-50 text-orange-600">{workHistoryPending + referencesPending}</span>
+                    </a>
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
 
           {/* Recent Activity */}
           <div className="bg-white rounded-lg border">

@@ -13,6 +13,10 @@ RUN apk add --no-cache libc6-compat openssl
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
 
+# Copy Prisma schema and generate client before copying full source
+COPY prisma ./prisma
+RUN npx prisma generate
+
 # Copy source (overridden by volume mounts in dev)
 COPY . .
 

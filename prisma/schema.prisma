@@ -113,6 +113,8 @@ enum BotType {
   EMEDRAL_ETIN
   EXPIRABLE_RENEWAL
   ENROLLMENT_SUBMISSION
+  EDUCATION_AMA
+  EDUCATION_ECFMG
 }
 
 enum BotStatus {
@@ -142,6 +144,13 @@ enum CredentialType {
   EMEDRAL
   HOSPITAL_PRIVILEGE
   EXPIRABLE_RENEWAL
+  EDUCATION_MEDICAL_SCHOOL
+  EDUCATION_RESIDENCY
+  EDUCATION_FELLOWSHIP
+  ECFMG_CERTIFICATION
+  WORK_HISTORY
+  PROFESSIONAL_REFERENCE
+  MALPRACTICE_CARRIER
 }
 
 enum VerificationStatus {
@@ -376,6 +385,9 @@ model User {
   hospitalSubmissions    HospitalPrivilege[] @relation("HospitalSubmittedBy")
   createdWorkflows       Workflow[]          @relation("WorkflowCreator")
   medicaidEnrollmentsCreated MedicaidEnrollment[] @relation("MedicaidCreatedBy")
+  savedReports           SavedReport[]       @relation("SavedReportCreator")
+  evaluationsAsEvaluator PracticeEvaluation[] @relation("EvaluationEvaluator")
+  trainingRecords        StaffTrainingRecord[] @relation("UserTrainingRecords")
 
   @@map("users")
 }
@@ -468,6 +480,14 @@ model Provider {
   medicaidEnrollments MedicaidEnrollment[] @relation("ProviderMedicaid")
   committeeEntries    CommitteeProvider[] @relation("ProviderCommitteeEntries")
   auditLogs           AuditLog[]         @relation("ProviderAuditLogs")
+  recredentialingCycles RecredentialingCycle[] @relation("ProviderRecredentialingCycles")
+  workHistoryVerifications WorkHistoryVerification[] @relation("ProviderWorkHistoryVerifications")
+  professionalReferences  ProfessionalReference[] @relation("ProviderProfessionalReferences")
+  practiceEvaluations     PracticeEvaluation[] @relation("ProviderEvaluations")
+  cmeCredits              CmeCredit[]        @relation("ProviderCmeCredits")
+
+  // Phase 1: initial approval date for recredentialing cycle calculation
+  initialApprovalDate DateTime? @map("initial_approval_date")
 
   @@map("providers")
 }
@@ -498,6 +518,24 @@ model ProviderProfile {
   jobTitle              String?  @map("job_title")
   caqhDataSnapshot      Json?    @map("caqh_data_snapshot")
   icimsDataSnapshot     Json?    @map("icims_data_snapshot")
+
+  // Malpractice carrier verification (Gap #13)
+  malpracticeCarrier         String?   @map("malpractice_carrier")
+  malpracticePolicyNumber    String?   @map("malpractice_policy_number")
+  malpracticeCoverageAmount  String?   @map("malpractice_coverage_amount")
+  malpracticeExpDate         DateTime? @map("malpractice_exp_date")
+  carrierVerificationStatus  String?   @map("carrier_verification_status")
+  carrierVerificationDate    DateTime? @map("carrier_verification_date")
+
+  // Telehealth credentialing (Gap #30)
+  teleHealthPlatform       String?   @map("telehealth_platform")
+  teleHealthTrainingDate   DateTime? @map("telehealth_training_date")
+  teleHealthCertified      Boolean   @default(false) @map("telehealth_certified")
+  teleHealthStates         String[]  @map("telehealth_states")
+
+  // Demographics for NCQA (Gap #14)
+  race      String?
+  ethnicity String?
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
 
@@ -571,6 +609,7 @@ model Document {
   appointmentPrivileges HospitalPrivilege[] @relation("AppointmentLetterDoc")
   reappointmentPrivileges HospitalPrivilege[] @relation("ReappointmentLetterDoc")
   expirables         Expirable[]         @relation("ExpirableDocument")
+  cmeCredits         CmeCredit[]         @relation("CmeCreditDocument")
 
   @@index([providerId])
   @@index([documentType])
@@ -702,7 +741,7 @@ model TaskComment {
 
 model Communication {
   id                  String                 @id @default(uuid())
-  providerId          String                 @map("provider_id")
+  providerId          String?                @map("provider_id")
   communicationType   CommunicationType      @map("communication_type")
   direction           CommunicationDirection @default(OUTBOUND)
   channel             CommunicationChannel
@@ -717,7 +756,7 @@ model Communication {
   createdAt           DateTime               @default(now()) @map("created_at")
   updatedAt           DateTime               @updatedAt @map("updated_at")
 
-  provider  Provider @relation("ProviderCommunications", fields: [providerId], references: [id])
+  provider  Provider? @relation("ProviderCommunications", fields: [providerId], references: [id])
   fromUser  User?    @relation("CommunicationFromUser", fields: [fromUserId], references: [id])
 
   @@index([providerId])
@@ -741,6 +780,7 @@ model CommitteeSession {
 
   providers         CommitteeProvider[] @relation("SessionProviders")
   approvedProviders Provider[]          @relation("ApprovalSession")
+  recredentialingCycles RecredentialingCycle[] @relation("RecredCommitteeSession")
 
   @@index([sessionDate])
   @@map("committee_sessions")
@@ -791,6 +831,13 @@ model Enrollment {
   followUpDueDate        DateTime?        @map("follow_up_due_date")
   followUpCadenceDays    Int              @default(14) @map("follow_up_cadence_days")
   assignedToId           String?          @map("assigned_to")
+
+  // EFT/ERA tracking (Gap #28)
+  eftStatus              String?          @map("eft_status")
+  eftSubmittedAt         DateTime?        @map("eft_submitted_at")
+  eraStatus              String?          @map("era_status")
+  eraSubmittedAt         DateTime?        @map("era_submitted_at")
+
   createdAt              DateTime         @default(now()) @map("created_at")
   updatedAt              DateTime         @updatedAt @map("updated_at")
 
@@ -928,6 +975,7 @@ model HospitalPrivilege {
   submittedBy           User?     @relation("HospitalSubmittedBy", fields: [submittedById], references: [id])
   appointmentLetterDoc  Document? @relation("AppointmentLetterDoc", fields: [appointmentLetterDocId], references: [id])
   reappointmentLetterDoc Document? @relation("ReappointmentLetterDoc", fields: [reappointmentLetterDocId], references: [id])
+  practiceEvaluations   PracticeEvaluation[] @relation("EvaluationPrivilege")
 
   @@index([providerId])
   @@map("hospital_privileges")
@@ -1029,4 +1077,300 @@ model Workflow {
   creator     User     @relation("WorkflowCreator", fields: [createdBy], references: [id])
 
   @@map("workflows")
+}
+
+// ─── Gap-Bridging Enums ─────────────────────────────────────────────────────
+
+enum RecredentialingStatus {
+  PENDING
+  APPLICATION_SENT
+  IN_PROGRESS
+  PSV_RUNNING
+  COMMITTEE_READY
+  COMPLETED
+  OVERDUE
+}
+
+enum ReferenceRequestStatus {
+  PENDING
+  SENT
+  REMINDER_SENT
+  RECEIVED
+  EXPIRED
+  DECLINED
+}
+
+enum RosterStatus {
+  DRAFT
+  GENERATED
+  VALIDATED
+  SUBMITTED
+  ACKNOWLEDGED
+  ERROR
+}
+
+enum EvaluationType {
+  OPPE
+  FPPE
+}
+
+enum EvaluationStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+}
+
+// ─── Phase 1: Recredentialing ───────────────────────────────────────────────
+
+model RecredentialingCycle {
+  id                 String                  @id @default(uuid())
+  providerId         String                  @map("provider_id")
+  cycleNumber        Int                     @default(1) @map("cycle_number")
+  cycleLengthMonths  Int                     @default(36) @map("cycle_length_months")
+  dueDate            DateTime                @map("due_date")
+  startedAt          DateTime?               @map("started_at")
+  completedAt        DateTime?               @map("completed_at")
+  status             RecredentialingStatus   @default(PENDING)
+  committeeSessionId String?                 @map("committee_session_id")
+  notes              String?
+  createdAt          DateTime                @default(now()) @map("created_at")
+  updatedAt          DateTime                @updatedAt @map("updated_at")
+
+  provider         Provider          @relation("ProviderRecredentialingCycles", fields: [providerId], references: [id])
+  committeeSession CommitteeSession? @relation("RecredCommitteeSession", fields: [committeeSessionId], references: [id])
+
+  @@index([providerId])
+  @@index([dueDate])
+  @@index([status])
+  @@map("recredentialing_cycles")
+}
+
+// ─── Phase 1: Saved Reports ─────────────────────────────────────────────────
+
+model SavedReport {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  category    String   @default("custom")
+  filters     Json     @default("{}")
+  columns     Json     @default("[]")
+  schedule    String?
+  createdById String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  createdBy User @relation("SavedReportCreator", fields: [createdById], references: [id])
+
+  @@map("saved_reports")
+}
+
+// ─── Phase 2: Work History Verification ─────────────────────────────────────
+
+model WorkHistoryVerification {
+  id              String                 @id @default(uuid())
+  providerId      String                 @map("provider_id")
+  employerName    String                 @map("employer_name")
+  employerEmail   String?                @map("employer_email")
+  employerPhone   String?                @map("employer_phone")
+  contactName     String?                @map("contact_name")
+  position        String?
+  startDate       DateTime?              @map("start_date")
+  endDate         DateTime?              @map("end_date")
+  status          ReferenceRequestStatus @default(PENDING)
+  requestSentAt   DateTime?              @map("request_sent_at")
+  lastReminderAt  DateTime?              @map("last_reminder_at")
+  reminderCount   Int                    @default(0) @map("reminder_count")
+  responseToken   String                 @unique @default(uuid()) @map("response_token")
+  responseData    Json?                  @map("response_data")
+  receivedAt      DateTime?              @map("received_at")
+  verifiedBy      String?                @map("verified_by")
+  notes           String?
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+
+  provider Provider @relation("ProviderWorkHistoryVerifications", fields: [providerId], references: [id])
+
+  @@index([providerId])
+  @@map("work_history_verifications")
+}
+
+// ─── Phase 2: Professional Reference Verification ───────────────────────────
+
+model ProfessionalReference {
+  id              String                 @id @default(uuid())
+  providerId      String                 @map("provider_id")
+  referenceName   String                 @map("reference_name")
+  referenceTitle  String?                @map("reference_title")
+  referenceEmail  String                 @map("reference_email")
+  referencePhone  String?                @map("reference_phone")
+  relationship    String?
+  status          ReferenceRequestStatus @default(PENDING)
+  requestSentAt   DateTime?              @map("request_sent_at")
+  lastReminderAt  DateTime?              @map("last_reminder_at")
+  reminderCount   Int                    @default(0) @map("reminder_count")
+  responseToken   String                 @unique @default(uuid()) @map("response_token")
+  responseData    Json?                  @map("response_data")
+  receivedAt      DateTime?              @map("received_at")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+
+  provider Provider @relation("ProviderProfessionalReferences", fields: [providerId], references: [id])
+
+  @@index([providerId])
+  @@map("professional_references")
+}
+
+// ─── Phase 3: Roster Management ─────────────────────────────────────────────
+
+model PayerRoster {
+  id               String   @id @default(uuid())
+  payerName        String   @map("payer_name")
+  rosterFormat     String   @default("csv") @map("roster_format")
+  templateConfig   Json     @default("{}") @map("template_config")
+  submissionMethod String?  @map("submission_method")
+  lastGeneratedAt  DateTime? @map("last_generated_at")
+  lastSubmittedAt  DateTime? @map("last_submitted_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  submissions RosterSubmission[] @relation("RosterSubmissions")
+
+  @@map("payer_rosters")
+}
+
+model RosterSubmission {
+  id               String       @id @default(uuid())
+  rosterId         String       @map("roster_id")
+  status           RosterStatus @default(DRAFT)
+  providerCount    Int          @default(0) @map("provider_count")
+  blobUrl          String?      @map("blob_url")
+  validationErrors Json?        @map("validation_errors")
+  submittedAt      DateTime?    @map("submitted_at")
+  submittedBy      String?      @map("submitted_by")
+  acknowledgedAt   DateTime?    @map("acknowledged_at")
+  notes            String?
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  roster PayerRoster @relation("RosterSubmissions", fields: [rosterId], references: [id])
+
+  @@index([rosterId])
+  @@map("roster_submissions")
+}
+
+// ─── Phase 3: OPPE/FPPE Practice Evaluations ────────────────────────────────
+
+model PracticeEvaluation {
+  id                String           @id @default(uuid())
+  providerId        String           @map("provider_id")
+  evaluationType    EvaluationType   @map("evaluation_type")
+  status            EvaluationStatus @default(SCHEDULED)
+  privilegeId       String?          @map("privilege_id")
+  periodStart       DateTime         @map("period_start")
+  periodEnd         DateTime         @map("period_end")
+  dueDate           DateTime         @map("due_date")
+  completedAt       DateTime?        @map("completed_at")
+  evaluatorId       String?          @map("evaluator_id")
+  indicators        Json?
+  findings          String?
+  recommendation    String?
+  documentBlobUrl   String?          @map("document_blob_url")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  provider          Provider           @relation("ProviderEvaluations", fields: [providerId], references: [id])
+  hospitalPrivilege HospitalPrivilege? @relation("EvaluationPrivilege", fields: [privilegeId], references: [id])
+  evaluator         User?              @relation("EvaluationEvaluator", fields: [evaluatorId], references: [id])
+
+  @@index([providerId])
+  @@index([dueDate])
+  @@index([status])
+  @@map("practice_evaluations")
+}
+
+// ─── Phase 4: API Keys ──────────────────────────────────────────────────────
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  name        String
+  keyHash     String    @unique @map("key_hash")
+  permissions Json      @default("{}")
+  isActive    Boolean   @default(true) @map("is_active")
+  lastUsedAt  DateTime? @map("last_used_at")
+  createdBy   String    @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  expiresAt   DateTime? @map("expires_at")
+
+  @@map("api_keys")
+}
+
+// ─── Phase 4: Privileging Library ───────────────────────────────────────────
+
+model PrivilegeCategory {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  specialty String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  privileges PrivilegeItem[] @relation("CategoryPrivileges")
+
+  @@map("privilege_categories")
+}
+
+model PrivilegeItem {
+  id           String   @id @default(uuid())
+  categoryId   String   @map("category_id")
+  name         String
+  cptCodes     String[] @map("cpt_codes")
+  icd10Codes   String[] @map("icd10_codes")
+  requiresFppe Boolean  @default(false) @map("requires_fppe")
+  isCore       Boolean  @default(true) @map("is_core")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  category PrivilegeCategory @relation("CategoryPrivileges", fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@map("privilege_items")
+}
+
+// ─── Phase 4: CME Credits ───────────────────────────────────────────────────
+
+model CmeCredit {
+  id            String    @id @default(uuid())
+  providerId    String    @map("provider_id")
+  activityName  String    @map("activity_name")
+  category      String    @default("Category 1")
+  credits       Float
+  completedDate DateTime  @map("completed_date")
+  documentId    String?   @map("document_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  provider Provider  @relation("ProviderCmeCredits", fields: [providerId], references: [id])
+  document Document? @relation("CmeCreditDocument", fields: [documentId], references: [id])
+
+  @@index([providerId])
+  @@map("cme_credits")
+}
+
+// ─── Phase 5: Staff Training Records (LMS) ─────────────────────────────────
+
+model StaffTrainingRecord {
+  id             String    @id @default(uuid())
+  userId         String    @map("user_id")
+  courseName     String    @map("course_name")
+  courseCategory  String    @default("general") @map("course_category")
+  completedAt    DateTime? @map("completed_at")
+  expiresAt      DateTime? @map("expires_at")
+  certificateUrl String?   @map("certificate_url")
+  source         String    @default("manual")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  user User @relation("UserTrainingRecords", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("staff_training_records")
 }

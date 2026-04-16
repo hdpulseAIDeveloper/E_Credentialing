@@ -14,7 +14,7 @@ All detailed requirements and architecture decisions live in `docs/planning/`:
 
 | Document | Contents |
 |----------|----------|
-| [docs/planning/scope.md](docs/planning/scope.md) | Full functional requirements for all 10 modules |
+| [docs/planning/scope.md](docs/planning/scope.md) | Full functional requirements for all 20 modules |
 | [docs/planning/user-roles.md](docs/planning/user-roles.md) | Roles, permissions matrix, access control rules |
 | [docs/planning/data-model.md](docs/planning/data-model.md) | Entity definitions, field-level detail, ERD |
 | [docs/planning/integrations.md](docs/planning/integrations.md) | All external systems, API methods, data flows |
@@ -55,10 +55,20 @@ Source documents from stakeholders: `docs/upload/`
 | **Bot / PSV Bot** | Automated browser script (Playwright) that navigates external websites to verify credentials |
 | **TOTP** | Time-based One-Time Password — used for automated DEA MFA |
 | **Azure Blob Storage** | Cloud file storage replacing the K: drive for all PDFs and documents |
+| **NCQA** | National Committee for Quality Assurance — accreditation body for CVO (Credentials Verification Organization) programs |
+| **CVO** | Credentials Verification Organization — an entity accredited by NCQA to perform primary source verification on behalf of healthcare organizations |
+| **OPPE** | Ongoing Professional Practice Evaluation — routine periodic assessment of a credentialed provider's clinical competency |
+| **FPPE** | Focused Professional Practice Evaluation — targeted evaluation triggered by new privileges, performance concerns, or adverse events |
+| **FHIR** | Fast Healthcare Interoperability Resources — HL7 standard for exchanging healthcare data electronically |
+| **CMS-0057-F** | CMS final rule requiring payers/providers to expose provider directory data via FHIR R4 APIs |
+| **CME** | Continuing Medical Education — required ongoing education credits for licensed healthcare providers |
+| **IMLC** | Interstate Medical Licensure Compact — agreement allowing expedited multi-state medical licensure |
+| **EFT** | Electronic Funds Transfer — electronic payment enrollment with payers |
+| **ERA** | Electronic Remittance Advice — electronic explanation of benefits/payment from payers |
 
 ## Platform Modules
 
-The platform consists of 10 functional modules:
+The platform consists of 20 functional modules:
 
 1. **Provider Onboarding** — outreach, account creation, data ingestion, application form, document upload
 2. **Onboarding Dashboard** — staff-facing status tracking, task management, communications, audit trail
@@ -66,10 +76,20 @@ The platform consists of 10 functional modules:
 4. **Enrollments** — delegated, facility (BTC), and direct enrollment tracking across all payers
 5. **Expirables Tracking** — expiration monitoring, renewal automation, provider outreach
 6. **Credentialing Bots (PSV)** — automated primary source verification via external websites
-7. **Sanctions Checking** — OIG and SAM.gov exclusion list queries
+7. **Sanctions Checking** — OIG and SAM.gov exclusion list queries (weekly)
 8. **NY Medicaid / ETIN** — eMedNY enrollment, ETIN affiliation, Medicaid revalidation
 9. **Hospital Privileges** — per-facility privilege application, approval, and renewal tracking
 10. **NPDB** — National Practitioner Data Bank queries and continuous monitoring
+11. **Recredentialing** — 36-month cycle management, bulk initiation, status tracking, committee integration
+12. **Compliance & Reporting** — NCQA CVO readiness dashboard, ad-hoc report builder, saved reports, CSV exports
+13. **Verifications** — work history employer verification, professional reference checking (public token-based forms)
+14. **Roster Management** — payer roster generation, CSV formatting, validation, submission tracking
+15. **OPPE/FPPE** — Ongoing and Focused Professional Practice Evaluation tracking and scheduling
+16. **Privileging Library** — delineation catalog by specialty, CPT/ICD-10 codes, core vs requested privileges
+17. **CME & CV** — CME credit tracking (Category 1/2), requirement monitoring, auto-generated CV
+18. **Public REST API & FHIR** — v1 REST API with API key auth, FHIR R4 Practitioner endpoint (CMS-0057-F)
+19. **Telehealth Credentialing** — telehealth platform tracking, multi-state licensure, training certification
+20. **Performance & Analytics** — provider scorecards, turnaround analytics, pipeline visualization, EFT/ERA tracking, staff training/LMS
 
 ## Authentication
 
@@ -106,6 +126,9 @@ Bot output file naming conventions (preserved from legacy K: drive):
 | HRIS source | iCIMS REST API | Essen's HRIS system |
 | Bot framework | Playwright | Reliable browser automation for PSV workflows |
 | Provider types | Extensible via admin | Start with MD, DO, PA, NP, LCSW, LMHC |
+| Public API auth | API key (SHA-256 hashed) | Simple server-to-server auth; PHI excluded from responses |
+| FHIR compliance | FHIR R4 Practitioner endpoint | CMS-0057-F provider directory requirement |
+| Sanctions frequency | Weekly (OIG + SAM.gov) | NCQA standard; increased from monthly |
 
 ## Tech Stack
 

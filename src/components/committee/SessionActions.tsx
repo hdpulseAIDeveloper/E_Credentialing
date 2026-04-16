@@ -158,9 +158,15 @@ export function AddProviderToSession({
     },
   });
 
-  const availableProviders = (queue.data ?? []).filter(
-    (p) => !existingProviderIds.includes(p.id)
-  );
+  const availableProviders = (() => {
+    const data = queue.data;
+    if (!data) return [];
+    const all = [
+      ...("initialCredentialing" in data ? data.initialCredentialing : Array.isArray(data) ? data : []),
+      ...("recredentialing" in data ? data.recredentialing : []),
+    ];
+    return all.filter((p) => !existingProviderIds.includes(p.id));
+  })();
 
   if (queue.isLoading) {
     return (

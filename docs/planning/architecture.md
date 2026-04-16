@@ -1,8 +1,8 @@
 # ESSEN Credentialing Platform — Architecture & Tech Stack
 
-**Version**: 0.1 (Pre-Implementation)
-**Last Updated**: 2026-04-14
-**Status**: Recommended — Pending final approval before implementation begins
+**Version**: 2.0
+**Last Updated**: 2026-04-16
+**Status**: Active — Updated with Modules 11–20 feature expansion
 
 ---
 
@@ -117,10 +117,13 @@ The platform is split into two containerized services:
 │  │  Next.js App         │  │  BullMQ Workers       │    │
 │  │  ├── UI (React)      │  │  ├── PSV Bots         │    │
 │  │  ├── API Routes      │  │  │   (Playwright)      │    │
-│  │  ├── tRPC Router     │  │  ├── Enrollment Bots   │    │
-│  │  ├── Auth.js         │  │  ├── Sanctions Jobs    │    │
-│  │  └── Socket.io       │  │  ├── Expirables Jobs   │    │
-│  │      (real-time)     │  │  └── Scheduled Jobs    │    │
+│  │  │   ├── tRPC        │  │  ├── Enrollment Bots   │    │
+│  │  │   ├── /api/v1/    │  │  ├── Sanctions Jobs    │    │
+│  │  │   └── /api/fhir/  │  │  │   (weekly)          │    │
+│  │  ├── Auth.js         │  │  ├── Expirables Jobs   │    │
+│  │  └── Socket.io       │  │  ├── License Poll      │    │
+│  │      (real-time)     │  │  ├── Recred Check      │    │
+│  │                      │  │  └── Scheduled Jobs    │    │
 │  └──────────┬───────────┘  └──────────┬────────────┘    │
 │             │                         │                  │
 └─────────────┼─────────────────────────┼──────────────────┘
@@ -158,6 +161,8 @@ Azure Front Door (optional CDN / WAF)
 Azure Container Apps — Web Container
   ├── Static assets (served by Next.js)
   ├── API requests → tRPC router → Prisma → PostgreSQL
+  ├── Public REST API → /api/v1/* → API key auth → Prisma → PostgreSQL
+  ├── FHIR API → /api/fhir/Practitioner → Prisma → PostgreSQL
   ├── Auth flow → Auth.js → Azure AD
   ├── File uploads → Azure Blob Storage (server-side upload)
   └── Real-time → Socket.io ← Worker Container publishes events
@@ -215,13 +220,33 @@ prjApp-Credentialing/
 │   │   │   ├── committee/             # Committee dashboard
 │   │   │   ├── enrollments/           # Enrollment management
 │   │   │   ├── expirables/            # Expirables tracking
-│   │   │   └── admin/                 # Admin panel
+│   │   │   ├── recredentialing/       # Recredentialing dashboard
+│   │   │   ├── reports/               # Reports & analytics + CSV export
+│   │   │   ├── verifications/         # Work history + reference verification
+│   │   │   ├── evaluations/           # OPPE/FPPE practice evaluations
+│   │   │   ├── roster/                # Payer roster management
+│   │   │   ├── cme/                   # CME credit tracking
+│   │   │   ├── compliance/            # NCQA CVO readiness dashboard
+│   │   │   ├── telehealth/            # Telehealth credentialing
+│   │   │   ├── scorecards/            # Provider performance scorecards
+│   │   │   ├── analytics/             # Turnaround time analytics
+│   │   │   └── admin/                 # Admin panel (privileging, API keys, workflows)
 │   │   ├── (provider)/                # Provider-facing pages (external auth)
 │   │   │   └── application/           # Application form + document upload
+│   │   └── verify/                    # Public verification forms (token auth)
+│   │       ├── work-history/[token]/  # Employer work history verification
+│   │       └── reference/[token]/     # Professional reference response
 │   │   └── api/
 │   │       ├── trpc/[trpc]/           # tRPC handler
 │   │       ├── auth/[...nextauth]/    # Auth.js handler
-│   │       └── webhooks/              # Incoming webhooks (SendGrid, iCIMS, NPDB)
+│   │       ├── webhooks/              # Incoming webhooks (SendGrid, iCIMS, NPDB)
+│   │       ├── v1/                    # Public REST API (API key auth)
+│   │       │   ├── middleware.ts       # API key validation middleware
+│   │       │   ├── providers/          # GET /api/v1/providers, /api/v1/providers/[id]
+│   │       │   ├── enrollments/        # GET /api/v1/enrollments
+│   │       │   └── sanctions/          # GET /api/v1/sanctions
+│   │       └── fhir/
+│   │           └── Practitioner/       # GET /api/fhir/Practitioner (FHIR R4 Bundle)
 │   ├── server/
 │   │   ├── api/
 │   │   │   ├── routers/               # tRPC routers (one per module)
@@ -233,7 +258,17 @@ prjApp-Credentialing/
 │   │   │   │   ├── sanctions.ts
 │   │   │   │   ├── npdb.ts
 │   │   │   │   ├── bot.ts
-│   │   │   │   └── admin.ts
+│   │   │   │   ├── admin.ts
+│   │   │   │   ├── recredentialing.ts  # Recredentialing cycle management
+│   │   │   │   ├── report.ts           # Saved reports, CSV export, NCQA compliance
+│   │   │   │   ├── workHistory.ts      # Work history verification
+│   │   │   │   ├── reference.ts        # Professional reference verification
+│   │   │   │   ├── roster.ts           # Payer roster management
+│   │   │   │   ├── evaluation.ts       # OPPE/FPPE evaluations
+│   │   │   │   ├── privileging.ts      # Privileging delineation library
+│   │   │   │   ├── cme.ts              # CME credit tracking, CV generation
+│   │   │   │   ├── apiKey.ts           # Public REST API key management
+│   │   │   │   └── training.ts         # Staff training / LMS records
 │   │   │   └── root.ts                # Root tRPC router
 │   │   ├── auth.ts                    # Auth.js config (Azure AD provider)
 │   │   └── db.ts                      # Prisma client singleton
@@ -253,8 +288,10 @@ prjApp-Credentialing/
 │   │   │   └── enrollment-portal.ts
 │   │   └── jobs/
 │   │       ├── expirables-scan.ts     # Nightly expirables check
-│   │       ├── sanctions-monthly.ts   # Monthly sanctions recheck
-│   │       └── follow-up-cadence.ts   # Enrollment follow-up alerts
+│   │       ├── sanctions-weekly.ts    # Weekly sanctions recheck (increased from monthly)
+│   │       ├── follow-up-cadence.ts   # Enrollment follow-up alerts
+│   │       ├── license-poll.ts        # Nightly license re-verification for expiring licenses
+│   │       └── recredentialing-check.ts # Daily overdue cycle marking + new cycle creation
 │   ├── lib/
 │   │   ├── azure/
 │   │   │   ├── blob.ts                # Azure Blob Storage client
@@ -273,7 +310,14 @@ prjApp-Credentialing/
 │   │   ├── providers/                 # Provider-specific components
 │   │   ├── dashboard/                 # Dashboard widgets
 │   │   ├── committee/                 # Committee components
-│   │   └── checklist/                 # Checklist components
+│   │   ├── checklist/                 # Checklist components
+│   │   ├── reports/
+│   │   │   └── ExportHandler.tsx      # CSV export download handler
+│   │   ├── shared/
+│   │   │   └── BulkImportModal.tsx    # CSV upload, parse, validate modal
+│   │   └── public/
+│   │       ├── WorkHistoryResponseForm.tsx  # Public employer verification form
+│   │       └── ReferenceResponseForm.tsx    # Public reference evaluation form
 │   └── types/
 │       └── index.ts                   # Shared TypeScript types
 ├── prisma/
@@ -382,6 +426,234 @@ enum ProviderStatus {
 ```
 
 Full schema file will be generated from the complete data model before implementation begins.
+
+### New Models (v2.0 Feature Expansion)
+
+The following models were added to support Modules 11–20:
+
+```prisma
+model RecredentialingCycle {
+  id          String   @id @default(uuid())
+  providerId  String
+  cycleNumber Int
+  startDate   DateTime
+  dueDate     DateTime
+  status      RecredentialingStatus @default(PENDING)
+  initiatedBy String?
+  completedAt DateTime?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SavedReport {
+  id          String   @id @default(uuid())
+  name        String
+  reportType  String
+  filters     Json
+  createdById String
+  lastRunAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model WorkHistoryVerification {
+  id              String   @id @default(uuid())
+  providerId      String
+  employerName    String
+  contactName     String?
+  contactEmail    String
+  tokenHash       String   @unique
+  tokenExpiresAt  DateTime
+  status          ReferenceRequestStatus @default(PENDING)
+  responseData    Json?
+  responseDate    DateTime?
+  reminderCount   Int      @default(0)
+  sentAt          DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ProfessionalReference {
+  id             String   @id @default(uuid())
+  providerId     String
+  referenceName  String
+  referenceTitle String?
+  referenceEmail String
+  relationship   String?
+  tokenHash      String   @unique
+  tokenExpiresAt DateTime
+  status         ReferenceRequestStatus @default(PENDING)
+  responseData   Json?
+  responseDate   DateTime?
+  reminderCount  Int      @default(0)
+  sentAt         DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model PayerRoster {
+  id               String   @id @default(uuid())
+  payerName        String
+  rosterType       String
+  providerCount    Int      @default(0)
+  csvBlobUrl       String?
+  validationStatus RosterStatus @default(DRAFT)
+  validationErrors Json?
+  submittedAt      DateTime?
+  submittedById    String?
+  submissionMethod String?
+  acknowledgedAt   DateTime?
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model RosterSubmission {
+  id           String   @id @default(uuid())
+  rosterId     String
+  status       RosterStatus @default(PENDING)
+  rejectionReason String?
+  submittedAt  DateTime?
+  createdAt    DateTime @default(now())
+}
+
+model PracticeEvaluation {
+  id              String   @id @default(uuid())
+  providerId      String
+  evaluationType  EvaluationType
+  status          EvaluationStatus @default(SCHEDULED)
+  periodStart     DateTime?
+  periodEnd       DateTime?
+  evaluatorId     String?
+  indicators      Json?
+  findings        String?
+  recommendation  String?
+  scheduledDate   DateTime?
+  completedDate   DateTime?
+  nextDueDate     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ApiKey {
+  id         String   @id @default(uuid())
+  name       String
+  keyHash    String   @unique
+  createdById String
+  active     Boolean  @default(true)
+  lastUsedAt DateTime?
+  scopes     String[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model PrivilegeCategory {
+  id            String   @id @default(uuid())
+  name          String
+  specialtyCode String?
+  description   String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model PrivilegeItem {
+  id                 String   @id @default(uuid())
+  categoryId         String
+  name               String
+  cptCodes           String[]
+  icd10Codes         String[]
+  privilegeType      String   @default("CORE")
+  fppeRequired       Boolean  @default(false)
+  minTraining        String?
+  minCaseVolume      Int?
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model CmeCredit {
+  id              String   @id @default(uuid())
+  providerId      String
+  activityTitle   String
+  activityDate    DateTime
+  creditType      String
+  creditHours     Decimal
+  accreditingBody String?
+  documentId      String?
+  verified        Boolean  @default(false)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model StaffTrainingRecord {
+  id              String   @id @default(uuid())
+  userId          String
+  moduleName      String
+  trainingProvider String?
+  completionDate  DateTime?
+  expirationDate  DateTime?
+  status          String   @default("ASSIGNED")
+  certificateUrl  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+enum RecredentialingStatus {
+  PENDING
+  IN_PROGRESS
+  DOCUMENTS_REQUESTED
+  VERIFICATION_IN_PROGRESS
+  COMMITTEE_READY
+  APPROVED
+  OVERDUE
+  TERMINATED
+}
+
+enum ReferenceRequestStatus {
+  PENDING
+  SENT
+  COMPLETED
+  NO_RESPONSE
+  UNABLE_TO_VERIFY
+  DECLINED
+}
+
+enum RosterStatus {
+  DRAFT
+  VALIDATED
+  VALIDATION_ERRORS
+  PENDING
+  SUBMITTED
+  ACCEPTED
+  ACKNOWLEDGED
+  REJECTED
+}
+
+enum EvaluationType {
+  OPPE
+  FPPE
+}
+
+enum EvaluationStatus {
+  SCHEDULED
+  IN_PROGRESS
+  PENDING_REVIEW
+  COMPLETED
+  OVERDUE
+}
+```
+
+**Updated fields on existing models** (v2.0):
+- `Provider.initialApprovalDate` — date of first committee approval (used for recredentialing cycle calculation)
+- `ProviderProfile` — malpractice carrier verification fields, telehealth platform/training/modality fields, race/ethnicity for NCQA demographic reporting
+- `Enrollment` — EFT/ERA enrollment tracking fields (`eftEnrolled`, `eftEffectiveDate`, `eraEnrolled`, `eraEffectiveDate`)
+- `Document` — `CmeCredit` relation for linking CME certificates to credit records
+
+**New BotType values**: `EDUCATION_AMA`, `EDUCATION_ECFMG`
+**New CredentialType values**: `EDUCATION_MEDICAL_SCHOOL`, `EDUCATION_RESIDENCY`, `EDUCATION_FELLOWSHIP`, `ECFMG_CERTIFICATION`, `WORK_HISTORY`, `PROFESSIONAL_REFERENCE`, `MALPRACTICE_CARRIER`
 
 ---
 
@@ -576,7 +848,7 @@ BullMQ Queues (Redis)
     │     priority: high
     ├── enrollment-bots   (portal submissions, FTP uploads)
     │     priority: medium
-    └── scheduled-jobs    (nightly expirables, monthly sanctions)
+    └── scheduled-jobs    (nightly expirables, weekly sanctions, license poll, recred check)
           priority: low
               │
               ▼
@@ -625,14 +897,24 @@ await scheduledJobQueue.add("expirables-scan", {}, {
   repeat: { cron: "0 2 * * *" }
 })
 
-// Monthly sanctions recheck — 1st of month, 3:00 AM UTC
-await scheduledJobQueue.add("sanctions-monthly", {}, {
-  repeat: { cron: "0 3 1 * *" }
+// Weekly sanctions recheck — every Monday, 3:00 AM UTC (increased from monthly)
+await scheduledJobQueue.add("sanctions-weekly", {}, {
+  repeat: { cron: "0 3 * * 1" }
 })
 
 // Follow-up cadence check — every hour
 await scheduledJobQueue.add("follow-up-cadence", {}, {
   repeat: { cron: "0 * * * *" }
+})
+
+// Nightly license re-verification for licenses expiring within 30 days
+await scheduledJobQueue.add("license-poll", {}, {
+  repeat: { cron: "0 1 * * *" }
+})
+
+// Daily recredentialing check — mark overdue cycles, create new cycles
+await scheduledJobQueue.add("recredentialing-check", {}, {
+  repeat: { cron: "0 4 * * *" }
 })
 ```
 
@@ -787,12 +1069,12 @@ CMD ["node", "dist/workers/index.js"]
 
 ---
 
-### ADR-002: tRPC over REST
+### ADR-002: tRPC over REST (internal) + Public REST API
 
-**Status**: Accepted
-**Decision**: Use tRPC for client-server API communication instead of a traditional REST API.
-**Rationale**: End-to-end type safety between Next.js frontend and backend eliminates a class of runtime bugs. The API is consumed only by our own frontend — no need for a public REST spec.
-**Trade-offs**: Less familiar than REST for new developers. Not suitable if a public API is ever needed (would add a separate REST/OpenAPI layer at that point).
+**Status**: Accepted (updated v2.0)
+**Decision**: Use tRPC for internal client-server API communication. Add a separate public REST API (`/api/v1/`) with API key authentication for external integrations, plus a FHIR R4 endpoint (`/api/fhir/Practitioner`) for CMS-0057-F compliance.
+**Rationale**: End-to-end type safety between Next.js frontend and backend eliminates a class of runtime bugs. The internal API is consumed only by our own frontend — no need for a public REST spec. The public REST API serves external integrations (EHR systems, partner platforms) with standard JSON responses and API key authentication. The FHIR endpoint provides interoperability per CMS requirements.
+**Trade-offs**: Two API styles to maintain (tRPC + REST). Mitigated by keeping the public REST layer thin — it delegates to the same service/Prisma layer as tRPC.
 
 ---
 
@@ -829,6 +1111,24 @@ CMD ["node", "dist/workers/index.js"]
 **Decision**: Use signed JWT embedded in the outreach email link as interim provider authentication. No password required.
 **Rationale**: Simplest implementation; providers only use the application a handful of times. Avoids password reset infrastructure. Can be replaced with Azure AD B2B or email/password auth transparently once Q2 is resolved.
 **Trade-offs**: Link expires (72 hours). If provider loses the link, they need staff to resend it. Acceptable for an infrequent-use portal.
+
+---
+
+### ADR-007: Weekly sanctions checks (increased from monthly)
+
+**Status**: Accepted
+**Decision**: Increase sanctions checking (OIG + SAM.gov) frequency from monthly to weekly for all active providers.
+**Rationale**: NCQA CVO accreditation standards and competitive analysis (Medallion, Andros, CredentialStream) indicate that weekly or continuous monitoring is the industry standard. Monthly checks leave a gap where a newly excluded provider could continue practicing for up to 30 days.
+**Trade-offs**: Higher API/bot load. Mitigated by efficient batch querying (OIG database download, SAM.gov API pagination).
+
+---
+
+### ADR-008: Public REST API with API key authentication
+
+**Status**: Accepted
+**Decision**: Expose read-only provider and enrollment data via a public REST API at `/api/v1/` using API key authentication, alongside the existing tRPC internal API.
+**Rationale**: External systems (EHR platforms, partner organizations, billing systems) need programmatic access to credentialing status without UI access. API keys are simpler than OAuth for server-to-server integrations. A FHIR R4 Practitioner endpoint at `/api/fhir/Practitioner` is included for CMS-0057-F compliance.
+**Trade-offs**: Additional attack surface. Mitigated by rate limiting (100 req/min per key), PHI exclusion from responses, audit logging of all API access, and key revocation capability.
 
 ---
 
@@ -1002,3 +1302,8 @@ Before production deployment, verify:
 - [ ] SendGrid HIPAA BAA reviewed (if PHI appears in emails — should be avoided)
 - [ ] Audit log table has no DELETE or UPDATE grants on the application DB role
 - [ ] Container images are scanned for vulnerabilities in CI pipeline
+- [ ] Public REST API (`/api/v1/`) rate limiting is configured and tested (100 req/min per key)
+- [ ] Public REST API excludes all PHI fields (SSN, DOB, home address) from responses
+- [ ] API key hashing uses SHA-256; plaintext keys are never stored
+- [ ] FHIR endpoint (`/api/fhir/Practitioner`) exposes only approved providers and non-PHI data
+- [ ] Public verification form tokens (`/verify/`) have expiration enforced and are single-use

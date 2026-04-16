@@ -24,6 +24,8 @@ import { EnrollmentPortalBot } from "./bots/enrollment-portal";
 import { runExpirablesScan } from "./jobs/expirables-scan";
 import { runMonthlySanctionsCheck } from "./jobs/sanctions-monthly";
 import { runFollowUpCadence } from "./jobs/follow-up-cadence";
+import { runLicensePoll } from "./jobs/license-poll";
+import { runRecredentialingCheck } from "./jobs/recredentialing-check";
 
 // ─── PSV Bot Worker ────────────────────────────────────────────────────────────
 
@@ -72,6 +74,12 @@ const psvWorker = new Worker(
         break;
       case "enrollment-eyemed":
         await new EnrollmentPortalBot("EYEMED").run({ botRunId, providerId });
+        break;
+      case "education-ama":
+        console.log(`[PSV Worker] Education AMA verification not yet implemented for botRun ${botRunId}`);
+        break;
+      case "education-ecfmg":
+        console.log(`[PSV Worker] Education ECFMG verification not yet implemented for botRun ${botRunId}`);
         break;
       default:
         throw new Error(`Unknown bot job: ${job.name}`);
@@ -133,8 +141,17 @@ const scheduledWorker = new Worker(
       case "sanctions-monthly":
         await runMonthlySanctionsCheck();
         break;
+      case "sanctions-weekly":
+        await runMonthlySanctionsCheck();
+        break;
       case "follow-up-cadence":
         await runFollowUpCadence();
+        break;
+      case "license-poll":
+        await runLicensePoll();
+        break;
+      case "recredentialing-check":
+        await runRecredentialingCheck();
         break;
       default:
         throw new Error(`Unknown scheduled job: ${job.name}`);
@@ -149,34 +166,51 @@ const scheduledWorker = new Worker(
 // ─── Scheduled Job Registration ────────────────────────────────────────────────
 
 function scheduleJobs() {
-  // Nightly expirables scan (every 24 hours)
-  const NIGHTLY_MS = 24 * 60 * 60 * 1000;
-  setInterval(async () => {
-    await scheduledJobQueue.add("expirables-scan", { runDate: new Date().toISOString() }, {
-      priority: 10,
-      attempts: 2,
-    });
-  }, NIGHTLY_MS);
+  const isDev = process.env.NODE_ENV !== "production";
 
-  // Monthly sanctions check (every 30 days)
-  const MONTHLY_MS = 30 * 24 * 60 * 60 * 1000;
-  setInterval(async () => {
-    await scheduledJobQueue.add("sanctions-monthly", { runDate: new Date().toISOString() }, {
-      priority: 10,
-      attempts: 2,
-    });
-  }, MONTHLY_MS);
+  // In dev, use much longer intervals and run initial jobs only once after a delay
+  const NIGHTLY_MS = isDev ? 12 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000; // 12h dev / 24h prod
+  const WEEKLY_MS = isDev ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+  const MONTHLY_MS = isDev ? 7 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
+  const HOURLY_MS = isDev ? 4 * 60 * 60 * 1000 : 60 * 60 * 1000; // 4h dev / 1h prod
 
-  // Hourly follow-up cadence
-  const HOURLY_MS = 60 * 60 * 1000;
-  setInterval(async () => {
-    await scheduledJobQueue.add("follow-up-cadence", { runDate: new Date().toISOString() }, {
-      priority: 10,
-      attempts: 2,
-    });
-  }, HOURLY_MS);
+  // Use BullMQ's built-in repeatable jobs instead of setInterval.
+  // This deduplicates: if a repeat job with the same key already exists, it won't be added again.
+  const opts = { removeOnComplete: { count: 5 }, removeOnFail: { count: 10 } };
 
-  console.log("[Scheduler] Jobs registered: expirables-scan (daily), sanctions-monthly, follow-up-cadence (hourly)");
+  void scheduledJobQueue.add("expirables-scan", { scheduled: true }, {
+    ...opts, repeat: { every: NIGHTLY_MS, key: "expirables-scan" },
+  });
+
+  void scheduledJobQueue.add("follow-up-cadence", { scheduled: true }, {
+    ...opts, repeat: { every: HOURLY_MS, key: "follow-up-cadence" },
+  });
+
+  void scheduledJobQueue.add("recredentialing-check", { scheduled: true }, {
+    ...opts, repeat: { every: NIGHTLY_MS, key: "recredentialing-check" },
+  });
+
+  void scheduledJobQueue.add("license-poll", { scheduled: true }, {
+    ...opts, repeat: { every: NIGHTLY_MS, key: "license-poll" },
+  });
+
+  // Only schedule sanctions jobs if the required credentials are configured
+  const hasAzureBlob = !!process.env.AZURE_BLOB_ACCOUNT_URL;
+  const hasSamKey = !!process.env.SAM_GOV_API_KEY;
+
+  if (hasAzureBlob || hasSamKey) {
+    void scheduledJobQueue.add("sanctions-weekly", { scheduled: true }, {
+      ...opts, repeat: { every: WEEKLY_MS, key: "sanctions-weekly" },
+    });
+    void scheduledJobQueue.add("sanctions-monthly", { scheduled: true }, {
+      ...opts, repeat: { every: MONTHLY_MS, key: "sanctions-monthly" },
+    });
+    console.log("[Scheduler] Sanctions jobs scheduled (credentials configured)");
+  } else {
+    console.log("[Scheduler] Sanctions jobs SKIPPED — AZURE_BLOB_ACCOUNT_URL and SAM_GOV_API_KEY not set");
+  }
+
+  console.log(`[Scheduler] Jobs registered (${isDev ? "DEV intervals" : "PROD intervals"}): expirables-scan, follow-up-cadence, recredentialing-check, license-poll`);
 }
 
 // ─── Bull Board Dashboard ──────────────────────────────────────────────────────

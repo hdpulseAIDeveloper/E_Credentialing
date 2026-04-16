@@ -12,6 +12,11 @@ const db = new PrismaClient();
 export async function runMonthlySanctionsCheck(): Promise<void> {
   console.log("[SanctionsMonthly] Starting monthly sanctions re-check...");
 
+  if (!process.env.AZURE_BLOB_ACCOUNT_URL) {
+    console.log("[SanctionsMonthly] Skipped — AZURE_BLOB_ACCOUNT_URL not configured");
+    return;
+  }
+
   const queue = new Queue("psv-bot", { connection: createRedisConnection() });
   let queued = 0;
 
