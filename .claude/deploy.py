@@ -19,11 +19,33 @@ APP = {
 }
 
 
-def ssh_run(commands, timeout=300):
-    """Run one or more commands on the production server, print output."""
+def _connect():
+    """Open a paramiko SSH connection with generous timeouts (server can be slow to auth)."""
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(SERVER, username=USER, password=PASSWORD, timeout=15)
+    last_err = None
+    for attempt in range(1, 4):
+        try:
+            client.connect(
+                SERVER,
+                username=USER,
+                password=PASSWORD,
+                timeout=60,
+                banner_timeout=60,
+                auth_timeout=60,
+                look_for_keys=False,
+                allow_agent=False,
+            )
+            return client
+        except Exception as e:
+            last_err = e
+            print(f'  ssh connect attempt {attempt}/3 failed: {e}', file=sys.stderr)
+    raise last_err
+
+
+def ssh_run(commands, timeout=600):
+    """Run one or more commands on the production server, print output."""
+    client = _connect()
     if isinstance(commands, str):
         commands = [commands]
     for cmd in commands:
@@ -53,14 +75,12 @@ def deploy():
     print(f'  Branch: {branch}')
     print()
 
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(SERVER, username=USER, password=PASSWORD, timeout=15)
+    client = _connect()
 
     steps = [
-        (f'cd {path} && git pull origin {branch}', 60, True),
-        (f'cd {path} && docker compose -f {compose} down', 120, True),
-        (f'cd {path} && docker compose -f {compose} up -d --build', 600, True),
+        (f'cd {path} && git pull origin {branch}', 120, True),
+        (f'docker rm -f {" ".join(APP["containers"])} 2>/dev/null; cd {path} && docker compose -f {compose} down --remove-orphans', 120, True),
+        (f'cd {path} && docker compose -f {compose} up -d --build --force-recreate', 900, True),
         ('docker image prune -f', 120, False),
         (f'cd {path} && docker compose -f {compose} ps', 30, False),
     ]
