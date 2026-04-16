@@ -90,7 +90,6 @@ export const botRouter = createTRPCRouter({
   getLatestByProvider: staffProcedure
     .input(z.object({ providerId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      // Get latest run per bot type
       const botTypes: BotType[] = [
         "LICENSE_VERIFICATION",
         "DEA_VERIFICATION",
@@ -103,22 +102,25 @@ export const botRouter = createTRPCRouter({
         "EMEDRAL_ETIN",
       ];
 
-      const results = await Promise.all(
-        botTypes.map(async (botType) => {
-          const run = await ctx.db.botRun.findFirst({
-            where: { providerId: input.providerId, botType },
-            include: {
-              verificationRecords: {
-                select: { id: true, status: true, isFlagged: true, verifiedDate: true },
-              },
-            },
-            orderBy: { queuedAt: "desc" },
-          });
-          return { botType, run };
-        })
-      );
+      // Single round-trip: pull all runs for this provider in those bot types,
+      // then fold to latest-per-type client-side. Backed by the new
+      // (provider_id, bot_type, created_at) index.
+      const runs = await ctx.db.botRun.findMany({
+        where: { providerId: input.providerId, botType: { in: botTypes } },
+        include: {
+          verificationRecords: {
+            select: { id: true, status: true, isFlagged: true, verifiedDate: true },
+          },
+        },
+        orderBy: { queuedAt: "desc" },
+      });
 
-      return results;
+      const latestByType = new Map<BotType, (typeof runs)[number]>();
+      for (const run of runs) {
+        if (!latestByType.has(run.botType)) latestByType.set(run.botType, run);
+      }
+
+      return botTypes.map((botType) => ({ botType, run: latestByType.get(botType) ?? null }));
     }),
 
   // ─── Get single bot run ────────────────────────────────────────────────

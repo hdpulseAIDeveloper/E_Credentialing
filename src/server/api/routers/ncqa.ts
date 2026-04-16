@@ -200,23 +200,29 @@ export const ncqaRouter = createTRPCRouter({
         where: { isActive: true },
       });
 
-      const latest = await Promise.all(
-        criteria.map((c) =>
-          ctx.db.ncqaCriterionAssessment.findFirst({
-            where: { criterionId: c.id },
+      // Single round-trip: pull every assessment for active criteria, then fold in-memory.
+      // We can't express "most-recent per criterion" cleanly in Prisma, but we can filter
+      // to the small relevant set and pick the latest per group client-side.
+      const criterionIds = criteria.map((c) => c.id);
+      const assessments = criterionIds.length
+        ? await ctx.db.ncqaCriterionAssessment.findMany({
+            where: { criterionId: { in: criterionIds } },
             orderBy: { periodEnd: "desc" },
-          }),
-        ),
-      );
+            select: { criterionId: true, status: true, score: true, periodEnd: true },
+          })
+        : [];
+      const latestByCriterion = new Map<string, (typeof assessments)[number]>();
+      for (const a of assessments) {
+        if (!latestByCriterion.has(a.criterionId)) latestByCriterion.set(a.criterionId, a);
+      }
 
       let compliant = 0;
       let partial = 0;
       let nonCompliant = 0;
       let notApplicable = 0;
       const breakdown: Record<string, { status: NcqaAssessmentStatus; score: number | null }> = {};
-      for (let i = 0; i < criteria.length; i++) {
-        const c = criteria[i]!;
-        const a = latest[i];
+      for (const c of criteria) {
+        const a = latestByCriterion.get(c.id);
         const status = (a?.status ?? NcqaAssessmentStatus.NOT_ASSESSED);
         breakdown[c.code] = { status, score: a?.score ?? null };
         if (status === NcqaAssessmentStatus.COMPLIANT) compliant++;

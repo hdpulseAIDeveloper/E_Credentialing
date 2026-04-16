@@ -391,6 +391,9 @@ model User {
   ncqaAssessments        NcqaCriterionAssessment[] @relation("NcqaAssessments")
   ncqaSnapshots          NcqaComplianceSnapshot[]  @relation("NcqaSnapshots")
 
+  @@index([role])
+  @@index([isActive])
+  @@index([providerId])
   @@map("users")
 }
 
@@ -491,6 +494,15 @@ model Provider {
   // Phase 1: initial approval date for recredentialing cycle calculation
   initialApprovalDate DateTime? @map("initial_approval_date")
 
+  @@index([status])
+  @@index([providerTypeId])
+  @@index([assignedSpecialistId])
+  @@index([legalLastName])
+  @@index([inviteToken])
+  @@index([caqhId])
+  @@index([icimsId])
+  @@index([approvedAt])
+  @@index([createdAt])
   @@map("providers")
 }
 
@@ -616,6 +628,9 @@ model Document {
 
   @@index([providerId])
   @@index([documentType])
+  @@index([isDeleted])
+  @@index([providerId, documentType])
+  @@index([expirationDate])
   @@map("documents")
 }
 
@@ -668,6 +683,9 @@ model BotRun {
 
   @@index([providerId])
   @@index([status])
+  @@index([botType])
+  @@index([providerId, botType, createdAt])
+  @@index([queuedAt])
   @@map("bot_runs")
 }
 
@@ -723,6 +741,8 @@ model Task {
   @@index([providerId])
   @@index([assignedToId])
   @@index([status])
+  @@index([dueDate])
+  @@index([assignedToId, status])
   @@map("tasks")
 }
 
@@ -852,6 +872,9 @@ model Enrollment {
   @@index([providerId])
   @@index([status])
   @@index([payerName])
+  @@index([enrollmentType])
+  @@index([assignedToId])
+  @@index([followUpDueDate])
   @@map("enrollments")
 }
 
@@ -895,6 +918,9 @@ model Expirable {
   @@index([providerId])
   @@index([expirationDate])
   @@index([status])
+  @@index([expirableType])
+  @@index([nextCheckDate])
+  @@index([status, expirationDate])
   @@map("expirables")
 }
 
@@ -924,6 +950,9 @@ model SanctionsCheck {
 
   @@index([providerId])
   @@index([runDate])
+  @@index([source, runDate])
+  @@index([result])
+  @@index([providerId, source, runDate])
   @@map("sanctions_checks")
 }
 
@@ -952,6 +981,8 @@ model NPDBRecord {
 
   @@index([providerId])
   @@index([queryDate])
+  @@index([queryType])
+  @@index([result])
   @@map("npdb_records")
 }
 
@@ -981,6 +1012,8 @@ model HospitalPrivilege {
   practiceEvaluations   PracticeEvaluation[] @relation("EvaluationPrivilege")
 
   @@index([providerId])
+  @@index([status])
+  @@index([expirationDate])
   @@map("hospital_privileges")
 }
 
@@ -1022,6 +1055,8 @@ model MedicaidEnrollment {
   createdBy User?   @relation("MedicaidCreatedBy", fields: [createdById], references: [id])
 
   @@index([providerId])
+  @@index([affiliationStatus])
+  @@index([revalidationDueDate])
   @@map("medicaid_enrollments")
 }
 
@@ -1052,6 +1087,8 @@ model AuditLog {
   @@index([providerId])
   @@index([timestamp])
   @@index([sequence])
+  @@index([action])
+  @@index([entityType, entityId])
   @@map("audit_logs")
 }
 

@@ -34,24 +34,38 @@ export interface AuditLogParams {
 /**
  * Secret used for the HMAC chain. Stored in env; rotated only with the
  * documented key-rotation runbook (docs/dev/runbooks/key-rotation.md).
- * If absent, a deterministic dev-only fallback is used so tests still
- * produce valid hashes, but we log a warning once at process start.
+ *
+ * This is a LAZY getter — we intentionally avoid throwing at module-load
+ * time so `next build` can collect page data without requiring the
+ * production secret to be present in the build environment. The check
+ * runs the first time an audit log is actually written at runtime.
  */
-const AUDIT_HMAC_KEY = (() => {
+let cachedAuditHmacKey: string | null = null;
+let warnedFallback = false;
+
+function getAuditHmacKey(): string {
+  if (cachedAuditHmacKey) return cachedAuditHmacKey;
   const key = process.env.AUDIT_HMAC_KEY;
-  if (key && key.length >= 32) return key;
-  if (process.env.NODE_ENV === "production") {
+  if (key && key.length >= 32) {
+    cachedAuditHmacKey = key;
+    return key;
+  }
+  if (process.env.NODE_ENV === "production" && process.env.NEXT_PHASE !== "phase-production-build") {
     logger.error(
       { configured: Boolean(key) },
-      "AUDIT_HMAC_KEY is missing or too short; refusing to start in production",
+      "AUDIT_HMAC_KEY is missing or too short; refusing to write audit logs in production",
     );
     throw new Error("AUDIT_HMAC_KEY must be set to a 32+ character secret in production");
   }
-  logger.warn(
-    "AUDIT_HMAC_KEY not set or too short; using dev fallback. Do not use in production.",
-  );
-  return "dev-fallback-audit-hmac-key-do-not-use-in-production";
-})();
+  if (!warnedFallback) {
+    logger.warn(
+      "AUDIT_HMAC_KEY not set or too short; using dev fallback. Do not use in production.",
+    );
+    warnedFallback = true;
+  }
+  cachedAuditHmacKey = "dev-fallback-audit-hmac-key-do-not-use-in-production";
+  return cachedAuditHmacKey;
+}
 
 function canonicalize(row: {
   sequence: bigint;
@@ -81,7 +95,7 @@ function canonicalize(row: {
 }
 
 function computeHash(previousHash: string | null, canonical: string): string {
-  const h = createHmac("sha256", AUDIT_HMAC_KEY);
+  const h = createHmac("sha256", getAuditHmacKey());
   h.update(previousHash ?? "GENESIS");
   h.update("\x1e");
   h.update(canonical);
