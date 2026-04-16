@@ -27,8 +27,8 @@ export const adminRouter = createTRPCRouter({
             take: 10,
           },
           auditLogsAsActor: {
-            select: { id: true, action: true, entityType: true, entityId: true, createdAt: true },
-            orderBy: { createdAt: "desc" },
+            select: { id: true, action: true, entityType: true, entityId: true, timestamp: true },
+            orderBy: { timestamp: "desc" },
             take: 25,
           },
           enrollmentAssignments: {

@@ -68,8 +68,8 @@ export default async function UserDetailPage({ params, searchParams }: Props) {
         take: 10,
       },
       auditLogsAsActor: {
-        select: { id: true, action: true, entityType: true, entityId: true, createdAt: true },
-        orderBy: { createdAt: "desc" },
+        select: { id: true, action: true, entityType: true, entityId: true, timestamp: true },
+        orderBy: { timestamp: "desc" },
         take: 25,
       },
       enrollmentAssignments: {
@@ -392,7 +392,7 @@ export default async function UserDetailPage({ params, searchParams }: Props) {
                       </span>
                     </div>
                     <span className="text-xs text-gray-400">
-                      {format(new Date(log.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                      {format(new Date(log.timestamp), "MMM d, yyyy 'at' h:mm a")}
                     </span>
                   </div>
                 ))}
