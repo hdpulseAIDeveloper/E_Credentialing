@@ -1,0 +1,51 @@
+name: Deploy to Production
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch/tag/SHA to deploy"
+        required: true
+        default: master
+
+concurrency:
+  group: cd-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://credentialing.hdpulseai.com
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Install paramiko
+        run: pip install --quiet paramiko
+
+      - name: Run deploy script (ALLOW_DEPLOY=1 guard)
+        env:
+          ALLOW_DEPLOY: "1"
+        run: python .claude/deploy.py
+
+      - name: Post-deploy migrate resolve (first deploy only)
+        if: ${{ vars.FIRST_DEPLOY == 'true' }}
+        env:
+          ALLOW_DEPLOY: "1"
+        run: |
+          python .claude/deploy.py "docker exec ecred-web-prod npx prisma migrate resolve --applied 20260415040852_init || true"
+          python .claude/deploy.py "docker exec ecred-web-prod npx prisma migrate resolve --applied 20260415041421_add_password_hash || true"
+          python .claude/deploy.py "docker exec ecred-web-prod npx prisma migrate resolve --applied 20260415_add_app_settings || true"
+          python .claude/deploy.py "docker exec ecred-web-prod npx prisma migrate resolve --applied 20260415_add_workflows || true"
+          python .claude/deploy.py "docker exec ecred-web-prod npx prisma migrate resolve --applied 20260415_medallion_workflows || true"
+
+      - name: Smoke test
+        run: |
+          curl -fsS https://credentialing.hdpulseai.com/api/health || (echo "Health check failed" && exit 1)
