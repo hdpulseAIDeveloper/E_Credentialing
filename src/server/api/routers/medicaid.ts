@@ -3,6 +3,8 @@
  */
 
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
+import { MedicaidAffiliationStatus, MedicaidEnrollmentPath } from "@prisma/client";
 import { createTRPCRouter, staffProcedure, managerProcedure } from "@/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { writeAuditLog } from "@/lib/audit";
@@ -11,8 +13,8 @@ export const medicaidRouter = createTRPCRouter({
   list: staffProcedure
     .input(
       z.object({
-        affiliationStatus: z.string().optional(),
-        enrollmentPath: z.string().optional(),
+        affiliationStatus: z.nativeEnum(MedicaidAffiliationStatus).optional(),
+        enrollmentPath: z.nativeEnum(MedicaidEnrollmentPath).optional(),
         providerId: z.string().optional(),
         search: z.string().optional(),
         page: z.number().min(1).default(1),
@@ -20,7 +22,7 @@ export const medicaidRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
-      const where: Record<string, unknown> = {};
+      const where: Prisma.MedicaidEnrollmentWhereInput = {};
       if (input.affiliationStatus) where.affiliationStatus = input.affiliationStatus;
       if (input.enrollmentPath) where.enrollmentPath = input.enrollmentPath;
       if (input.providerId) where.providerId = input.providerId;
@@ -34,7 +36,7 @@ export const medicaidRouter = createTRPCRouter({
 
       const [items, total] = await Promise.all([
         ctx.db.medicaidEnrollment.findMany({
-          where: where as any,
+          where,
           include: {
             provider: {
               include: { providerType: true },
@@ -45,7 +47,7 @@ export const medicaidRouter = createTRPCRouter({
           skip: (input.page - 1) * input.limit,
           take: input.limit,
         }),
-        ctx.db.medicaidEnrollment.count({ where: where as any }),
+        ctx.db.medicaidEnrollment.count({ where }),
       ]);
 
       return { items, total, page: input.page, limit: input.limit };

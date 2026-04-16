@@ -4,7 +4,7 @@
  */
 
 import { db } from "@/server/db";
-import type { BotType } from "@prisma/client";
+import type { BotType, Prisma } from "@prisma/client";
 
 interface QueuedBot {
   botType: BotType;
@@ -77,7 +77,7 @@ export async function queuePsvBotsForProvider(providerId: string): Promise<Queue
         status: "QUEUED",
         attemptCount: 0,
         queuedAt: new Date(),
-        inputData: bot.inputData as any,
+        inputData: bot.inputData as Prisma.InputJsonValue,
       },
     });
   }

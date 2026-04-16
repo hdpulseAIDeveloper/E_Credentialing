@@ -4,7 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/trpc/react";
 
-const COI_STATUS_CONFIG: Record<string, { label: string; color: string; next?: string; nextLabel?: string }> = {
+type CoiStatusValue = "PENDING_OUTREACH" | "INFO_REQUESTED" | "SENT_TO_BROKER" | "OBTAINED";
+
+const COI_STATUS_CONFIG: Record<CoiStatusValue, { label: string; color: string; next?: CoiStatusValue; nextLabel?: string }> = {
   PENDING_OUTREACH: { label: "Pending Outreach", color: "bg-yellow-100 text-yellow-700", next: "INFO_REQUESTED", nextLabel: "Mark Info Requested" },
   INFO_REQUESTED: { label: "Info Requested", color: "bg-blue-100 text-blue-700", next: "SENT_TO_BROKER", nextLabel: "Mark Sent to Broker" },
   SENT_TO_BROKER: { label: "Sent to Broker", color: "bg-purple-100 text-purple-700", next: "OBTAINED", nextLabel: "Mark COI Obtained" },
@@ -29,8 +31,9 @@ export function CoiTrackingPanel({ providerId, coiStatus, coiBrokerName, coiRequ
     onSuccess: () => { router.refresh(); setEditingBroker(false); },
   });
 
-  const currentStatus = coiStatus ?? "PENDING_OUTREACH";
-  const config = COI_STATUS_CONFIG[currentStatus] ?? COI_STATUS_CONFIG.PENDING_OUTREACH!;
+  const currentStatus: CoiStatusValue =
+    (coiStatus as CoiStatusValue | null) ?? "PENDING_OUTREACH";
+  const config = COI_STATUS_CONFIG[currentStatus] ?? COI_STATUS_CONFIG.PENDING_OUTREACH;
 
   const handleAdvance = () => {
     if (config.next) {

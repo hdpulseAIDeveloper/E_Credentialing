@@ -8,6 +8,11 @@ import { TRPCError } from "@trpc/server";
 import { writeAuditLog, auditProviderStatusChange } from "@/lib/audit";
 import { encryptOptional } from "@/lib/encryption";
 import type { ProviderStatus, Prisma } from "@prisma/client";
+import {
+  CoiStatus,
+  OnsiteMeetingStatus,
+  HospitalPrivilegeStatus,
+} from "@prisma/client";
 import { SignJWT } from "jose";
 import { addHours } from "date-fns";
 
@@ -369,7 +374,7 @@ export const providerRouter = createTRPCRouter({
     .input(
       z.object({
         providerId: z.string(),
-        coiStatus: z.string().optional(),
+        coiStatus: z.nativeEnum(CoiStatus).optional(),
         coiBrokerName: z.string().optional(),
         coiRequestedDate: z.string().optional(),
         coiObtainedDate: z.string().optional(),
@@ -377,7 +382,7 @@ export const providerRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const data: Record<string, unknown> = {};
+      const data: Prisma.ProviderUpdateInput = {};
       if (input.coiStatus !== undefined) data.coiStatus = input.coiStatus;
       if (input.coiBrokerName !== undefined) data.coiBrokerName = input.coiBrokerName;
       if (input.coiRequestedDate) data.coiRequestedDate = new Date(input.coiRequestedDate);
@@ -386,7 +391,7 @@ export const providerRouter = createTRPCRouter({
 
       const updated = await ctx.db.provider.update({
         where: { id: input.providerId },
-        data: data as any,
+        data,
       });
 
       await writeAuditLog({
@@ -396,7 +401,13 @@ export const providerRouter = createTRPCRouter({
         entityType: "Provider",
         entityId: input.providerId,
         providerId: input.providerId,
-        afterState: data as Record<string, string | Date>,
+        afterState: {
+          coiStatus: input.coiStatus ?? null,
+          coiBrokerName: input.coiBrokerName ?? null,
+          coiRequestedDate: input.coiRequestedDate ?? null,
+          coiObtainedDate: input.coiObtainedDate ?? null,
+          coiExpirationDate: input.coiExpirationDate ?? null,
+        },
       });
 
       return updated;
@@ -407,20 +418,20 @@ export const providerRouter = createTRPCRouter({
     .input(
       z.object({
         providerId: z.string(),
-        onsiteMeetingStatus: z.string().optional(),
+        onsiteMeetingStatus: z.nativeEnum(OnsiteMeetingStatus).optional(),
         onsiteMeetingDate: z.string().optional(),
         onsiteMeetingNotes: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const data: Record<string, unknown> = {};
+      const data: Prisma.ProviderUpdateInput = {};
       if (input.onsiteMeetingStatus !== undefined) data.onsiteMeetingStatus = input.onsiteMeetingStatus;
       if (input.onsiteMeetingDate) data.onsiteMeetingDate = new Date(input.onsiteMeetingDate);
       if (input.onsiteMeetingNotes !== undefined) data.onsiteMeetingNotes = input.onsiteMeetingNotes;
 
       return ctx.db.provider.update({
         where: { id: input.providerId },
-        data: data as any,
+        data,
       });
     }),
 
@@ -460,7 +471,7 @@ export const providerRouter = createTRPCRouter({
             personalEmail: icimsData.email ?? null,
             mobilePhone: icimsData.phone ?? null,
             hireDate: icimsData.hireDate ? new Date(icimsData.hireDate) : null,
-            icimsDataSnapshot: icimsData as any,
+            icimsDataSnapshot: icimsData as unknown as Prisma.InputJsonValue,
           },
         });
       }
@@ -491,8 +502,11 @@ export const providerRouter = createTRPCRouter({
 
       await ctx.db.providerProfile.upsert({
         where: { providerId: input.providerId },
-        update: { caqhDataSnapshot: caqhData as any },
-        create: { providerId: input.providerId, caqhDataSnapshot: caqhData as any },
+        update: { caqhDataSnapshot: caqhData as unknown as Prisma.InputJsonValue },
+        create: {
+          providerId: input.providerId,
+          caqhDataSnapshot: caqhData as unknown as Prisma.InputJsonValue,
+        },
       });
 
       await writeAuditLog({
@@ -512,20 +526,20 @@ export const providerRouter = createTRPCRouter({
     .input(
       z.object({
         id: z.string(),
-        status: z.string().optional(),
+        status: z.nativeEnum(HospitalPrivilegeStatus).optional(),
         notes: z.string().optional(),
         approvedDate: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const data: Record<string, unknown> = {};
+      const data: Prisma.HospitalPrivilegeUpdateInput = {};
       if (input.status) data.status = input.status;
       if (input.notes !== undefined) data.notes = input.notes;
       if (input.approvedDate) data.approvedDate = new Date(input.approvedDate);
 
       return ctx.db.hospitalPrivilege.update({
         where: { id: input.id },
-        data: data as any,
+        data,
       });
     }),
 });
