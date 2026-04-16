@@ -65,3 +65,45 @@ export async function authenticateApiKey(request: Request): Promise<ApiKeyAuthRe
     permissions: (apiKey.permissions as Record<string, boolean>) || {},
   };
 }
+
+/**
+ * Scope check helper. Returns a 403 response if the key lacks the required
+ * scope; returns null when authorized.
+ *
+ * Scopes are boolean flags stored in `api_keys.permissions`. Example:
+ *   { "providers:read": true, "sanctions:read": true }
+ *
+ * Scope names are colon-delimited and read-only by convention in v1.
+ */
+export function requireScope(
+  auth: ApiKeyAuthResult,
+  scope: string,
+): NextResponse | null {
+  if (!auth.valid || !auth.permissions) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (auth.permissions[scope] !== true) {
+    return NextResponse.json(
+      {
+        error: "insufficient_scope",
+        message: `This API key is missing the '${scope}' scope`,
+        required: scope,
+      },
+      { status: 403 },
+    );
+  }
+  return null;
+}
+
+/**
+ * Scope registry — single source of truth so docs, UI, and runtime agree.
+ */
+export const API_SCOPES = [
+  "providers:read",
+  "sanctions:read",
+  "enrollments:read",
+  "fhir:read",
+] as const;
+
+export type ApiScope = (typeof API_SCOPES)[number];
+

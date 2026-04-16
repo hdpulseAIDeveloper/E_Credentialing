@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/server/db";
-import { authenticateApiKey } from "../middleware";
+import { authenticateApiKey, requireScope } from "../middleware";
 import { auditApiRequest } from "@/lib/api/audit-api";
 
 export async function GET(request: Request) {
   const auth = await authenticateApiKey(request);
   if (!auth.valid) return auth.error;
 
-  if (!auth.permissions?.["providers:read"]) {
-    return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
-  }
+  const scopeError = requireScope(auth, "providers:read");
+  if (scopeError) return scopeError;
 
   const url = new URL(request.url);
   const status = url.searchParams.get("status");
@@ -17,8 +17,8 @@ export async function GET(request: Request) {
   const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
   const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "25")));
 
-  const where: Record<string, unknown> = {};
-  if (status) where.status = status;
+  const where: Prisma.ProviderWhereInput = {};
+  if (status) where.status = status as Prisma.ProviderWhereInput["status"];
   if (npi) where.npi = npi;
 
   const [total, providers] = await Promise.all([

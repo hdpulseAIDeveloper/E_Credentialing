@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/server/db";
-import { authenticateApiKey } from "../middleware";
+import { authenticateApiKey, requireScope } from "../middleware";
 import { auditApiRequest } from "@/lib/api/audit-api";
 
 export async function GET(request: Request) {
   const auth = await authenticateApiKey(request);
   if (!auth.valid) return auth.error;
 
-  if (!auth.permissions?.["enrollments:read"]) {
-    return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
-  }
+  const scopeError = requireScope(auth, "enrollments:read");
+  if (scopeError) return scopeError;
 
   const url = new URL(request.url);
   const status = url.searchParams.get("status");
@@ -17,8 +17,8 @@ export async function GET(request: Request) {
   const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
   const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "25")));
 
-  const where: Record<string, unknown> = {};
-  if (status) where.status = status;
+  const where: Prisma.EnrollmentWhereInput = {};
+  if (status) where.status = status as Prisma.EnrollmentWhereInput["status"];
   if (payerName) where.payerName = { contains: payerName, mode: "insensitive" };
 
   const [total, enrollments] = await Promise.all([

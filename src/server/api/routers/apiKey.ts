@@ -7,8 +7,26 @@ import { createTRPCRouter, adminProcedure } from "@/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { writeAuditLog } from "@/lib/audit";
 import { createHash, randomBytes } from "crypto";
+import { API_SCOPES, type ApiScope } from "@/app/api/v1/middleware";
+
+/**
+ * Scope validator — rejects creation if the client hands us a scope that
+ * isn't in the registry. This is the single source of truth: docs/api/authentication.md,
+ * the UI, and every route use this same list.
+ */
+const permissionsSchema = z
+  .record(z.boolean())
+  .refine(
+    (perms) => Object.keys(perms).every((k) => (API_SCOPES as readonly string[]).includes(k)),
+    {
+      message: `Unknown scope. Allowed: ${API_SCOPES.join(", ")}`,
+    },
+  );
 
 export const apiKeyRouter = createTRPCRouter({
+  // Exposed for the UI so the scope list matches the runtime registry.
+  availableScopes: adminProcedure.query((): readonly ApiScope[] => API_SCOPES),
+
   // ─── List all API keys ──────────────────────────────────────────────
   list: adminProcedure
     .query(async ({ ctx }) => {
@@ -32,7 +50,7 @@ export const apiKeyRouter = createTRPCRouter({
     .input(
       z.object({
         name: z.string().min(1).max(200),
-        permissions: z.record(z.boolean()).default({}),
+        permissions: permissionsSchema.default({}),
         expiresAt: z.string().optional(),
       })
     )

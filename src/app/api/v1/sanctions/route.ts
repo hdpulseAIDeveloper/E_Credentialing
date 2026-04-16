@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/server/db";
-import { authenticateApiKey } from "../middleware";
+import { authenticateApiKey, requireScope } from "../middleware";
 import { auditApiRequest } from "@/lib/api/audit-api";
 
 export async function GET(request: Request) {
   const auth = await authenticateApiKey(request);
   if (!auth.valid) return auth.error;
 
-  if (!auth.permissions?.["sanctions:read"]) {
-    return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
-  }
+  const scopeError = requireScope(auth, "sanctions:read");
+  if (scopeError) return scopeError;
 
   const url = new URL(request.url);
   const providerId = url.searchParams.get("providerId");
@@ -17,9 +17,9 @@ export async function GET(request: Request) {
   const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
   const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "25")));
 
-  const where: Record<string, unknown> = {};
+  const where: Prisma.SanctionsCheckWhereInput = {};
   if (providerId) where.providerId = providerId;
-  if (result) where.result = result;
+  if (result) where.result = result as Prisma.SanctionsCheckWhereInput["result"];
 
   const [total, checks] = await Promise.all([
     db.sanctionsCheck.count({ where }),

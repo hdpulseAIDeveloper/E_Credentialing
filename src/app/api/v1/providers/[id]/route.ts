@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { authenticateApiKey } from "../../middleware";
+import { authenticateApiKey, requireScope } from "../../middleware";
 import { auditApiRequest } from "@/lib/api/audit-api";
 
 export async function GET(
@@ -10,9 +10,8 @@ export async function GET(
   const auth = await authenticateApiKey(request);
   if (!auth.valid) return auth.error;
 
-  if (!auth.permissions?.["providers:read"]) {
-    return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
-  }
+  const scopeError = requireScope(auth, "providers:read");
+  if (scopeError) return scopeError;
 
   const { id } = await params;
   const provider = await db.provider.findUnique({
