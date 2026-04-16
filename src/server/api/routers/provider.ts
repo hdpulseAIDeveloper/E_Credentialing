@@ -7,7 +7,7 @@ import { createTRPCRouter, staffProcedure, managerProcedure } from "@/server/api
 import { TRPCError } from "@trpc/server";
 import { writeAuditLog, auditProviderStatusChange } from "@/lib/audit";
 import { encryptOptional } from "@/lib/encryption";
-import type { ProviderStatus, Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import {
   CoiStatus,
   OnsiteMeetingStatus,
@@ -23,7 +23,7 @@ export const providerRouter = createTRPCRouter({
   list: staffProcedure
     .input(
       z.object({
-        status: z.string().optional(),
+        status: z.nativeEnum(ProviderStatusEnum).optional(),
         providerTypeId: z.string().optional(),
         assignedSpecialistId: z.string().optional(),
         search: z.string().optional(),
@@ -34,7 +34,7 @@ export const providerRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const where: Prisma.ProviderWhereInput = {};
 
-      if (input.status) where.status = input.status as ProviderStatus;
+      if (input.status) where.status = input.status;
       if (input.providerTypeId) where.providerTypeId = input.providerTypeId;
       if (input.assignedSpecialistId) where.assignedSpecialistId = input.assignedSpecialistId;
       if (input.search) {
