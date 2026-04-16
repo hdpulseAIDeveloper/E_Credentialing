@@ -14,12 +14,11 @@ interface User {
   isActive: boolean;
 }
 
-interface EditModalProps {
+interface Props {
   user: User;
-  onClose: () => void;
 }
 
-function EditUserModal({ user, onClose }: EditModalProps) {
+function EditUserModal({ user, onClose }: { user: User; onClose: () => void }) {
   const router = useRouter();
   const [form, setForm] = useState({
     displayName: user.displayName,
@@ -110,11 +109,7 @@ function EditUserModal({ user, onClose }: EditModalProps) {
             >
               {updateUser.isPending ? "Saving…" : "Save Changes"}
             </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
-            >
+            <button type="button" onClick={onClose} className="flex-1 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
               Cancel
             </button>
           </div>
@@ -124,113 +119,76 @@ function EditUserModal({ user, onClose }: EditModalProps) {
   );
 }
 
-interface InviteModalProps {
-  onClose: () => void;
-}
-
-function InviteUserModal({ onClose }: InviteModalProps) {
+function DeleteUserModal({ user, onClose }: { user: User; onClose: () => void }) {
   const router = useRouter();
-  const [form, setForm] = useState({ email: "", displayName: "", role: "SPECIALIST" as UserRole });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [confirmText, setConfirmText] = useState("");
 
-  const createUser = api.admin.createUser.useMutation({
+  const deleteUser = api.admin.deleteUser.useMutation({
     onSuccess: () => {
-      onClose();
+      router.push("/admin/users");
       router.refresh();
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const errs: Record<string, string> = {};
-    if (!form.email.trim()) errs.email = "Email is required.";
-    else if (!/\S+@\S+\.\S+/.test(form.email)) errs.email = "Invalid email address.";
-    if (!form.displayName.trim()) errs.displayName = "Name is required.";
-    setErrors(errs);
-    if (Object.keys(errs).length > 0) return;
-    createUser.mutate({ email: form.email.trim(), displayName: form.displayName.trim(), role: form.role });
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
-        <div className="flex justify-between items-center px-6 py-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-900">Invite Staff User</h2>
+        <div className="flex justify-between items-center px-6 py-4 border-b bg-red-50">
+          <h2 className="text-lg font-semibold text-red-900">Permanently Delete User</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
         </div>
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {createUser.error && (
+        <div className="px-6 py-5 space-y-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <p className="text-sm text-red-800 font-medium">This action is irreversible.</p>
+            <p className="text-sm text-red-700 mt-1">
+              Permanently removing <strong>{user.displayName}</strong> ({user.email}) will delete their account record.
+              Audit trail entries will be preserved but the user reference will show as deleted.
+            </p>
+          </div>
+          <p className="text-sm text-gray-600">
+            If the user has assigned providers, open tasks, or active enrollments, you must reassign them first.
+            Consider <strong>deactivating</strong> instead if you want to preserve the record.
+          </p>
+          {deleteUser.error && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
-              {createUser.error.message}
+              {deleteUser.error.message}
             </p>
           )}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Email <span className="text-red-500">*</span></label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => { setForm((p) => ({ ...p, email: e.target.value })); setErrors((p) => ({ ...p, email: "" })); }}
-              placeholder="user@essenmed.com"
-              className={`w-full border ${errors.email ? "border-red-400" : "border-gray-300"} rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`}
-            />
-            {errors.email && <p className="text-xs text-red-600 mt-0.5">{errors.email}</p>}
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Display Name <span className="text-red-500">*</span></label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Type <strong>DELETE</strong> to confirm
+            </label>
             <input
               type="text"
-              value={form.displayName}
-              onChange={(e) => { setForm((p) => ({ ...p, displayName: e.target.value })); setErrors((p) => ({ ...p, displayName: "" })); }}
-              placeholder="Jane Smith"
-              className={`w-full border ${errors.displayName ? "border-red-400" : "border-gray-300"} rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="DELETE"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
             />
-            {errors.displayName && <p className="text-xs text-red-600 mt-0.5">{errors.displayName}</p>}
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Role</label>
-            <select
-              value={form.role}
-              onChange={(e) => setForm((p) => ({ ...p, role: e.target.value as UserRole }))}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="SPECIALIST">Specialist</option>
-              <option value="MANAGER">Manager</option>
-              <option value="COMMITTEE_MEMBER">Committee Member</option>
-              <option value="ADMIN">Admin</option>
-            </select>
-          </div>
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3 pt-1">
             <button
-              type="submit"
-              disabled={createUser.isPending}
-              className="flex-1 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              onClick={() => deleteUser.mutate({ id: user.id })}
+              disabled={confirmText !== "DELETE" || deleteUser.isPending}
+              className="flex-1 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {createUser.isPending ? "Creating…" : "Create User"}
+              {deleteUser.isPending ? "Deleting…" : "Delete Permanently"}
             </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
-            >
+            <button type="button" onClick={onClose} className="flex-1 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
               Cancel
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
 }
 
-interface AdminUserRowActionsProps {
-  user: User;
-}
-
-export function AdminUserRowActions({ user }: AdminUserRowActionsProps) {
+export function UserDetailActions({ user }: Props) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleteText, setDeleteText] = useState("");
 
   const deactivate = api.admin.deactivateUser.useMutation({
     onSuccess: () => {
@@ -243,26 +201,19 @@ export function AdminUserRowActions({ user }: AdminUserRowActionsProps) {
     onSuccess: () => router.refresh(),
   });
 
-  const deleteUser = api.admin.deleteUser.useMutation({
-    onSuccess: () => {
-      setConfirmDelete(false);
-      router.refresh();
-    },
-  });
-
   return (
     <>
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2">
         <button
           onClick={() => setEditOpen(true)}
-          className="text-xs text-blue-600 hover:underline"
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
         >
-          Edit
+          Edit User
         </button>
         {user.isActive ? (
           <button
             onClick={() => setConfirmDeactivate(true)}
-            className="text-xs text-orange-600 hover:underline"
+            className="px-4 py-2 text-sm font-medium text-orange-700 bg-orange-100 rounded-lg hover:bg-orange-200 transition-colors"
           >
             Deactivate
           </button>
@@ -270,20 +221,21 @@ export function AdminUserRowActions({ user }: AdminUserRowActionsProps) {
           <button
             onClick={() => reactivate.mutate({ id: user.id, isActive: true })}
             disabled={reactivate.isPending}
-            className="text-xs text-green-600 hover:underline disabled:opacity-50"
+            className="px-4 py-2 text-sm font-medium text-green-700 bg-green-100 rounded-lg hover:bg-green-200 disabled:opacity-50 transition-colors"
           >
-            Reactivate
+            {reactivate.isPending ? "Reactivating…" : "Reactivate"}
           </button>
         )}
         <button
-          onClick={() => setConfirmDelete(true)}
-          className="text-xs text-red-600 hover:underline"
+          onClick={() => setDeleteOpen(true)}
+          className="px-4 py-2 text-sm font-medium text-red-700 bg-red-100 rounded-lg hover:bg-red-200 transition-colors"
         >
           Delete
         </button>
       </div>
 
       {editOpen && <EditUserModal user={user} onClose={() => setEditOpen(false)} />}
+      {deleteOpen && <DeleteUserModal user={user} onClose={() => setDeleteOpen(false)} />}
 
       {confirmDeactivate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setConfirmDeactivate(false)}>
@@ -313,69 +265,6 @@ export function AdminUserRowActions({ user }: AdminUserRowActionsProps) {
           </div>
         </div>
       )}
-
-      {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setConfirmDelete(false)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b bg-red-50">
-              <h2 className="text-lg font-semibold text-red-900">Permanently Delete User?</h2>
-            </div>
-            <div className="px-6 py-5 space-y-4">
-              <p className="text-sm text-gray-600">
-                This will permanently delete <strong>{user.displayName}</strong> ({user.email}).
-                The user must have no assigned providers, open tasks, or active enrollments.
-              </p>
-              {deleteUser.error && (
-                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
-                  {deleteUser.error.message}
-                </p>
-              )}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Type <strong>DELETE</strong> to confirm
-                </label>
-                <input
-                  type="text"
-                  value={deleteText}
-                  onChange={(e) => setDeleteText(e.target.value)}
-                  placeholder="DELETE"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                />
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => deleteUser.mutate({ id: user.id })}
-                  disabled={deleteText !== "DELETE" || deleteUser.isPending}
-                  className="flex-1 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {deleteUser.isPending ? "Deleting…" : "Delete Permanently"}
-                </button>
-                <button
-                  onClick={() => { setConfirmDelete(false); setDeleteText(""); }}
-                  className="flex-1 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-export function InviteUserButton() {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <button
-        onClick={() => setOpen(true)}
-        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-      >
-        + Invite User
-      </button>
-      {open && <InviteUserModal onClose={() => setOpen(false)} />}
     </>
   );
 }

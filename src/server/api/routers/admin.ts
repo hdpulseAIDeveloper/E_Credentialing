@@ -9,6 +9,42 @@ import { writeAuditLog } from "@/lib/audit";
 import type { UserRole } from "@prisma/client";
 
 export const adminRouter = createTRPCRouter({
+  // ─── Get single user ────────────────────────────────────────────────────
+  getUser: managerProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const user = await ctx.db.user.findUnique({
+        where: { id: input.id },
+        include: {
+          assignedProviders: {
+            select: { id: true, legalFirstName: true, legalLastName: true, status: true, npi: true },
+            orderBy: { updatedAt: "desc" },
+          },
+          assignedTasks: {
+            where: { status: { not: "COMPLETED" } },
+            select: { id: true, title: true, status: true, priority: true, dueDate: true },
+            orderBy: { createdAt: "desc" },
+            take: 10,
+          },
+          completedTasks: {
+            select: { id: true },
+          },
+          auditLogsAsActor: {
+            select: { id: true, action: true, entityType: true, entityId: true, createdAt: true },
+            orderBy: { createdAt: "desc" },
+            take: 25,
+          },
+          enrollmentAssignments: {
+            select: { id: true, payerName: true, status: true },
+            orderBy: { createdAt: "desc" },
+            take: 10,
+          },
+        },
+      });
+      if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+      return user;
+    }),
+
   // ─── List users ────────────────────────────────────────────────────────
   listUsers: managerProcedure
     .input(
@@ -95,6 +131,7 @@ export const adminRouter = createTRPCRouter({
     .input(
       z.object({
         id: z.string().uuid(),
+        email: z.string().email().optional(),
         displayName: z.string().optional(),
         role: z.enum(["SPECIALIST", "MANAGER", "COMMITTEE_MEMBER", "ADMIN"]).optional(),
         isActive: z.boolean().optional(),
@@ -105,6 +142,11 @@ export const adminRouter = createTRPCRouter({
       const before = await ctx.db.user.findUnique({ where: { id } });
       if (!before) throw new TRPCError({ code: "NOT_FOUND" });
 
+      if (input.email && input.email !== before.email) {
+        const dup = await ctx.db.user.findUnique({ where: { email: input.email } });
+        if (dup) throw new TRPCError({ code: "CONFLICT", message: "Another user already has this email address" });
+      }
+
       const updated = await ctx.db.user.update({ where: { id }, data: rest });
 
       await writeAuditLog({
@@ -113,8 +155,8 @@ export const adminRouter = createTRPCRouter({
         action: "user.updated",
         entityType: "User",
         entityId: id,
-        beforeState: { role: before.role, isActive: before.isActive },
-        afterState: { role: updated.role, isActive: updated.isActive },
+        beforeState: { email: before.email, displayName: before.displayName, role: before.role, isActive: before.isActive },
+        afterState: { email: updated.email, displayName: updated.displayName, role: updated.role, isActive: updated.isActive },
       });
 
       return updated;
@@ -137,6 +179,57 @@ export const adminRouter = createTRPCRouter({
         entityType: "User",
         entityId: input.id,
       });
+
+      return { success: true };
+    }),
+
+  // ─── Delete user (hard delete) ─────────────────────────────────────────
+  deleteUser: adminProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      if (input.id === ctx.session!.user.id) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot delete your own account" });
+      }
+
+      const user = await ctx.db.user.findUnique({
+        where: { id: input.id },
+        include: {
+          assignedProviders: { select: { id: true } },
+          assignedTasks: { where: { status: { not: "COMPLETED" } }, select: { id: true } },
+          enrollmentAssignments: { where: { status: { notIn: ["ENROLLED", "DENIED", "WITHDRAWN"] } }, select: { id: true } },
+        },
+      });
+
+      if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+
+      const blockers: string[] = [];
+      if (user.assignedProviders.length > 0) {
+        blockers.push(`${user.assignedProviders.length} assigned provider(s)`);
+      }
+      if (user.assignedTasks.length > 0) {
+        blockers.push(`${user.assignedTasks.length} open task(s)`);
+      }
+      if (user.enrollmentAssignments.length > 0) {
+        blockers.push(`${user.enrollmentAssignments.length} active enrollment(s)`);
+      }
+
+      if (blockers.length > 0) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: `Cannot delete user. Reassign the following first: ${blockers.join(", ")}.`,
+        });
+      }
+
+      await writeAuditLog({
+        actorId: ctx.session!.user.id,
+        actorRole: ctx.session!.user.role,
+        action: "user.deleted",
+        entityType: "User",
+        entityId: input.id,
+        beforeState: { email: user.email, displayName: user.displayName, role: user.role },
+      });
+
+      await ctx.db.user.delete({ where: { id: input.id } });
 
       return { success: true };
     }),

@@ -18,6 +18,7 @@ export function UserSearch({ currentSearch, currentRole, currentStatus }: UserSe
   const updateParams = useCallback(
     (updates: Record<string, string | undefined>) => {
       const params = new URLSearchParams(searchParams.toString());
+      params.delete("page");
       for (const [key, value] of Object.entries(updates)) {
         if (value) params.set(key, value);
         else params.delete(key);

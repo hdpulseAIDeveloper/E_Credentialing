@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESSEN Credentialing Platform — Pitch Deck</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  :root {
+    --essen-blue: #0B3D91;
+    --essen-navy: #061E47;
+    --essen-accent: #00A3E0;
+    --essen-green: #00B67A;
+    --essen-orange: #FF6B35;
+    --essen-red: #E63946;
+    --essen-gold: #F4A261;
+    --text-primary: #1A1A2E;
+    --text-secondary: #555577;
+    --bg-light: #F8F9FC;
+    --bg-white: #FFFFFF;
+    --gradient-blue: linear-gradient(135deg, #0B3D91 0%, #00A3E0 100%);
+    --gradient-dark: linear-gradient(135deg, #061E47 0%, #0B3D91 100%);
+    --gradient-green: linear-gradient(135deg, #00B67A 0%, #00A3E0 100%);
+    --shadow-soft: 0 4px 24px rgba(11, 61, 145, 0.08);
+    --shadow-card: 0 8px 32px rgba(11, 61, 145, 0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--text-primary);
+    background: var(--bg-light);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .slide {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 80px;
+    position: relative;
+    overflow: hidden;
+    page-break-after: always;
+  }
+
+  .slide-inner {
+    max-width: 1200px;
+    width: 100%;
+    z-index: 1;
+    position: relative;
+  }
+
+  /* Slide 1: Title */
+  .slide-title {
+    background: var(--gradient-dark);
+    color: white;
+  }
+
+  .slide-title::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 80%;
+    height: 200%;
+    background: radial-gradient(ellipse, rgba(0, 163, 224, 0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .slide-title::after {
+    content: '';
+    position: absolute;
+    bottom: -30%;
+    left: -10%;
+    width: 60%;
+    height: 150%;
+    background: radial-gradient(ellipse, rgba(0, 182, 122, 0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .title-badge {
+    display: inline-block;
+    background: rgba(0, 163, 224, 0.2);
+    border: 1px solid rgba(0, 163, 224, 0.4);
+    color: var(--essen-accent);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 8px 20px;
+    border-radius: 50px;
+    margin-bottom: 30px;
+  }
+
+  .title-main {
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -2px;
+    margin-bottom: 24px;
+  }
+
+  .title-main span {
+    background: linear-gradient(135deg, #00A3E0, #00B67A);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .title-sub {
+    font-size: 22px;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.75);
+    max-width: 700px;
+    line-height: 1.6;
+    margin-bottom: 50px;
+  }
+
+  .title-meta {
+    display: flex;
+    gap: 40px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  .title-meta strong { color: rgba(255, 255, 255, 0.8); }
+
+  /* Generic slide styles */
+  .slide-white { background: var(--bg-white); }
+  .slide-light { background: var(--bg-light); }
+
+  .slide-blue {
+    background: var(--gradient-blue);
+    color: white;
+  }
+
+  .slide-navy {
+    background: var(--gradient-dark);
+    color: white;
+  }
+
+  .slide-number {
+    position: absolute;
+    bottom: 30px;
+    right: 40px;
+    font-size: 13px;
+    color: rgba(0, 0, 0, 0.2);
+    font-weight: 600;
+  }
+
+  .slide-navy .slide-number,
+  .slide-blue .slide-number,
+  .slide-title .slide-number {
+    color: rgba(255, 255, 255, 0.25);
+  }
+
+  .section-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: var(--essen-accent);
+    margin-bottom: 12px;
+  }
+
+  .slide-navy .section-label,
+  .slide-blue .section-label {
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  h2 {
+    font-size: 44px;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -1.5px;
+    margin-bottom: 24px;
+  }
+
+  h3 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+
+  .subtitle {
+    font-size: 18px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    max-width: 750px;
+    margin-bottom: 50px;
+  }
+
+  .slide-navy .subtitle,
+  .slide-blue .subtitle {
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  /* Card grids */
+  .card-grid {
+    display: grid;
+    gap: 24px;
+  }
+
+  .card-grid-2 { grid-template-columns: 1fr 1fr; }
+  .card-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .card-grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+  .card {
+    background: var(--bg-white);
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: var(--shadow-soft);
+    border: 1px solid rgba(11, 61, 145, 0.06);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card);
+  }
+
+  .slide-navy .card,
+  .slide-blue .card {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(10px);
+  }
+
+  .card-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 20px;
+    font-weight: 700;
+  }
+
+  .icon-blue { background: rgba(0, 163, 224, 0.12); color: var(--essen-accent); }
+  .icon-green { background: rgba(0, 182, 122, 0.12); color: var(--essen-green); }
+  .icon-orange { background: rgba(255, 107, 53, 0.12); color: var(--essen-orange); }
+  .icon-red { background: rgba(230, 57, 70, 0.12); color: var(--essen-red); }
+  .icon-gold { background: rgba(244, 162, 97, 0.12); color: var(--essen-gold); }
+  .icon-navy { background: rgba(11, 61, 145, 0.12); color: var(--essen-blue); }
+
+  .slide-navy .icon-blue,
+  .slide-blue .icon-blue {
+    background: rgba(0, 163, 224, 0.2);
+    color: #66D4FF;
+  }
+
+  .card h4 {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .card p {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+
+  .slide-navy .card p,
+  .slide-blue .card p {
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .slide-navy .card h4,
+  .slide-blue .card h4 {
+    color: white;
+  }
+
+  /* Stat cards */
+  .stat-card {
+    text-align: center;
+    padding: 40px 24px;
+  }
+
+  .stat-number {
+    font-size: 56px;
+    font-weight: 900;
+    letter-spacing: -2px;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  .stat-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .text-blue { color: var(--essen-accent); }
+  .text-green { color: var(--essen-green); }
+  .text-orange { color: var(--essen-orange); }
+  .text-red { color: var(--essen-red); }
+
+  /* Two-column layout */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    align-items: center;
+  }
+
+  .two-col-wide { grid-template-columns: 2fr 3fr; }
+
+  /* Timeline */
+  .timeline { list-style: none; position: relative; }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, var(--essen-accent), var(--essen-green));
+    border-radius: 2px;
+  }
+
+  .timeline li {
+    position: relative;
+    padding-left: 56px;
+    padding-bottom: 32px;
+  }
+
+  .timeline li:last-child { padding-bottom: 0; }
+
+  .timeline li::before {
+    content: '';
+    position: absolute;
+    left: 12px;
+    top: 4px;
+    width: 18px;
+    height: 18px;
+    background: var(--essen-accent);
+    border-radius: 50%;
+    border: 3px solid var(--bg-white);
+    box-shadow: 0 0 0 2px var(--essen-accent);
+  }
+
+  .timeline-date {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--essen-accent);
+    margin-bottom: 4px;
+  }
+
+  .timeline-title {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .timeline-desc {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  /* Comparison table */
+  .comparison-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow-soft);
+    font-size: 14px;
+  }
+
+  .comparison-table th {
+    background: var(--essen-navy);
+    color: white;
+    padding: 16px 20px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .comparison-table td {
+    padding: 14px 20px;
+    border-bottom: 1px solid #eee;
+    background: white;
+  }
+
+  .comparison-table tr:last-child td { border-bottom: none; }
+
+  .comparison-table .col-old { color: var(--essen-red); }
+  .comparison-table .col-new { color: var(--essen-green); font-weight: 600; }
+
+  /* Feature list */
+  .feature-list { list-style: none; }
+
+  .feature-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .feature-list li:last-child { border-bottom: none; }
+
+  .feature-check {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: rgba(0, 182, 122, 0.12);
+    color: var(--essen-green);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  /* Quote */
+  .quote-block {
+    background: rgba(0, 163, 224, 0.06);
+    border-left: 4px solid var(--essen-accent);
+    padding: 28px 32px;
+    border-radius: 0 12px 12px 0;
+    margin: 32px 0;
+  }
+
+  .quote-block p {
+    font-size: 18px;
+    font-style: italic;
+    line-height: 1.6;
+    color: var(--text-primary);
+  }
+
+  /* Module bar */
+  .module-bar {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .module-chip {
+    text-align: center;
+    padding: 16px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .chip-blue { background: rgba(0, 163, 224, 0.12); color: var(--essen-blue); }
+  .chip-green { background: rgba(0, 182, 122, 0.12); color: #007A52; }
+  .chip-orange { background: rgba(255, 107, 53, 0.12); color: #B54518; }
+  .chip-red { background: rgba(230, 57, 70, 0.12); color: #A3202C; }
+  .chip-gold { background: rgba(244, 162, 97, 0.12); color: #A36621; }
+
+  /* ROI highlight */
+  .roi-highlight {
+    display: flex;
+    gap: 40px;
+    padding: 40px;
+    background: linear-gradient(135deg, rgba(0, 182, 122, 0.06), rgba(0, 163, 224, 0.06));
+    border-radius: 20px;
+    border: 1px solid rgba(0, 182, 122, 0.15);
+    margin-top: 40px;
+  }
+
+  .roi-item { flex: 1; text-align: center; }
+
+  .roi-item .stat-number {
+    font-size: 42px;
+    background: var(--gradient-green);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .roi-item .stat-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  /* Tech stack */
+  .tech-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    margin: 4px;
+    background: rgba(11, 61, 145, 0.06);
+    color: var(--essen-blue);
+  }
+
+  .slide-navy .tech-badge {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  /* CTA */
+  .cta-section { text-align: center; }
+
+  .cta-section h2 {
+    font-size: 52px;
+    margin-bottom: 20px;
+  }
+
+  .cta-section .subtitle {
+    margin: 0 auto 40px;
+    text-align: center;
+  }
+
+  .cta-buttons { display: flex; gap: 16px; justify-content: center; }
+
+  .btn {
+    display: inline-block;
+    padding: 16px 36px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: transform 0.2s;
+  }
+
+  .btn:hover { transform: translateY(-2px); }
+
+  .btn-primary {
+    background: var(--gradient-green);
+    color: white;
+    box-shadow: 0 4px 16px rgba(0, 182, 122, 0.3);
+  }
+
+  .btn-outline {
+    background: transparent;
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+  }
+
+  .divider {
+    width: 60px;
+    height: 4px;
+    background: var(--gradient-blue);
+    border-radius: 2px;
+    margin-bottom: 24px;
+  }
+
+  .slide-navy .divider {
+    background: linear-gradient(135deg, #00A3E0, #00B67A);
+  }
+
+  @media print {
+    .slide { page-break-after: always; min-height: 100vh; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SLIDE 1: TITLE -->
+<div class="slide slide-title">
+  <div class="slide-inner">
+    <div class="title-badge">Essen Medical Associates</div>
+    <h1 class="title-main">
+      ESSEN<br>
+      <span>Credentialing</span><br>
+      Platform
+    </h1>
+    <p class="title-sub">
+      Replacing PARCS with an intelligent, automated credentialing system that cuts onboarding time by 60%, eliminates manual verification bottlenecks, and ensures continuous compliance.
+    </p>
+    <div class="title-meta">
+      <span><strong>Prepared for:</strong> Essen Medical Leadership</span>
+      <span><strong>Date:</strong> April 2026</span>
+      <span><strong>Status:</strong> Production-Ready (v1.0)</span>
+    </div>
+  </div>
+  <div class="slide-number">01</div>
+</div>
+
+<!-- SLIDE 2: THE PROBLEM -->
+<div class="slide slide-white">
+  <div class="slide-inner">
+    <div class="section-label">The Problem</div>
+    <h2>PARCS Is Holding<br>Essen Back</h2>
+    <p class="subtitle">
+      The current credentialing system creates delays, compliance risk, and staff burnout through manual processes that haven't changed in a decade.
+    </p>
+    <div class="card-grid card-grid-2">
+      <div class="card">
+        <div class="card-icon icon-red">!</div>
+        <h4>Manual Verification Bottleneck</h4>
+        <p>Staff manually navigate 12+ external websites to verify each provider's licenses, DEA, board certifications, and sanctions status. Each provider requires 2&ndash;4 hours of manual verification work.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon icon-orange">K:</div>
+        <h4>K: Drive Document Chaos</h4>
+        <p>Provider credential documents live on a shared K: drive requiring VPN. Files are unindexed, unsearchable, and inaccessible to remote staff. No version control or audit trail.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon icon-red">&times;</div>
+        <h4>Missed Expirations</h4>
+        <p>No automated monitoring for credential expirations. Tracking happens in spreadsheets. Expired credentials are caught reactively&mdash;after they become compliance violations.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon icon-orange">&#9202;</div>
+        <h4>Enrollment Follow-Up Gaps</h4>
+        <p>Payer enrollment follow-ups are tracked manually. Missed cadences delay provider activation by weeks. Revenue-generating providers sit idle waiting for payer enrollment.</p>
+      </div>
+    </div>
+
+    <div class="quote-block">
+      <p>"We spend more time chasing paperwork and manually checking websites than we do actually credentialing providers. The system should work for us, not against us."</p>
+    </div>
+  </div>
+  <div class="slide-number">02</div>
+</div>
+
+<!-- SLIDE 3: BY THE NUMBERS -->
+<div class="slide slide-navy">
+  <div class="slide-inner">
+    <div class="section-label">Current State</div>
+    <h2>The Cost of Doing Nothing</h2>
+    <p class="subtitle">Every day with PARCS costs Essen time, money, and compliance exposure.</p>
+
+    <div class="card-grid card-grid-4">
+      <div class="card stat-card">
+        <div class="stat-number text-red">45+</div>
+        <div class="stat-label" style="color: rgba(255,255,255,0.5)">Days Average<br>Onboarding Time</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-number text-orange">12</div>
+        <div class="stat-label" style="color: rgba(255,255,255,0.5)">External Websites<br>Checked Manually</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-number text-orange">3-4</div>
+        <div class="stat-label" style="color: rgba(255,255,255,0.5)">Hours Per Provider<br>Manual PSV Work</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-number text-red">$$$</div>
+        <div class="stat-label" style="color: rgba(255,255,255,0.5)">Revenue Lost Per Day<br>Provider Sits Idle</div>
+      </div>
+    </div>
+
+    <div class="roi-highlight" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1);">
+      <div class="roi-item">
+        <div class="stat-number" style="background: linear-gradient(135deg, #E63946, #FF6B35); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">100%</div>
+        <div class="stat-label" style="color: rgba(255,255,255,0.5)">Manual Process</div>
+      </div>
+      <div class="roi-item">
+        <div class="stat-number" style="background: linear-gradient(135deg, #E63946, #FF6B35); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">0</div>
+        <div class="stat-label" style="color: rgba(255,255,255,0.5)">Automated Verifications</div>
+      </div>
+      <div class="roi-item">
+        <div class="stat-number" style="background: linear-gradient(135deg, #E63946, #FF6B35); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">0</div>
+        <div class="stat-label" style="color: rgba(255,255,255,0.5)">Real-Time Expirable Alerts</div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-number">03</div>
+</div>
+
+<!-- SLIDE 4: THE SOLUTION -->
+<div class="slide slide-white">
+  <div class="slide-inner">
+    <div class="section-label">The Solution</div>
+    <h2>An Intelligent Credentialing<br>Platform Built for Essen</h2>
+    <p class="subtitle">
+      A unified, web-based platform that automates verification, tracks compliance in real time, and gives every team member the tools they need&mdash;from onboarding to committee approval and beyond.
+    </p>
+
+    <div class="module-bar">
+      <div class="module-chip chip-blue">Provider<br>Onboarding</div>
+      <div class="module-chip chip-blue">Onboarding<br>Dashboard</div>
+      <div class="module-chip chip-green">Committee<br>Dashboard</div>
+      <div class="module-chip chip-orange">Enrollment<br>Management</div>
+      <div class="module-chip chip-red">Expirables<br>Tracking</div>
+    </div>
+    <div class="module-bar">
+      <div class="module-chip chip-gold">PSV Bots<br>(Automation)</div>
+      <div class="module-chip chip-red">Sanctions<br>Checking</div>
+      <div class="module-chip chip-blue">NY Medicaid<br>& ETIN</div>
+      <div class="module-chip chip-green">Hospital<br>Privileges</div>
+      <div class="module-chip chip-gold">NPDB<br>Monitoring</div>
+    </div>
+
+    <div class="quote-block" style="margin-top: 40px;">
+      <p>10 integrated modules. One platform. Complete credentialing lifecycle from outreach to ongoing compliance.</p>
+    </div>
+  </div>
+  <div class="slide-number">04</div>
+</div>
+
+<!-- SLIDE 5: KEY CAPABILITIES -->
+<div class="slide slide-light">
+  <div class="slide-inner">
+    <div class="section-label">Core Capabilities</div>
+    <h2>What Makes This Different</h2>
+    <p class="subtitle">Purpose-built for healthcare credentialing, not adapted from generic software.</p>
+
+    <div class="card-grid card-grid-3">
+      <div class="card">
+        <div class="card-icon icon-blue">&#9889;</div>
+        <h4>Automated PSV Bots</h4>
+        <p>Playwright-powered bots verify licenses, DEA, board certifications, sanctions (OIG & SAM), and NPDB automatically. 10+ bot types with retry logic, MFA support, and PDF capture.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon icon-green">&#128196;</div>
+        <h4>Intelligent Document OCR</h4>
+        <p>Azure AI Document Intelligence extracts data from uploaded credentials&mdash;licenses, insurance cards, board certs&mdash;and auto-fills the application. 85%+ confidence threshold with human review.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon icon-orange">&#128276;</div>
+        <h4>Expirable Monitoring</h4>
+        <p>20+ credential types tracked with automated 90/60/30/14/7-day alerts. Nightly scans detect expirations before they become compliance issues. Bot-assisted renewal confirmation.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon icon-navy">&#128101;</div>
+        <h4>Committee Workflow</h4>
+        <p>Auto-generated summary sheets and agendas. One-click provider approval with full audit trail. Conditional approvals with item tracking. No more manual prep work.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon icon-gold">&#128197;</div>
+        <h4>Enrollment Cadence Tracking</h4>
+        <p>Per-payer follow-up cadences with automated alerts. Portal-bot enrollment submissions. FTP roster generation. Gap analysis shows missing payer enrollments at a glance.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon icon-red">&#128274;</div>
+        <h4>HIPAA-Compliant Security</h4>
+        <p>AES-256-GCM encryption for all PHI. Azure AD SSO. Role-based access with 5 distinct permission levels. Immutable audit logs retained for 10+ years. No PHI in logs.</p>
+      </div>
+    </div>
+  </div>
+  <div class="slide-number">05</div>
+</div>
+
+<!-- SLIDE 6: BEFORE & AFTER -->
+<div class="slide slide-white">
+  <div class="slide-inner">
+    <div class="section-label">Transformation</div>
+    <h2>PARCS vs. ESSEN Platform</h2>
+    <p class="subtitle">A side-by-side comparison of the old way and the new way.</p>
+
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th style="width: 30%">Process</th>
+          <th style="width: 35%">PARCS (Current)</th>
+          <th style="width: 35%">ESSEN Platform (New)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>License Verification</strong></td>
+          <td class="col-old">Manual: navigate to state board site, search, screenshot, save to K: drive</td>
+          <td class="col-new">Automated: bot verifies across all 50 states, saves timestamped PDF, updates checklist</td>
+        </tr>
+        <tr>
+          <td><strong>DEA Verification</strong></td>
+          <td class="col-old">Manual: log into DEA portal, handle MFA, screenshot results</td>
+          <td class="col-new">Automated: bot handles TOTP MFA, verifies, captures PDF in seconds</td>
+        </tr>
+        <tr>
+          <td><strong>Sanctions Checking</strong></td>
+          <td class="col-old">Manual: search OIG and SAM.gov separately for each provider</td>
+          <td class="col-new">Automated: initial + monthly rechecks for all providers. Hard-stop on exclusions</td>
+        </tr>
+        <tr>
+          <td><strong>Document Storage</strong></td>
+          <td class="col-old">K: drive folders, VPN required, no version control, unsearchable</td>
+          <td class="col-new">Azure Blob Storage, web-accessible, versioned, SAS-secured, indexed by provider</td>
+        </tr>
+        <tr>
+          <td><strong>Expirable Tracking</strong></td>
+          <td class="col-old">Spreadsheets, manual checks, reactive discovery of expired credentials</td>
+          <td class="col-new">Nightly automated scans, 90-day advance alerts, bot-assisted renewal confirmation</td>
+        </tr>
+        <tr>
+          <td><strong>Committee Prep</strong></td>
+          <td class="col-old">Manual summary sheets, hand-assembled PDF packets, email distribution</td>
+          <td class="col-new">Auto-generated summary sheets, one-click agenda creation and distribution</td>
+        </tr>
+        <tr>
+          <td><strong>Provider Application</strong></td>
+          <td class="col-old">Paper forms or emailed documents, manual data entry into PARCS</td>
+          <td class="col-new">Online self-service portal with OCR auto-fill, CAQH/iCIMS data ingestion</td>
+        </tr>
+        <tr>
+          <td><strong>Enrollment Follow-Up</strong></td>
+          <td class="col-old">Manual tracking, missed cadences, no accountability for follow-ups</td>
+          <td class="col-new">Configurable cadences with automated alerts, follow-up log, and audit trail</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="slide-number">06</div>
+</div>
+
+<!-- SLIDE 7: ARCHITECTURE -->
+<div class="slide slide-navy">
+  <div class="slide-inner">
+    <div class="section-label">Technology</div>
+    <h2>Built on Enterprise-Grade<br>Architecture</h2>
+    <p class="subtitle">Modern, secure, scalable&mdash;aligned with Essen's existing Microsoft/Azure infrastructure.</p>
+
+    <div class="two-col">
+      <div>
+        <h3 style="color: white; margin-bottom: 24px;">Technology Stack</h3>
+        <div style="margin-bottom: 16px;">
+          <span class="tech-badge">Next.js 14+</span>
+          <span class="tech-badge">TypeScript</span>
+          <span class="tech-badge">tRPC</span>
+          <span class="tech-badge">Prisma</span>
+          <span class="tech-badge">PostgreSQL</span>
+          <span class="tech-badge">Redis</span>
+        </div>
+        <div style="margin-bottom: 16px;">
+          <span class="tech-badge">Playwright</span>
+          <span class="tech-badge">BullMQ</span>
+          <span class="tech-badge">Socket.io</span>
+          <span class="tech-badge">Auth.js v5</span>
+        </div>
+        <div>
+          <span class="tech-badge">Azure AD SSO</span>
+          <span class="tech-badge">Azure Blob</span>
+          <span class="tech-badge">Azure Key Vault</span>
+          <span class="tech-badge">Azure AI OCR</span>
+          <span class="tech-badge">SendGrid</span>
+        </div>
+      </div>
+      <div>
+        <div class="card" style="font-family: monospace; font-size: 13px; line-height: 1.7; padding: 28px;">
+          <div style="color: rgba(255,255,255,0.4);">// Two-container architecture</div>
+          <br>
+          <span style="color: #66D4FF;">Web Container</span> <span style="color: rgba(255,255,255,0.4);">(:6015)</span><br>
+          &nbsp;&nbsp;├── UI (React + shadcn/ui)<br>
+          &nbsp;&nbsp;├── API (tRPC + Prisma)<br>
+          &nbsp;&nbsp;├── Auth (Azure AD SSO)<br>
+          &nbsp;&nbsp;└── Real-time (Socket.io)<br>
+          <br>
+          <span style="color: #00E68A;">Worker Container</span> <span style="color: rgba(255,255,255,0.4);">(:6025)</span><br>
+          &nbsp;&nbsp;├── PSV Bots (Playwright)<br>
+          &nbsp;&nbsp;├── Enrollment Bots<br>
+          &nbsp;&nbsp;├── Scheduled Jobs<br>
+          &nbsp;&nbsp;└── Bull Board (monitoring)<br>
+          <br>
+          <span style="color: rgba(255,255,255,0.4);">// Shared services</span><br>
+          <span style="color: #F4A261;">PostgreSQL</span> + <span style="color: #F4A261;">Redis</span> + <span style="color: #F4A261;">Azure Blob</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-number">07</div>
+</div>
+
+<!-- SLIDE 8: SECURITY & COMPLIANCE -->
+<div class="slide slide-white">
+  <div class="slide-inner">
+    <div class="section-label">Security & Compliance</div>
+    <h2>HIPAA-Ready by Design</h2>
+    <p class="subtitle">Security isn't an afterthought&mdash;it's embedded in every layer of the platform.</p>
+
+    <div class="card-grid card-grid-2">
+      <div>
+        <ul class="feature-list">
+          <li>
+            <div class="feature-check">&#10003;</div>
+            <div><strong>AES-256-GCM Encryption</strong><br>SSN, DOB, and all PHI encrypted at the application layer before database storage. Double protection with PostgreSQL at-rest encryption.</div>
+          </li>
+          <li>
+            <div class="feature-check">&#10003;</div>
+            <div><strong>Azure AD Single Sign-On</strong><br>All staff authenticate through Essen's existing Azure AD tenant with MFA enforcement. No separate passwords to manage.</div>
+          </li>
+          <li>
+            <div class="feature-check">&#10003;</div>
+            <div><strong>Role-Based Access Control</strong><br>5 distinct roles with granular permissions. Specialists, Managers, Committee Members, and Admins each see only what they need.</div>
+          </li>
+          <li>
+            <div class="feature-check">&#10003;</div>
+            <div><strong>Immutable Audit Trail</strong><br>Every action logged with timestamp, actor, and before/after values. 10-year retention. No deletions or modifications possible.</div>
+          </li>
+        </ul>
+      </div>
+      <div>
+        <ul class="feature-list">
+          <li>
+            <div class="feature-check">&#10003;</div>
+            <div><strong>Azure Key Vault for Secrets</strong><br>All API keys, portal credentials, TOTP secrets, and encryption keys stored in Azure Key Vault. Zero secrets in code or config files.</div>
+          </li>
+          <li>
+            <div class="feature-check">&#10003;</div>
+            <div><strong>Secure File Storage</strong><br>Azure Blob Storage with no public access. Time-limited SAS tokens for staff downloads. RBAC-controlled access via Managed Identity.</div>
+          </li>
+          <li>
+            <div class="feature-check">&#10003;</div>
+            <div><strong>PHI-Safe Bot Operations</strong><br>SSN decrypted only in-memory during bot operations (ABFM verification). Never logged, never stored outside the encrypted database field.</div>
+          </li>
+          <li>
+            <div class="feature-check">&#10003;</div>
+            <div><strong>NPDB Confidentiality</strong><br>NPDB results restricted to Credentialing Managers and Admins per 45 CFR Part 60 requirements. Separate access tier enforced.</div>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="slide-number">08</div>
+</div>
+
+<!-- SLIDE 9: INTEGRATIONS -->
+<div class="slide slide-light">
+  <div class="slide-inner">
+    <div class="section-label">Integrations</div>
+    <h2>Connected to Every System<br>That Matters</h2>
+    <p class="subtitle">21 external integrations pre-built, covering data ingestion, verification, enrollment, and communication.</p>
+
+    <div class="card-grid card-grid-3">
+      <div class="card">
+        <h4 style="color: var(--essen-accent);">Data Ingestion</h4>
+        <p style="margin-top: 12px;"><strong>iCIMS HRIS</strong> &mdash; auto-import provider demographics on hire</p>
+        <p style="margin-top: 8px;"><strong>CAQH</strong> &mdash; pull credentials + push practice updates</p>
+        <p style="margin-top: 8px;"><strong>Azure AI OCR</strong> &mdash; extract data from uploaded documents</p>
+      </div>
+      <div class="card">
+        <h4 style="color: var(--essen-green);">PSV Automation</h4>
+        <p style="margin-top: 12px;"><strong>State License Boards</strong> &mdash; all 50 states via healthguideusa.org</p>
+        <p style="margin-top: 8px;"><strong>DEA</strong> &mdash; with automated TOTP MFA</p>
+        <p style="margin-top: 8px;"><strong>NCCPA, ABIM, ABFM</strong> &mdash; board certifications</p>
+        <p style="margin-top: 8px;"><strong>OIG + SAM.gov</strong> &mdash; sanctions checks</p>
+        <p style="margin-top: 8px;"><strong>NPDB</strong> &mdash; initial + continuous query</p>
+      </div>
+      <div class="card">
+        <h4 style="color: var(--essen-orange);">Enrollment Portals</h4>
+        <p style="margin-top: 12px;"><strong>My Practice Profile</strong> &mdash; UHC / UBH Optum</p>
+        <p style="margin-top: 8px;"><strong>Availity</strong> &mdash; Anthem / Carelon</p>
+        <p style="margin-top: 8px;"><strong>Verity</strong> &mdash; Archcare</p>
+        <p style="margin-top: 8px;"><strong>EyeMed</strong> &mdash; EyeMed portal</p>
+        <p style="margin-top: 8px;"><strong>eMedNY</strong> &mdash; NY Medicaid ETIN</p>
+        <p style="margin-top: 8px;"><strong>SFTP</strong> &mdash; roster uploads to payer FTP</p>
+      </div>
+    </div>
+  </div>
+  <div class="slide-number">09</div>
+</div>
+
+<!-- SLIDE 10: ROI -->
+<div class="slide slide-white">
+  <div class="slide-inner">
+    <div class="section-label">Return on Investment</div>
+    <h2>The Business Case</h2>
+    <p class="subtitle">The platform pays for itself through time savings, faster revenue activation, and compliance risk reduction.</p>
+
+    <div class="card-grid card-grid-3">
+      <div class="card stat-card" style="border-top: 4px solid var(--essen-green);">
+        <div class="stat-number text-green">60%</div>
+        <div class="stat-label">Reduction in<br>Onboarding Time</div>
+        <p style="margin-top: 12px; font-size: 13px;">From 45+ days to under 18 days through automation, OCR ingestion, and parallel bot verification.</p>
+      </div>
+      <div class="card stat-card" style="border-top: 4px solid var(--essen-accent);">
+        <div class="stat-number text-blue">85%</div>
+        <div class="stat-label">Reduction in<br>Manual PSV Work</div>
+        <p style="margin-top: 12px; font-size: 13px;">3&ndash;4 hours per provider of manual verification replaced by bots that run in minutes with zero human involvement.</p>
+      </div>
+      <div class="card stat-card" style="border-top: 4px solid var(--essen-orange);">
+        <div class="stat-number text-orange">100%</div>
+        <div class="stat-label">Expirable<br>Compliance Coverage</div>
+        <p style="margin-top: 12px; font-size: 13px;">Automated monitoring of 20+ credential types. No more expired licenses discovered after the fact.</p>
+      </div>
+    </div>
+
+    <div class="roi-highlight">
+      <div class="roi-item">
+        <div class="stat-number">$0</div>
+        <div class="stat-label">Additional License Costs</div>
+      </div>
+      <div class="roi-item">
+        <div class="stat-number">1</div>
+        <div class="stat-label">Team, One Language (TypeScript)</div>
+      </div>
+      <div class="roi-item">
+        <div class="stat-number">10yr</div>
+        <div class="stat-label">Audit Retention Built In</div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-number">10</div>
+</div>
+
+<!-- SLIDE 11: USER EXPERIENCE -->
+<div class="slide slide-navy">
+  <div class="slide-inner">
+    <div class="section-label">User Experience</div>
+    <h2>Designed for Every User</h2>
+    <p class="subtitle">Role-specific interfaces that surface exactly what each user needs&mdash;nothing more, nothing less.</p>
+
+    <div class="card-grid card-grid-2" style="margin-bottom: 32px;">
+      <div class="card">
+        <div class="card-icon icon-blue">&#128100;</div>
+        <h4>Credentialing Specialists</h4>
+        <p>Pipeline view of all assigned providers. One-click bot triggers. Task management. Communication log (email, SMS, phone). Follow-up reminders. Real-time verification status.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon icon-green">&#128188;</div>
+        <h4>Credentialing Managers</h4>
+        <p>Full pipeline visibility. Committee session management. Auto-generated agendas. One-click approvals. Team oversight. Reporting and data export. Bulk operations.</p>
+      </div>
+    </div>
+    <div class="card-grid card-grid-2">
+      <div class="card">
+        <div class="card-icon icon-gold">&#129680;</div>
+        <h4>Committee Members</h4>
+        <p>Read-only access to committee sessions. Provider summary sheets at a glance. Approval voting with comments. Clean, focused interface with no operational clutter.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon icon-blue">&#128104;</div>
+        <h4>Providers (External)</h4>
+        <p>Self-service application portal. Drag-and-drop document upload with OCR auto-fill. Real-time checklist. Progress tracking. Attestation and electronic signature.</p>
+      </div>
+    </div>
+  </div>
+  <div class="slide-number">11</div>
+</div>
+
+<!-- SLIDE 12: IMPLEMENTATION TIMELINE -->
+<div class="slide slide-white">
+  <div class="slide-inner">
+    <div class="section-label">Implementation</div>
+    <h2>Ready Now, Growing Tomorrow</h2>
+    <p class="subtitle">The platform is deployed and production-ready. Here's the roadmap for full organizational rollout.</p>
+
+    <div class="two-col two-col-wide">
+      <div>
+        <ul class="timeline">
+          <li>
+            <div class="timeline-date">Completed</div>
+            <div class="timeline-title">Core Platform Build</div>
+            <div class="timeline-desc">All 10 modules implemented, tested with 234 automated tests at 100% pass rate, deployed to production.</div>
+          </li>
+          <li>
+            <div class="timeline-date">Phase 2 &mdash; Q2 2026</div>
+            <div class="timeline-title">Integration Activation</div>
+            <div class="timeline-desc">Connect iCIMS, CAQH, Azure AD production tenant. Configure Key Vault secrets. Activate PSV bots.</div>
+          </li>
+          <li>
+            <div class="timeline-date">Phase 3 &mdash; Q3 2026</div>
+            <div class="timeline-title">Staff Training & Pilot</div>
+            <div class="timeline-desc">Train credentialing team. Pilot with 10&ndash;20 providers running in parallel with PARCS.</div>
+          </li>
+          <li>
+            <div class="timeline-date">Phase 4 &mdash; Q4 2026</div>
+            <div class="timeline-title">Full Rollout & PARCS Sunset</div>
+            <div class="timeline-desc">Migrate all active providers. Decommission PARCS. Full production operations.</div>
+          </li>
+        </ul>
+      </div>
+      <div>
+        <div class="card" style="background: var(--bg-light); border: none;">
+          <h4 style="margin-bottom: 16px; color: var(--essen-green);">What's Already Done</h4>
+          <ul class="feature-list" style="font-size: 14px;">
+            <li><div class="feature-check" style="width: 24px; height: 24px; font-size: 14px;">&#10003;</div><div>Provider onboarding portal with OCR</div></li>
+            <li><div class="feature-check" style="width: 24px; height: 24px; font-size: 14px;">&#10003;</div><div>Staff onboarding dashboard</div></li>
+            <li><div class="feature-check" style="width: 24px; height: 24px; font-size: 14px;">&#10003;</div><div>Committee review workflow</div></li>
+            <li><div class="feature-check" style="width: 24px; height: 24px; font-size: 14px;">&#10003;</div><div>Enrollment management + follow-up cadence</div></li>
+            <li><div class="feature-check" style="width: 24px; height: 24px; font-size: 14px;">&#10003;</div><div>Expirables tracking with alerts</div></li>
+            <li><div class="feature-check" style="width: 24px; height: 24px; font-size: 14px;">&#10003;</div><div>PSV bot framework (10+ bot types)</div></li>
+            <li><div class="feature-check" style="width: 24px; height: 24px; font-size: 14px;">&#10003;</div><div>Role-based access control (5 roles)</div></li>
+            <li><div class="feature-check" style="width: 24px; height: 24px; font-size: 14px;">&#10003;</div><div>Azure Blob document storage</div></li>
+            <li><div class="feature-check" style="width: 24px; height: 24px; font-size: 14px;">&#10003;</div><div>Immutable audit trail</div></li>
+            <li><div class="feature-check" style="width: 24px; height: 24px; font-size: 14px;">&#10003;</div><div>Production deployment + SSL</div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-number">12</div>
+</div>
+
+<!-- SLIDE 13: CALL TO ACTION -->
+<div class="slide slide-navy">
+  <div class="slide-inner cta-section">
+    <div class="divider" style="margin: 0 auto 24px;"></div>
+    <h2>Ready to Transform<br>Credentialing at Essen</h2>
+    <p class="subtitle" style="color: rgba(255,255,255,0.65);">
+      The platform is built, tested, and deployed. The next step is activating integrations, training the team, and beginning the pilot. Every day with PARCS is a day of lost efficiency and compliance risk.
+    </p>
+
+    <div class="card-grid card-grid-3" style="margin-top: 50px;">
+      <div class="card stat-card">
+        <div class="stat-number" style="font-size: 36px; color: var(--essen-accent);">Step 1</div>
+        <div class="stat-label" style="color: rgba(255,255,255,0.5); margin-top: 8px;">Approve & Fund<br>Integration Phase</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-number" style="font-size: 36px; color: var(--essen-green);">Step 2</div>
+        <div class="stat-label" style="color: rgba(255,255,255,0.5); margin-top: 8px;">Train Team<br>& Pilot</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-number" style="font-size: 36px; color: var(--essen-gold);">Step 3</div>
+        <div class="stat-label" style="color: rgba(255,255,255,0.5); margin-top: 8px;">Full Rollout<br>& PARCS Sunset</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 60px; padding-top: 40px; border-top: 1px solid rgba(255,255,255,0.1);">
+      <p style="font-size: 16px; color: rgba(255,255,255,0.4);">
+        ESSEN Credentialing Platform &bull; credentialing.hdpulseai.com &bull; Essen Medical Associates &bull; April 2026
+      </p>
+    </div>
+  </div>
+  <div class="slide-number">13</div>
+</div>
+
+</body>
+</html>
