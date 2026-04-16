@@ -221,7 +221,7 @@ npm run build:worker # Production build (worker)
 - **Branch**: `master`
 - **Compose file**: `docker-compose.prod.yml`
 - **Containers**: `ecred-web-prod`, `ecred-worker-prod`
-- **Prod URL**: `credentialing.essenmed.com` (TBD — confirm domain before go-live)
+- **Prod URL**: `credentialing.hdpulseai.com` (TBD — confirm domain before go-live)
 
 ### Push & Deploy Workflow
 
@@ -269,12 +269,12 @@ Production DB credentials: user `postgres`, password `postgres` (matches all sib
 
 ```bash
 # Copy the nginx site config to the server
-python .claude/deploy.py "cat > /etc/nginx/sites-available/credentialing.essenmed.com << 'NGINXEOF'
-$(cat nginx/credentialing.essenmed.com)
+python .claude/deploy.py "cat > /etc/nginx/sites-available/credentialing.hdpulseai.com << 'NGINXEOF'
+$(cat nginx/credentialing.hdpulseai.com)
 NGINXEOF"
 
 # Enable the site and get SSL cert via Certbot
-python .claude/deploy.py "ln -sf /etc/nginx/sites-available/credentialing.essenmed.com /etc/nginx/sites-enabled/ && certbot --nginx -d credentialing.essenmed.com && nginx -t && systemctl reload nginx"
+python .claude/deploy.py "ln -sf /etc/nginx/sites-available/credentialing.hdpulseai.com /etc/nginx/sites-enabled/ && certbot --nginx -d credentialing.hdpulseai.com && nginx -t && systemctl reload nginx"
 ```
 
 ### First-Time Production Deploy

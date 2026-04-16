@@ -1,15 +1,15 @@
 # Nginx site config for ESSEN Credentialing Platform
 #
 # Deploy to production server:
-#   sudo cp credentialing.essenmed.com /etc/nginx/sites-available/credentialing.essenmed.com
-#   sudo ln -s /etc/nginx/sites-available/credentialing.essenmed.com /etc/nginx/sites-enabled/
-#   sudo certbot --nginx -d credentialing.essenmed.com
+#   sudo cp credentialing.hdpulseai.com /etc/nginx/sites-available/credentialing.hdpulseai.com
+#   sudo ln -s /etc/nginx/sites-available/credentialing.hdpulseai.com /etc/nginx/sites-enabled/
+#   sudo certbot --nginx -d credentialing.hdpulseai.com
 #   sudo nginx -t && sudo systemctl reload nginx
 #
 # Note: Certbot will automatically add SSL lines to this file.
 
 server {
-    server_name credentialing.essenmed.com;
+    server_name credentialing.hdpulseai.com;
     listen 80;
     listen [::]:80;
 

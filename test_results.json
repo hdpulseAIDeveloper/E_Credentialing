@@ -1,0 +1,626 @@
+[
+  {
+    "tc_id": "TC-0001",
+    "module": "Smoke",
+    "test": "App starts on :6015",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0002",
+    "module": "Smoke",
+    "test": "Health endpoint OK + DB connected",
+    "status": "PASS",
+    "actual": "{\"status\":\"ok\",\"timestamp\":\"2026-04-15T19:27:50.400Z\",\"version\":\"0.1.0\",\"environment\":\"development\",\"services\":{\"databas",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0003",
+    "module": "Auth",
+    "test": "Login as ADMIN via credentials",
+    "status": "PASS",
+    "actual": "User: admin@hdpulseai.com",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0010",
+    "module": "Pages",
+    "test": "Staff Dashboard (/dashboard)",
+    "status": "PASS",
+    "actual": "HTTP 200, len=118121, html=True",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0011",
+    "module": "Pages",
+    "test": "Provider List (/providers)",
+    "status": "PASS",
+    "actual": "HTTP 200, len=92870, html=True",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0012",
+    "module": "Pages",
+    "test": "Committee Dashboard (/committee)",
+    "status": "PASS",
+    "actual": "HTTP 200, len=72385, html=True",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0013",
+    "module": "Pages",
+    "test": "New Committee Session (/committee/sessions/new)",
+    "status": "PASS",
+    "actual": "HTTP 200, len=14933, html=True",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0014",
+    "module": "Pages",
+    "test": "Enrollments List (/enrollments)",
+    "status": "PASS",
+    "actual": "HTTP 200, len=85954, html=True",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0015",
+    "module": "Pages",
+    "test": "Expirables List (/expirables)",
+    "status": "PASS",
+    "actual": "HTTP 200, len=108752, html=True",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0016",
+    "module": "Pages",
+    "test": "NY Medicaid Dashboard (/medicaid)",
+    "status": "PASS",
+    "actual": "HTTP 200, len=16663, html=True",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0017",
+    "module": "Pages",
+    "test": "New Medicaid Enrollment (/medicaid/new)",
+    "status": "PASS",
+    "actual": "HTTP 200, len=16235, html=True",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0018",
+    "module": "Pages",
+    "test": "Admin Dashboard (/admin)",
+    "status": "PASS",
+    "actual": "HTTP 200, len=29962, html=True",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0019",
+    "module": "Pages",
+    "test": "Admin Users (/admin/users)",
+    "status": "PASS",
+    "actual": "HTTP 200, len=33978, html=True",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0020",
+    "module": "Pages",
+    "test": "Admin Roles (/admin/roles)",
+    "status": "PASS",
+    "actual": "HTTP 200, len=142083, html=True",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0021",
+    "module": "Pages",
+    "test": "Admin Provider Types (/admin/provider-types)",
+    "status": "PASS",
+    "actual": "HTTP 200, len=36546, html=True",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0022",
+    "module": "Pages",
+    "test": "Admin Settings (/admin/settings)",
+    "status": "PASS",
+    "actual": "HTTP 200, len=34072, html=True",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0023",
+    "module": "Pages",
+    "test": "Admin Workflows (/admin/workflows)",
+    "status": "PASS",
+    "actual": "HTTP 200, len=48935, html=True",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0024",
+    "module": "Pages",
+    "test": "Provider Application (/application)",
+    "status": "PASS",
+    "actual": "HTTP 200, len=9969, html=True",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0025",
+    "module": "Pages",
+    "test": "Document Upload (/application/documents)",
+    "status": "PASS",
+    "actual": "HTTP 200, len=12159, html=True",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0026",
+    "module": "Pages",
+    "test": "Attestation Page (/application/attestation)",
+    "status": "PASS",
+    "actual": "HTTP 200, len=13942, html=True",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0027",
+    "module": "Pages",
+    "test": "Sign-In Page (/auth/signin)",
+    "status": "PASS",
+    "actual": "HTTP 200, len=12068, html=True",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0028",
+    "module": "Pages",
+    "test": "Registration Page (/auth/register)",
+    "status": "PASS",
+    "actual": "HTTP 200, len=13376, html=True",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0100",
+    "module": "API Query",
+    "test": "provider.list: Provider list query",
+    "status": "PASS",
+    "actual": "HTTP 200, data_type=dict, keys=['providers', 'total', 'page', 'limit']",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0101",
+    "module": "API Query",
+    "test": "committee.listSessions: Committee sessions list",
+    "status": "PASS",
+    "actual": "HTTP 200, data_type=dict, keys=['sessions', 'total']",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0102",
+    "module": "API Query",
+    "test": "committee.getQueue: Committee queue",
+    "status": "PASS",
+    "actual": "HTTP 200, data_type=list, count=2",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0103",
+    "module": "API Query",
+    "test": "enrollment.list: Enrollment list",
+    "status": "PASS",
+    "actual": "HTTP 200, data_type=dict, keys=['enrollments', 'total']",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0104",
+    "module": "API Query",
+    "test": "expirable.list: Expirable list",
+    "status": "PASS",
+    "actual": "HTTP 200, data_type=dict, keys=['expirables', 'total']",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0105",
+    "module": "API Query",
+    "test": "expirable.getSummary: Expirable summary",
+    "status": "PASS",
+    "actual": "HTTP 200, data_type=dict, keys=['expired', 'in7Days', 'in30Days', 'in60Days', 'in90Days']",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0106",
+    "module": "API Query",
+    "test": "medicaid.list: Medicaid list",
+    "status": "PASS",
+    "actual": "HTTP 200, data_type=dict, keys=['items', 'total', 'page', 'limit']",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0107",
+    "module": "API Query",
+    "test": "medicaid.getSummary: Medicaid summary",
+    "status": "PASS",
+    "actual": "HTTP 200, data_type=dict, keys=['total', 'byStatus', 'byPath']",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0108",
+    "module": "API Query",
+    "test": "admin.listUsers: Admin users list",
+    "status": "PASS",
+    "actual": "HTTP 200, data_type=dict, keys=['users', 'total']",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0109",
+    "module": "API Query",
+    "test": "admin.listProviderTypes: Provider types list",
+    "status": "PASS",
+    "actual": "HTTP 200, data_type=list, count=6",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0110",
+    "module": "API Query",
+    "test": "admin.getStats: Admin stats",
+    "status": "PASS",
+    "actual": "HTTP 200, data_type=dict, keys=['totalProviders', 'activeProviders', 'pendingCommittee', 'openTasks', 'pendingEnrollments']",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0111",
+    "module": "API Query",
+    "test": "admin.listSettings: App settings list",
+    "status": "PASS",
+    "actual": "HTTP 200, data_type=list, count=0",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0112",
+    "module": "API Query",
+    "test": "admin.listWorkflows: Workflows list",
+    "status": "PASS",
+    "actual": "HTTP 200, data_type=list, count=10",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0113",
+    "module": "API Query",
+    "test": "sanctions.getFlagged: Flagged sanctions",
+    "status": "PASS",
+    "actual": "HTTP 200, data_type=list, count=0",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0114",
+    "module": "API Query",
+    "test": "npdb.getAdverse: Adverse NPDB",
+    "status": "PASS",
+    "actual": "HTTP 200, data_type=list, count=0",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0115",
+    "module": "API Query",
+    "test": "task.list: Tasks list",
+    "status": "PASS",
+    "actual": "HTTP 200, data_type=dict, keys=['tasks', 'total']",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0400",
+    "module": "Mutations",
+    "test": "provider.create",
+    "status": "PASS",
+    "actual": "id=ea7c9fac-ad75-4195-af3b-de1723a3427a",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0401",
+    "module": "Mutations",
+    "test": "provider.update",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0402",
+    "module": "Mutations",
+    "test": "provider.transitionStatus (INVITED->ONBOARDING)",
+    "status": "PASS",
+    "actual": "HTTP 200, {'id': 'ea7c9fac-ad75-4195-af3b-de1723a3427a', 'status': 'ONBOARDING_IN_PROGRESS', 'providerTypeId':",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0403",
+    "module": "Mutations",
+    "test": "provider.updateCoi",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0404",
+    "module": "Mutations",
+    "test": "provider.updateOnsiteMeeting",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0405",
+    "module": "Mutations",
+    "test": "task.create",
+    "status": "PASS",
+    "actual": "id=c4f8d823-dd61-4582-aa0d-892ab68ba74c",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0406",
+    "module": "Mutations",
+    "test": "task.update",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0407",
+    "module": "Mutations",
+    "test": "task.addComment",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0408",
+    "module": "Mutations",
+    "test": "communication.addInternalNote",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0409",
+    "module": "Mutations",
+    "test": "communication.logPhoneCall",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0410",
+    "module": "Mutations",
+    "test": "enrollment.create",
+    "status": "PASS",
+    "actual": "id=113a119b-bcb5-49c5-89c3-8e4722bb6174",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0411",
+    "module": "Mutations",
+    "test": "enrollment.updateStatus",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0412",
+    "module": "Mutations",
+    "test": "enrollment.addFollowUp",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0413",
+    "module": "Mutations",
+    "test": "expirable.create",
+    "status": "PASS",
+    "actual": "id=f8a8f1f6-83b6-43cf-8841-dce014d7e840",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0414",
+    "module": "Mutations",
+    "test": "medicaid.create",
+    "status": "PASS",
+    "actual": "id=987e3586-ae13-4e5f-a28b-7ef0ac280908",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0415",
+    "module": "Mutations",
+    "test": "medicaid.updatePsp (register)",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0416",
+    "module": "Mutations",
+    "test": "medicaid.updatePsp (login)",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0417",
+    "module": "Mutations",
+    "test": "medicaid.recordSubmission",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0418",
+    "module": "Mutations",
+    "test": "medicaid.updateGroupAffiliation",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0419",
+    "module": "Mutations",
+    "test": "medicaid.confirmEtin",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0420",
+    "module": "Mutations",
+    "test": "medicaid.addFollowUp",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0421",
+    "module": "Mutations",
+    "test": "admin.upsertSetting",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0422",
+    "module": "Mutations",
+    "test": "admin.deleteSetting",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0423",
+    "module": "Mutations",
+    "test": "committee.createSession",
+    "status": "PASS",
+    "actual": "id=ae0d7ac0-87d4-412c-86fc-6f18f2c23325",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0424",
+    "module": "Mutations",
+    "test": "committee.addProvider",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0425",
+    "module": "Mutations",
+    "test": "committee.updateSessionStatus",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0426",
+    "module": "Mutations",
+    "test": "sanctions.triggerCheck (OIG)",
+    "status": "PASS",
+    "actual": "HTTP 200, {'id': 'b5ed4e0b-ab45-41fa-9f0e-890e06a68e40', 'providerId': 'ea7c9fac-ad75-4195-af3b-de1723a3427a',",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0427",
+    "module": "Mutations",
+    "test": "npdb.triggerQuery",
+    "status": "PASS",
+    "actual": "HTTP 200, {'id': 'c44ca5ee-923c-4fac-9fde-b03296154327', 'providerId': 'ea7c9fac-ad75-4195-af3b-de1723a3427a',",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0428",
+    "module": "Mutations",
+    "test": "bot.triggerBot (LICENSE)",
+    "status": "PASS",
+    "actual": "HTTP 200, {'id': '9eed6df2-9284-41af-ba9d-44c369ff08d2', 'providerId': 'ea7c9fac-ad75-4195-af3b-de1723a3427a',",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0429",
+    "module": "Mutations",
+    "test": "admin.createWorkflow",
+    "status": "PASS",
+    "actual": "id=9789fe01-c52b-4550-8acd-2afdc4ac6f6f",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0430",
+    "module": "Mutations",
+    "test": "admin.saveWorkflow",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0431",
+    "module": "Mutations",
+    "test": "provider.importFromIcims (stub)",
+    "status": "PASS",
+    "actual": "HTTP 200, {'id': '61cf7538-2e52-4782-bc08-56aa0be8059b', 'status': 'INVITED', 'providerTypeId': 'fa61dad3-197d",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0700",
+    "module": "Audit",
+    "test": "Audit trail populated after mutations",
+    "status": "PASS",
+    "actual": "count=17, data_type=dict",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0800",
+    "module": "Negative",
+    "test": "Non-existent provider ID returns error",
+    "status": "PASS",
+    "actual": "HTTP 404",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0801",
+    "module": "Negative",
+    "test": "Non-existent session ID returns error",
+    "status": "PASS",
+    "actual": "HTTP 404",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0802",
+    "module": "Negative",
+    "test": "Non-existent medicaid ID returns error",
+    "status": "PASS",
+    "actual": "HTTP 404",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0803",
+    "module": "Negative",
+    "test": "Create provider with empty required fields fails",
+    "status": "PASS",
+    "actual": "HTTP 400",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0804",
+    "module": "Negative",
+    "test": "Duplicate NPI rejected",
+    "status": "PASS",
+    "actual": "HTTP 500, {'json': {'message': '\\nInvalid `prisma.provider.create()` invocation:\\n\\n\\nUnique constraint failed",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0900",
+    "module": "RBAC",
+    "test": "admin.listUsers blocked without auth",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-0901",
+    "module": "RBAC",
+    "test": "provider.list blocked without auth",
+    "status": "PASS",
+    "actual": "HTTP 200",
+    "notes": ""
+  }
+]
