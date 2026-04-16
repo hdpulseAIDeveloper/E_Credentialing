@@ -122,8 +122,6 @@ async function main() {
     update: { isActive: true, role: "ADMIN" },
     create: {
       email: adminEmail,
-      firstName: "System",
-      lastName: "Administrator",
       displayName: "System Administrator",
       role: "ADMIN",
       isActive: true,
