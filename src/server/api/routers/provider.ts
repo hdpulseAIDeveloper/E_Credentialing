@@ -12,23 +12,11 @@ import {
   CoiStatus,
   OnsiteMeetingStatus,
   HospitalPrivilegeStatus,
+  ProviderStatus as ProviderStatusEnum,
 } from "@prisma/client";
 import { SignJWT } from "jose";
 import { addHours } from "date-fns";
-
-// Valid status transitions
-const STATUS_TRANSITIONS: Record<ProviderStatus, ProviderStatus[]> = {
-  INVITED: ["ONBOARDING_IN_PROGRESS"],
-  ONBOARDING_IN_PROGRESS: ["DOCUMENTS_PENDING", "INVITED"],
-  DOCUMENTS_PENDING: ["VERIFICATION_IN_PROGRESS", "ONBOARDING_IN_PROGRESS"],
-  VERIFICATION_IN_PROGRESS: ["COMMITTEE_READY", "DOCUMENTS_PENDING"],
-  COMMITTEE_READY: ["COMMITTEE_IN_REVIEW", "VERIFICATION_IN_PROGRESS"],
-  COMMITTEE_IN_REVIEW: ["APPROVED", "DENIED", "DEFERRED", "COMMITTEE_READY"],
-  APPROVED: ["INACTIVE"],
-  DENIED: ["INVITED"],
-  DEFERRED: ["COMMITTEE_READY", "VERIFICATION_IN_PROGRESS"],
-  INACTIVE: ["INVITED"],
-};
+import { canTransition } from "@/server/services/provider-status";
 
 export const providerRouter = createTRPCRouter({
   // ─── List providers with filters ─────────────────────────────────────────
@@ -223,7 +211,7 @@ export const providerRouter = createTRPCRouter({
     .input(
       z.object({
         id: z.string().uuid(),
-        newStatus: z.string(),
+        newStatus: z.nativeEnum(ProviderStatusEnum),
         reason: z.string().optional(),
       })
     )
@@ -231,8 +219,7 @@ export const providerRouter = createTRPCRouter({
       const provider = await ctx.db.provider.findUnique({ where: { id: input.id } });
       if (!provider) throw new TRPCError({ code: "NOT_FOUND" });
 
-      const allowed = STATUS_TRANSITIONS[provider.status] ?? [];
-      if (!allowed.includes(input.newStatus as ProviderStatus)) {
+      if (!canTransition(provider.status, input.newStatus)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: `Cannot transition from ${provider.status} to ${input.newStatus}`,
@@ -240,7 +227,7 @@ export const providerRouter = createTRPCRouter({
       }
 
       const updateData: Prisma.ProviderUncheckedUpdateInput = {
-        status: input.newStatus as ProviderStatus,
+        status: input.newStatus,
         updatedById: ctx.session!.user.id,
       };
 

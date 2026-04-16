@@ -7,7 +7,7 @@
  *   3. Otherwise, create 2 BotRun rows per eligible provider and enqueue 2 jobs.
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 const botRunRecords: Array<{ providerId: string; botType: string; createdAt: Date }> = [];
 const addCalls: Array<{ name: string; data: Record<string, unknown> }> = [];
@@ -29,19 +29,43 @@ vi.mock("../../../src/lib/redis", () => ({
   createRedisConnection: vi.fn(() => ({})),
 }));
 
+type ProviderSummary = {
+  id: string;
+  legalFirstName: string;
+  legalLastName: string;
+  npi: string;
+};
+type BotRunRow = {
+  id: string;
+  providerId: string;
+  botType: string;
+  createdAt: Date;
+};
+type BotRunCreateArgs = { data: { providerId: string; botType: string } };
+type BotRunCountArgs = { where: { providerId: string } };
+
 const dbMock = {
   provider: {
-    findMany: vi.fn(async () => []),
+    findMany: vi.fn() as Mock<(args?: unknown) => Promise<ProviderSummary[]>>,
   },
   botRun: {
-    count: vi.fn(async () => 0),
-    create: vi.fn(async ({ data }: { data: { providerId: string; botType: string } }) => {
-      const row = { ...data, id: `br-${botRunRecords.length + 1}`, createdAt: new Date() };
-      botRunRecords.push(row);
-      return row;
-    }),
+    count: vi.fn() as Mock<(args: BotRunCountArgs) => Promise<number>>,
+    create: vi.fn() as Mock<(args: BotRunCreateArgs) => Promise<BotRunRow>>,
   },
 };
+
+dbMock.provider.findMany.mockResolvedValue([]);
+dbMock.botRun.count.mockResolvedValue(0);
+dbMock.botRun.create.mockImplementation(async ({ data }: BotRunCreateArgs) => {
+  const row: BotRunRow = {
+    id: `br-${botRunRecords.length + 1}`,
+    providerId: data.providerId,
+    botType: data.botType,
+    createdAt: new Date(),
+  };
+  botRunRecords.push(row);
+  return row;
+});
 
 vi.mock("../../../src/server/db", () => ({
   db: dbMock,
@@ -75,9 +99,11 @@ describe("runMonthlySanctionsCheck", () => {
       { id: "p2", legalFirstName: "B", legalLastName: "B", npi: "222" },
     ]);
     dbMock.botRun.count.mockResolvedValue(0);
-    dbMock.botRun.create.mockImplementation(async ({ data }) => ({
-      ...(data as Record<string, unknown>),
+    dbMock.botRun.create.mockImplementation(async ({ data }: BotRunCreateArgs) => ({
       id: `br-${Math.random()}`,
+      providerId: data.providerId,
+      botType: data.botType,
+      createdAt: new Date(),
     }));
 
     await runMonthlySanctionsCheck();
@@ -94,12 +120,14 @@ describe("runMonthlySanctionsCheck", () => {
       { id: "p1", legalFirstName: "A", legalLastName: "A", npi: "111" },
       { id: "p2", legalFirstName: "B", legalLastName: "B", npi: "222" },
     ]);
-    dbMock.botRun.count.mockImplementation(async ({ where }: { where: { providerId: string } }) => {
+    dbMock.botRun.count.mockImplementation(async ({ where }: BotRunCountArgs) => {
       return where.providerId === "p1" ? 2 : 0;
     });
-    dbMock.botRun.create.mockImplementation(async ({ data }) => ({
-      ...(data as Record<string, unknown>),
+    dbMock.botRun.create.mockImplementation(async ({ data }: BotRunCreateArgs) => ({
       id: `br-${Math.random()}`,
+      providerId: data.providerId,
+      botType: data.botType,
+      createdAt: new Date(),
     }));
 
     await runMonthlySanctionsCheck();
