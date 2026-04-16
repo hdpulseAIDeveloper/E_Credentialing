@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { queuePsvBotsForProvider } from "@/lib/automation/psv-auto-queue";
 import { writeAuditLog } from "@/lib/audit";
+import { ProviderTokenError, verifyProviderInviteToken } from "@/lib/auth/provider-token";
 
 export async function POST(request: Request) {
   try {
@@ -12,20 +13,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Token and signature are required" }, { status: 400 });
     }
 
-    const provider = await db.provider.findFirst({
-      where: { inviteToken: token },
-    });
-
-    if (!provider) {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 404 });
+    let providerId: string;
+    try {
+      const verified = await verifyProviderInviteToken(token);
+      providerId = verified.providerId;
+    } catch (e) {
+      if (e instanceof ProviderTokenError) {
+        return NextResponse.json({ error: e.message }, { status: e.status });
+      }
+      return NextResponse.json({ error: "Authorization failed" }, { status: 401 });
     }
 
-    // Update provider with attestation data and transition status
+    const provider = await db.provider.findUniqueOrThrow({
+      where: { id: providerId },
+    });
+
+    // Single-use: revoke the invite token after successful attestation.
     await db.provider.update({
       where: { id: provider.id },
       data: {
         applicationSubmittedAt: new Date(),
         status: "VERIFICATION_IN_PROGRESS",
+        inviteToken: null,
+        inviteTokenExpiresAt: null,
       },
     });
 

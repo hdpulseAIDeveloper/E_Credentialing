@@ -98,7 +98,8 @@ export const managerProcedure = t.procedure.use(
 /** Admin procedure — requires ADMIN */
 export const adminProcedure = t.procedure.use(enforceUserHasRole(["ADMIN"]));
 
-/** Provider procedure — requires PROVIDER role */
-export const providerProcedure = t.procedure.use(
-  enforceUserHasRole(["PROVIDER"])
-);
+// NOTE: There is intentionally no providerProcedure. Providers authenticate via
+// magic-link invite tokens (see src/lib/auth/provider-token.ts), not session
+// cookies. Provider-scoped REST routes verify the token and authorize
+// provider.id explicitly. A session-based providerProcedure would silently
+// fail-open because no session flow creates a PROVIDER-role session.
