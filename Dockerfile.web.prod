@@ -51,15 +51,21 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy Prisma schema for runtime migrations
+# Copy Prisma schema + generated client + CLI for runtime migrations
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
+
+# Entrypoint runs migrations then starts Next.js standalone server
+COPY --chown=nextjs:nodejs scripts/web-entrypoint.sh /app/web-entrypoint.sh
+RUN chmod +x /app/web-entrypoint.sh
 
 USER nextjs
 
 EXPOSE 6015
 
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=120s \
   CMD node -e "require('http').get('http://localhost:6015/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
 
-CMD ["node", "server.js"]
+CMD ["/app/web-entrypoint.sh"]

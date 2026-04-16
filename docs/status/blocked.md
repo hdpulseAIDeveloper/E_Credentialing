@@ -56,6 +56,27 @@ When an item is unblocked, move it to `docs/status/resolved.md` (create as neede
 - **Detail:** Certbot provisioning must complete on the server; see one-time nginx setup block in `CLAUDE.md`. Not a code concern but needed for public launch.
 - **Unblocks:** public launch.
 
+### B-009a  First-time `prisma migrate deploy` on existing prod DB
+- **Added:** 2026-04-16
+- **Owner:** Server admin + DB admin
+- **Detail:** Production DB was bootstrapped with `prisma db push` (no migration
+  history table). Now that `prisma migrate deploy` runs on every container
+  start via `scripts/web-entrypoint.sh`, the first deploy must mark the
+  existing migrations as already applied so Prisma doesn't try to re-create
+  tables. Run once (any order):
+
+  ```bash
+  python .claude/deploy.py "docker exec ecred-web-prod npx prisma migrate resolve --applied 20260415040852_init"
+  python .claude/deploy.py "docker exec ecred-web-prod npx prisma migrate resolve --applied 20260415041421_add_password_hash"
+  python .claude/deploy.py "docker exec ecred-web-prod npx prisma migrate resolve --applied 20260415_add_app_settings"
+  python .claude/deploy.py "docker exec ecred-web-prod npx prisma migrate resolve --applied 20260415_add_workflows"
+  python .claude/deploy.py "docker exec ecred-web-prod npx prisma migrate resolve --applied 20260415_medallion_workflows"
+  ```
+
+  After that, `20260416120000_document_uploader_optional` (and every future
+  migration) will apply cleanly. The ALLOW_DEPLOY=1 guard still applies.
+- **Unblocks:** clean container restarts without destructive schema changes.
+
 ### B-009  Production `.env` values
 - **Added:** 2026-04-16
 - **Owner:** DevOps

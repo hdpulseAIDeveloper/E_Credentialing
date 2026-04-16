@@ -18,7 +18,9 @@ dist/
 .env.production
 
 # Prisma
-prisma/migrations/
+# Migrations MUST be tracked in git — production uses `prisma migrate deploy`.
+# Ignore only migration-generated ephemeral files.
+prisma/migrations/**/*.tmp
 
 # Logs
 npm-debug.log*

@@ -590,7 +590,8 @@ model Document {
   blobPath             String         @map("blob_path")
   fileSizeBytes        Int            @map("file_size_bytes")
   mimeType             String         @map("mime_type")
-  uploadedById         String         @map("uploaded_by")
+  uploadedById         String?        @map("uploaded_by") // nullable: providers can upload via magic-link without a User row
+  uploaderType         String?        @map("uploader_type") // "STAFF" | "PROVIDER" | "BOT" | "SYSTEM"
   source               DocumentSource
   ocrStatus            OcrStatus      @default(PENDING) @map("ocr_status")
   ocrData              Json?          @map("ocr_data")
@@ -603,7 +604,7 @@ model Document {
   updatedAt            DateTime       @updatedAt @map("updated_at")
 
   provider           Provider            @relation("ProviderDocuments", fields: [providerId], references: [id])
-  uploadedBy         User                @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+  uploadedBy         User?               @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
   verificationRecord VerificationRecord? @relation("DocumentVerification", fields: [verificationRecordId], references: [id])
   checklistItems     ChecklistItem[]     @relation("ChecklistDocument")
   appointmentPrivileges HospitalPrivilege[] @relation("AppointmentLetterDoc")
