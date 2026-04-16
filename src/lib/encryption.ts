@@ -91,3 +91,27 @@ export function redactForLog(value: string, visibleChars = 2): string {
   const end = value.slice(-visibleChars);
   return `${start}${"*".repeat(value.length - visibleChars * 2)}${end}`;
 }
+
+/**
+ * Returns true if the given string looks like an AES-256-GCM ciphertext produced
+ * by this module: valid base64, at least iv+tag+1 byte, and decrypt() succeeds.
+ * Used by the PHI-at-rest integration test to assert that no write path has
+ * slipped through with plaintext.
+ */
+export function looksLikeCiphertext(value: string | null | undefined): boolean {
+  if (!value || typeof value !== "string") return false;
+  if (value.length < 40) return false;
+  let buf: Buffer;
+  try {
+    buf = Buffer.from(value, "base64");
+  } catch {
+    return false;
+  }
+  if (buf.length < IV_LENGTH + TAG_LENGTH + 1) return false;
+  try {
+    decrypt(value);
+    return true;
+  } catch {
+    return false;
+  }
+}

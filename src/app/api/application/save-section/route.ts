@@ -68,25 +68,27 @@ export async function POST(req: NextRequest) {
         break;
       }
       case 1: {
+        const addressLine1 = typeof data.addressLine1 === "string" ? data.addressLine1 : null;
+        const addressLine2 = typeof data.addressLine2 === "string" ? data.addressLine2 : null;
+        const city = typeof data.city === "string" ? data.city : null;
+        const state = typeof data.state === "string" ? data.state : null;
+        const zip = typeof data.zip === "string" ? data.zip : null;
+        const homePhone = typeof data.homePhone === "string" ? data.homePhone : null;
+        const profileData = {
+          mobilePhone: typeof data.mobilePhone === "string" ? data.mobilePhone : null,
+          personalEmail: typeof data.personalEmail === "string" ? data.personalEmail : null,
+          // PHI: encrypted at rest
+          homeAddressLine1: encryptOptional(addressLine1),
+          homeAddressLine2: encryptOptional(addressLine2),
+          homeCity: encryptOptional(city),
+          homeState: encryptOptional(state),
+          homeZip: encryptOptional(zip),
+          homePhone: encryptOptional(homePhone),
+        };
         await db.providerProfile.upsert({
           where: { providerId },
-          update: {
-            mobilePhone: (data.mobilePhone as string) || null,
-            personalEmail: (data.personalEmail as string) || null,
-            homeAddressLine1: (data.addressLine1 as string) || null,
-            homeCity: (data.city as string) || null,
-            homeState: (data.state as string) || null,
-            homeZip: (data.zip as string) || null,
-          },
-          create: {
-            providerId,
-            mobilePhone: (data.mobilePhone as string) || null,
-            personalEmail: (data.personalEmail as string) || null,
-            homeAddressLine1: (data.addressLine1 as string) || null,
-            homeCity: (data.city as string) || null,
-            homeState: (data.state as string) || null,
-            homeZip: (data.zip as string) || null,
-          },
+          update: profileData,
+          create: { providerId, ...profileData },
         });
         break;
       }
