@@ -54,7 +54,7 @@ export default async function UserDetailPage({ params, searchParams }: Props) {
     notFound();
   }
 
-  const completedTaskCount = user.completedTasks.length;
+  const completedTaskCount = user.completedTaskCount;
   const openTaskCount = user.assignedTasks.length;
 
   return (

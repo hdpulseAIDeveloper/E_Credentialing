@@ -26,9 +26,6 @@ export const adminRouter = createTRPCRouter({
             orderBy: { createdAt: "desc" },
             take: 10,
           },
-          completedTasks: {
-            select: { id: true },
-          },
           auditLogsAsActor: {
             select: { id: true, action: true, entityType: true, entityId: true, createdAt: true },
             orderBy: { createdAt: "desc" },
@@ -42,7 +39,12 @@ export const adminRouter = createTRPCRouter({
         },
       });
       if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
-      return user;
+
+      const completedTaskCount = await ctx.db.task.count({
+        where: { assignedToId: input.id, status: "COMPLETED" },
+      });
+
+      return { ...user, completedTaskCount };
     }),
 
   // ─── List users ────────────────────────────────────────────────────────
