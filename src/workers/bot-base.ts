@@ -63,6 +63,18 @@ export abstract class BotBase {
       // Execute the bot logic (implemented by subclass)
       const result = await this.execute(provider, botRunId);
 
+      // Subclasses can short-circuit by setting BotRun.status to REQUIRES_MANUAL
+      // (e.g., stub bots). In that case skip VerificationRecord creation and the
+      // automatic COMPLETED transition.
+      const current = await this.db.botRun.findUniqueOrThrow({
+        where: { id: botRunId },
+        select: { status: true },
+      });
+      if (current.status === "REQUIRES_MANUAL") {
+        await this.publishResult(providerId, botRunId, "completed", result);
+        return;
+      }
+
       // Save PDF to blob if provided
       let pdfBlobUrl: string | undefined;
       let outputFilename: string | undefined;

@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { io, type Socket } from "socket.io-client";
+import { useMemo } from "react";
 import { BotRunRow } from "./BotRunRow";
 import { api } from "@/trpc/react";
 import type { BotRun, BotType, User, VerificationRecord } from "@prisma/client";
@@ -26,47 +25,36 @@ const BOT_TYPES_BY_PROVIDER: Record<string, BotType[]> = {
   LMHC: ["LICENSE_VERIFICATION", "OIG_SANCTIONS", "SAM_SANCTIONS"],
 };
 
+const ACTIVE_STATUSES = new Set(["QUEUED", "RUNNING", "RETRYING"]);
+
 export function BotStatusPanel({ providerId, providerType, botRuns: initialBotRuns }: Props) {
-  const [botRuns, setBotRuns] = useState<BotRunWithRelations[]>(initialBotRuns);
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const utils = api.useUtils();
 
   const applicableBotTypes = BOT_TYPES_BY_PROVIDER[providerType] ?? ["LICENSE_VERIFICATION", "OIG_SANCTIONS", "SAM_SANCTIONS"];
 
+  // Polling: refetch every 5s while any bot is in an active state, then back off.
+  // tRPC + react-query gives us optimistic + automatic re-render.
+  const { data } = api.bot.listByProvider.useQuery(
+    { providerId, page: 1, limit: 50 },
+    {
+      initialData: { runs: initialBotRuns, total: initialBotRuns.length },
+      refetchInterval: (q) => {
+        const runs = (q.state.data?.runs ?? []) as BotRunWithRelations[];
+        return runs.some((r) => ACTIVE_STATUSES.has(r.status)) ? 5000 : false;
+      },
+    }
+  );
+
+  const botRuns = useMemo(() => (data?.runs ?? []) as BotRunWithRelations[], [data]);
+
   const triggerMutation = api.bot.triggerBot.useMutation({
-    onSuccess: (newRun) => {
-      // Optimistically update the list with the new queued run
-      setBotRuns((prev) => {
-        const filtered = prev.filter((r) => r.botType !== newRun.botType);
-        return [newRun as BotRunWithRelations, ...filtered];
-      });
+    onSuccess: () => {
+      void utils.bot.listByProvider.invalidate({ providerId });
     },
     onError: (err) => {
       console.error("[BotStatusPanel] Failed to trigger bot:", err.message);
     },
   });
-
-  useEffect(() => {
-    const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL;
-    if (!workerUrl) return;
-
-    const s = io(workerUrl);
-
-    s.on("connect", () => {
-      s.emit("subscribe:provider", providerId);
-    });
-
-    s.on("bot:update", (data: { event: string; botRunId: string; botType: string }) => {
-      console.log("[BotStatusPanel] Bot update received:", data);
-      // Re-fetch updated data via tRPC in a full implementation
-    });
-
-    setSocket(s);
-
-    return () => {
-      s.emit("unsubscribe:provider", providerId);
-      s.disconnect();
-    };
-  }, [providerId]);
 
   const getLatestRun = (botType: BotType) =>
     botRuns.find((r) => r.botType === botType);

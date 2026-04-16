@@ -1,11 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
-// Socket.io is initialized via a custom server or Next.js server action.
-// For App Router, Socket.io requires a custom server.ts.
-// This route provides a health endpoint and initialization status.
-export async function GET(_req: NextRequest) {
+/**
+ * NOTE: Socket.io is currently dormant in production (Next.js standalone output
+ * does not use the custom src/server.ts). The platform uses tRPC polling for
+ * real-time bot status. This endpoint is preserved as a stable health probe.
+ *
+ * Re-enabling Socket.io is tracked in P1-5 (observability) — once the worker
+ * pushes events through Redis pub/sub and a long-lived gateway process is added.
+ */
+export async function GET() {
   return NextResponse.json({
-    status: "Socket.io is managed by the custom server",
-    note: "Socket.io connections are handled at the server level, not via App Router route",
+    status: "ok",
+    realtime: "tRPC polling (Socket.io disabled in production)",
   });
 }

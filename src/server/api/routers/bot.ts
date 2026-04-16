@@ -18,7 +18,25 @@ function getPsvQueue(): Queue {
   return _psvQueue;
 }
 
-const BOT_TYPE_MAP: Record<string, string> = {
+// Bot types that are user-triggerable from the UI. Each must have a matching
+// case in src/workers/index.ts. EXPIRABLE_RENEWAL and ENROLLMENT_SUBMISSION are
+// system-triggered through dedicated workflows, not exposed here.
+const TRIGGERABLE_BOT_TYPES = [
+  "LICENSE_VERIFICATION",
+  "DEA_VERIFICATION",
+  "BOARD_NCCPA",
+  "BOARD_ABIM",
+  "BOARD_ABFM",
+  "OIG_SANCTIONS",
+  "SAM_SANCTIONS",
+  "NPDB",
+  "EMEDRAL_ETIN",
+  "EDUCATION_AMA",
+  "EDUCATION_ECFMG",
+] as const;
+type TriggerableBotType = (typeof TRIGGERABLE_BOT_TYPES)[number];
+
+const BOT_TYPE_MAP: Record<TriggerableBotType, string> = {
   LICENSE_VERIFICATION: "license-verification",
   DEA_VERIFICATION: "dea-verification",
   BOARD_NCCPA: "board-nccpa",
@@ -28,8 +46,6 @@ const BOT_TYPE_MAP: Record<string, string> = {
   SAM_SANCTIONS: "sam-sanctions",
   NPDB: "npdb-query",
   EMEDRAL_ETIN: "emedral-enrollment",
-  EXPIRABLE_RENEWAL: "expirable-renewal",
-  ENROLLMENT_SUBMISSION: "enrollment-submission",
   EDUCATION_AMA: "education-ama",
   EDUCATION_ECFMG: "education-ecfmg",
 };
@@ -130,21 +146,7 @@ export const botRouter = createTRPCRouter({
     .input(
       z.object({
         providerId: z.string().uuid(),
-        botType: z.enum([
-          "LICENSE_VERIFICATION",
-          "DEA_VERIFICATION",
-          "BOARD_NCCPA",
-          "BOARD_ABIM",
-          "BOARD_ABFM",
-          "OIG_SANCTIONS",
-          "SAM_SANCTIONS",
-          "NPDB",
-          "EMEDRAL_ETIN",
-          "EXPIRABLE_RENEWAL",
-          "ENROLLMENT_SUBMISSION",
-          "EDUCATION_AMA",
-          "EDUCATION_ECFMG",
-        ]),
+        botType: z.enum(TRIGGERABLE_BOT_TYPES),
         inputData: z.record(z.unknown()).optional(),
       })
     )
@@ -182,10 +184,9 @@ export const botRouter = createTRPCRouter({
         },
       });
 
-      // Enqueue bot job
       try {
         const queue = getPsvQueue();
-        const jobName = BOT_TYPE_MAP[input.botType] ?? input.botType.toLowerCase();
+        const jobName = BOT_TYPE_MAP[input.botType];
         await queue.add(jobName, { botRunId: botRun.id, providerId: input.providerId }, {
           priority: 1,
           attempts: 3,
@@ -193,6 +194,11 @@ export const botRouter = createTRPCRouter({
         });
       } catch (error) {
         console.error("[Bot] Failed to enqueue bot job:", error);
+        await ctx.db.botRun.update({
+          where: { id: botRun.id },
+          data: { status: "FAILED", errorMessage: error instanceof Error ? error.message : String(error), completedAt: new Date() },
+        });
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to enqueue bot job" });
       }
 
       await writeAuditLog({

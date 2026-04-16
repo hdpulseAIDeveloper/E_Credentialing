@@ -138,10 +138,7 @@ const scheduledWorker = new Worker(
       case "expirables-scan":
         await runExpirablesScan();
         break;
-      case "sanctions-monthly":
-        await runMonthlySanctionsCheck();
-        break;
-      case "sanctions-weekly":
+      case "sanctions-recheck":
         await runMonthlySanctionsCheck();
         break;
       case "follow-up-cadence":
@@ -194,21 +191,24 @@ function scheduleJobs() {
     ...opts, repeat: { every: NIGHTLY_MS, key: "license-poll" },
   });
 
-  // Only schedule sanctions jobs if the required credentials are configured
+  // NCQA standard is weekly OIG + SAM re-check; one job, env-gated.
   const hasAzureBlob = !!process.env.AZURE_BLOB_ACCOUNT_URL;
   const hasSamKey = !!process.env.SAM_GOV_API_KEY;
+  const sanctionsExplicitlyDisabled = process.env.SANCTIONS_RECHECK_DISABLED === "true";
 
-  if (hasAzureBlob || hasSamKey) {
-    void scheduledJobQueue.add("sanctions-weekly", { scheduled: true }, {
-      ...opts, repeat: { every: WEEKLY_MS, key: "sanctions-weekly" },
+  if (sanctionsExplicitlyDisabled) {
+    console.log("[Scheduler] sanctions-recheck DISABLED via SANCTIONS_RECHECK_DISABLED=true");
+  } else if (hasAzureBlob || hasSamKey) {
+    void scheduledJobQueue.add("sanctions-recheck", { scheduled: true }, {
+      ...opts, repeat: { every: WEEKLY_MS, key: "sanctions-recheck" },
     });
-    void scheduledJobQueue.add("sanctions-monthly", { scheduled: true }, {
-      ...opts, repeat: { every: MONTHLY_MS, key: "sanctions-monthly" },
-    });
-    console.log("[Scheduler] Sanctions jobs scheduled (credentials configured)");
+    console.log(`[Scheduler] sanctions-recheck scheduled (every ${WEEKLY_MS / 1000 / 60 / 60}h)`);
   } else {
-    console.log("[Scheduler] Sanctions jobs SKIPPED — AZURE_BLOB_ACCOUNT_URL and SAM_GOV_API_KEY not set");
+    console.log("[Scheduler] sanctions-recheck SKIPPED — neither AZURE_BLOB_ACCOUNT_URL nor SAM_GOV_API_KEY set");
   }
+
+  // Suppress unused-var warning for MONTHLY_MS retained for documentation only
+  void MONTHLY_MS;
 
   console.log(`[Scheduler] Jobs registered (${isDev ? "DEV intervals" : "PROD intervals"}): expirables-scan, follow-up-cadence, recredentialing-check, license-poll`);
 }
