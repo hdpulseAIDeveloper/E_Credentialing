@@ -69,9 +69,15 @@ export function botRunLogPath(providerId: string, botRunId: string): string {
 
 /**
  * Provider document blob path.
+ *
+ * Uses the original filename's extension when present; falls back to
+ * 'pdf' if the filename has no extension (e.g., "untitled").
  */
 export function documentBlobPath(providerId: string, documentId: string, filename: string): string {
-  const ext = filename.split(".").pop() ?? "pdf";
+  const lastDot = filename.lastIndexOf(".");
+  const ext = lastDot > 0 && lastDot < filename.length - 1
+    ? filename.slice(lastDot + 1)
+    : "pdf";
   return `providers/${providerId}/documents/${documentId}.${ext}`;
 }
 
