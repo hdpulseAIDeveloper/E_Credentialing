@@ -69,9 +69,9 @@ export function ChecklistPanel({ providerId, checklistItems }: Props) {
                   <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", config.className)}>
                     {config.label}
                   </span>
-                  {item.document?.blobUrl && (
+                  {item.document?.id && (
                     <a
-                      href={item.document.blobUrl}
+                      href={`/api/documents/${item.document.id}/download`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-blue-600 hover:underline"
