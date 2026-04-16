@@ -1,10 +1,27 @@
-"""Deploy helper for ESSEN Credentialing Platform — production server operations via paramiko."""
+"""Deploy helper for ESSEN Credentialing Platform — production server operations via paramiko.
+
+Safety guard: requires ALLOW_DEPLOY=1 in the environment before any SSH action runs.
+This prevents accidental deploys during agent sessions or from CI smoke tests.
+Set it deliberately, for example:
+    $env:ALLOW_DEPLOY = "1"; python .claude/deploy.py
+"""
+import os
 import paramiko
 import sys
 import io
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
+if os.environ.get('ALLOW_DEPLOY') != '1':
+    print(
+        'ERROR: deploy.py refuses to run without ALLOW_DEPLOY=1.\n'
+        '       Set the env var explicitly when you intend to touch production.\n'
+        '       PowerShell:  $env:ALLOW_DEPLOY = "1"; python .claude/deploy.py\n'
+        '       Bash:        ALLOW_DEPLOY=1 python .claude/deploy.py',
+        file=sys.stderr,
+    )
+    sys.exit(2)
 
 SERVER = '69.62.70.191'
 USER = 'hdpulse2000'

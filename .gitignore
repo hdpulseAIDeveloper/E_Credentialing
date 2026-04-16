@@ -51,5 +51,6 @@ docker-compose.override.yml
 
 # Uploads / temp
 tmp/
+.tmp/
 temp/
 uploads/

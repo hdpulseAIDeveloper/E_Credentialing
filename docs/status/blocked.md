@@ -1,0 +1,71 @@
+# Blocked Items — Awaiting Human Input
+
+This file tracks work that cannot proceed without a decision, credential, or action from a person. Every entry must include: the reason it is blocked, who can unblock it, and the date it was added.
+
+When an item is unblocked, move it to `docs/status/resolved.md` (create as needed) with the resolution and date.
+
+---
+
+## Active Blockers
+
+### B-001  Production server currently unreachable (stuck docker build holding SSH channels)
+- **Added:** 2026-04-16
+- **Owner:** Server admin (user)
+- **Detail:** All SSH channels to `69.62.70.191` time out; prior `docker compose up --build` PID 4656 appears stuck. No further deploy attempts will be made from this session until the server is confirmed idle.
+- **Unblocks:** any production deploy work, post-deploy smoke tests.
+
+### B-002  Azure Blob container privacy level
+- **Added:** 2026-04-16
+- **Owner:** Azure/cloud admin
+- **Detail:** Documents container must be set to **Private** (no public access) so that SAS-mediated downloads are the only access path. This is a portal/CLI action outside the code. Record the container name and access tier here once set.
+- **Unblocks:** P0-6 rollout to production.
+
+### B-003  Cloudflare Turnstile site/secret keys for provider verify form
+- **Added:** 2026-04-16
+- **Owner:** Security/DevOps
+- **Detail:** Need `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` env vars. Used on the provider verification form and magic-link request form to throttle abuse.
+- **Unblocks:** P1-6 provider-auth hardening in production (dev ships with a test key).
+
+### B-004  Entra ID MFA policy enforcement
+- **Added:** 2026-04-16
+- **Owner:** Essen IT / Entra admin
+- **Detail:** Staff auth is Entra-only; MFA must be enforced at the Entra tenant Conditional Access policy for users in the `ecred-staff` group. Confirm policy name and effective date.
+- **Unblocks:** P1-6 final compliance sign-off.
+
+### B-005  Payer portal credentials for bot automation (vault)
+- **Added:** 2026-04-16
+- **Owner:** Credentialing ops + Azure Key Vault admin
+- **Detail:** Playwright bots for Availity, My Practice Profile, Verity, eMedNY, NPDB require usernames/passwords (and TOTP seeds for DEA). These must be stored in Azure Key Vault under the agreed naming convention (`ecred-prod-bot-<portal>-username` / `-password` / `-totp`).
+- **Unblocks:** full PSV bot runs in production (stubs in place meanwhile).
+
+### B-006  NCQA criterion catalog content
+- **Added:** 2026-04-16
+- **Owner:** Credentialing compliance lead
+- **Detail:** Schema and workflow will ship in P1-8, but the *content* of NCQA criteria (rows in `ncqa_criterion`) must be authored by a compliance SME with the current NCQA CVO standards in hand. Provide the spreadsheet/PDF.
+- **Unblocks:** P1-8 populated catalog + auditor package export.
+
+### B-007  Legal/policy text for provider-facing consent, privacy notice, attestation language
+- **Added:** 2026-04-16
+- **Owner:** Legal + Compliance
+- **Detail:** The final copy for the attestation page, privacy notice, terms of service, and consent language inside the application form must come from legal. Placeholders in the codebase are marked `// TODO(legal)`.
+- **Unblocks:** user-facing docs (D-5) and live provider traffic.
+
+### B-008  SSL certificate for `credentialing.hdpulseai.com`
+- **Added:** 2026-04-16
+- **Owner:** Server admin
+- **Detail:** Certbot provisioning must complete on the server; see one-time nginx setup block in `CLAUDE.md`. Not a code concern but needed for public launch.
+- **Unblocks:** public launch.
+
+### B-009  Production `.env` values
+- **Added:** 2026-04-16
+- **Owner:** DevOps
+- **Detail:** Several secrets referenced by the app are expected to live in `/var/www/E_Credentialing/.env` on the prod server: `NEXTAUTH_SECRET`, `ENCRYPTION_KEY` (32-byte base64), Entra IDs, SendGrid key, Azure Communication Services connection string, Datadog/Sentry DSNs. Confirm each exists; document names/rotations here.
+- **Unblocks:** production smoke test passing all feature flags on.
+
+---
+
+## Conventions
+
+- Use ID format `B-NNN` (zero-padded). Never reuse IDs.
+- Keep the oldest blocker on top of *Active Blockers*; the very first line after the header list is the newest blocker? **No** — keep chronological (oldest first).
+- Anything a code change alone could fix is **not** a blocker; open a todo instead.
