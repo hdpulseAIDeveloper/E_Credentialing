@@ -80,8 +80,14 @@ When an item is unblocked, move it to `docs/status/resolved.md` (create as neede
 ### B-009  Production `.env` values
 - **Added:** 2026-04-16
 - **Owner:** DevOps
-- **Detail:** Several secrets referenced by the app are expected to live in `/var/www/E_Credentialing/.env` on the prod server: `NEXTAUTH_SECRET`, `ENCRYPTION_KEY` (32-byte base64), Entra IDs, SendGrid key, Azure Communication Services connection string, Datadog/Sentry DSNs. Confirm each exists; document names/rotations here.
+- **Detail:** Several secrets referenced by the app are expected to live in `/var/www/E_Credentialing/.env` on the prod server: `NEXTAUTH_SECRET`, `ENCRYPTION_KEY` (32-byte base64), `AUDIT_HMAC_KEY` (32+ character secret for audit chain integrity — NEW), Entra IDs, SendGrid key, Azure Communication Services connection string, Datadog/Sentry DSNs. Confirm each exists; document names/rotations here.
 - **Unblocks:** production smoke test passing all feature flags on.
+
+### B-010  Apply audit tamper-evidence migration on existing prod DB
+- **Added:** 2026-04-16
+- **Owner:** DB admin
+- **Detail:** Migration `20260416130000_audit_tamper_evidence` adds `sequence`, `previous_hash`, `hash`, `ip_address`, `user_agent`, `request_id` columns to `audit_logs` and installs triggers blocking DELETE/TRUNCATE and guarding UPDATE. Rows that pre-date the migration will have `hash IS NULL`; the verifier treats these as "not cryptographically attested" and reports counts on the compliance dashboard. Confirm whether Compliance wants a one-time backfill job to chain-hash historical rows (see ADR 0011).
+- **Unblocks:** clean Compliance dashboard tamper-evidence widget.
 
 ---
 

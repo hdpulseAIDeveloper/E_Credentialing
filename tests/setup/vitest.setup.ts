@@ -15,5 +15,8 @@ beforeAll(() => {
   if (!process.env.NEXTAUTH_SECRET) {
     process.env.NEXTAUTH_SECRET = "test-secret-do-not-use-in-prod";
   }
+  if (!process.env.AUDIT_HMAC_KEY) {
+    process.env.AUDIT_HMAC_KEY = "test-audit-hmac-key-must-be-at-least-32-characters";
+  }
   (process.env as Record<string, string>).NODE_ENV = "test";
 });

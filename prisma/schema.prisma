@@ -1024,17 +1024,23 @@ model MedicaidEnrollment {
 }
 
 model AuditLog {
-  id          String   @id @default(uuid())
-  timestamp   DateTime @default(now())
-  actorId     String?  @map("actor_id")
-  actorRole   String?  @map("actor_role")
-  action      String
-  entityType  String   @map("entity_type")
-  entityId    String   @map("entity_id")
-  providerId  String?  @map("provider_id")
-  beforeState Json?    @map("before_state")
-  afterState  Json?    @map("after_state")
-  metadata    Json?
+  id           String   @id @default(uuid())
+  timestamp    DateTime @default(now())
+  actorId      String?  @map("actor_id")
+  actorRole    String?  @map("actor_role")
+  action       String
+  entityType   String   @map("entity_type")
+  entityId     String   @map("entity_id")
+  providerId   String?  @map("provider_id")
+  beforeState  Json?    @map("before_state")
+  afterState   Json?    @map("after_state")
+  metadata     Json?
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  requestId    String?  @map("request_id")
+  sequence     BigInt   @default(autoincrement()) @map("sequence")
+  previousHash String?  @map("previous_hash")
+  hash         String?  @map("hash")
 
   actor    User?     @relation("AuditLogActor", fields: [actorId], references: [id])
   provider Provider? @relation("ProviderAuditLogs", fields: [providerId], references: [id])
@@ -1043,6 +1049,7 @@ model AuditLog {
   @@index([entityId])
   @@index([providerId])
   @@index([timestamp])
+  @@index([sequence])
   @@map("audit_logs")
 }
 

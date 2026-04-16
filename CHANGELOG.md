@@ -24,6 +24,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sem
 - FHIR Practitioner endpoint pagination, accurate `Bundle.total`, and `OperationOutcome` error responses.
 - Vitest + Playwright test foundation with coverage gates.
 - Pino-based logger with PHI redaction; unit test verifies redaction.
+- Tamper-evident audit log: HMAC-SHA256 chain (`previous_hash`, `hash`, `sequence`) over each row, with `ip_address`, `user_agent`, and `request_id` captured per entry. DB triggers block DELETE and TRUNCATE and allow UPDATE only for the one-time NULL→value transition on `hash`. `verifyAuditChain()` exported for compliance reporting. ADR 0011 captures the decision.
+- `AUDIT_HMAC_KEY` env var (32+ char secret); production refuses to start without it.
 
 ### Changed
 - Bot lifecycle in `BotBase.run` now respects `REQUIRES_MANUAL` status and skips automatic completion.

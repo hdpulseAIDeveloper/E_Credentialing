@@ -23,6 +23,7 @@ Process:
 | 0008 | [Prisma migrations tracked in git, applied at container start](0008-prisma-migrations.md) | Accepted |
 | 0009 | [Auth.js v5 with Entra ID for staff](0009-authjs-entra.md) | Accepted |
 | 0010 | [Pino for structured logs with PHI redaction](0010-pino-redaction.md) | Accepted |
+| 0011 | [Tamper-evident audit log (HMAC chain + DB triggers)](0011-audit-tamper-evidence.md) | Accepted |
 
 ## Template
 
