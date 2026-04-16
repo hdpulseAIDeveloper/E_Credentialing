@@ -1,8 +1,10 @@
-import { api } from "@/trpc/server";
+import { db } from "@/server/db";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { UserDetailActions } from "@/components/admin/UserDetailActions";
 import Link from "next/link";
+import { auth } from "@/server/auth";
+import { redirect } from "next/navigation";
 
 const ROLE_LABELS: Record<string, string> = {
   SPECIALIST: "Specialist",
@@ -47,14 +49,42 @@ export default async function UserDetailPage({ params, searchParams }: Props) {
   const { tab: tabParam } = await searchParams;
   const tab = tabParam ?? "overview";
 
-  let user;
-  try {
-    user = await api.admin.getUser({ id });
-  } catch {
-    notFound();
+  const session = await auth();
+  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "MANAGER")) {
+    redirect("/dashboard");
   }
 
-  const completedTaskCount = user.completedTaskCount;
+  const user = await db.user.findUnique({
+    where: { id },
+    include: {
+      assignedProviders: {
+        select: { id: true, legalFirstName: true, legalLastName: true, status: true, npi: true },
+        orderBy: { updatedAt: "desc" },
+      },
+      assignedTasks: {
+        where: { status: { not: "COMPLETED" } },
+        select: { id: true, title: true, status: true, priority: true, dueDate: true },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      },
+      auditLogsAsActor: {
+        select: { id: true, action: true, entityType: true, entityId: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 25,
+      },
+      enrollmentAssignments: {
+        select: { id: true, payerName: true, status: true },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      },
+    },
+  });
+
+  if (!user) notFound();
+
+  const completedTaskCount = await db.task.count({
+    where: { assignedToId: id, status: "COMPLETED" },
+  });
   const openTaskCount = user.assignedTasks.length;
 
   return (
@@ -233,7 +263,7 @@ export default async function UserDetailPage({ params, searchParams }: Props) {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {user.assignedProviders.map((p: any) => (
+                  {user.assignedProviders.map((p) => (
                     <tr key={p.id} className="hover:bg-gray-50">
                       <td className="px-4 py-2.5">
                         <Link href={`/providers/${p.id}`} className="text-sm font-medium text-blue-600 hover:underline">
@@ -274,7 +304,7 @@ export default async function UserDetailPage({ params, searchParams }: Props) {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {user.assignedTasks.map((t: any) => {
+                    {user.assignedTasks.map((t) => {
                       const isOverdue = t.dueDate && new Date(t.dueDate) < new Date();
                       return (
                         <tr key={t.id} className={`hover:bg-gray-50 ${isOverdue ? "bg-red-50" : ""}`}>
@@ -317,7 +347,7 @@ export default async function UserDetailPage({ params, searchParams }: Props) {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {user.enrollmentAssignments.map((e: any) => (
+                  {user.enrollmentAssignments.map((e) => (
                     <tr key={e.id} className="hover:bg-gray-50">
                       <td className="px-4 py-2.5">
                         <Link href={`/enrollments/${e.id}`} className="text-sm font-medium text-blue-600 hover:underline">
@@ -351,7 +381,7 @@ export default async function UserDetailPage({ params, searchParams }: Props) {
               <div className="p-8 text-center text-gray-500">No activity recorded yet.</div>
             ) : (
               <div className="divide-y">
-                {user.auditLogsAsActor.map((log: any) => (
+                {user.auditLogsAsActor.map((log) => (
                   <div key={log.id} className="px-4 py-3 flex items-center justify-between">
                     <div>
                       <span className="text-sm font-medium text-gray-900">
