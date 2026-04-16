@@ -45,10 +45,10 @@ services:
       # PHI Encryption
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       # App URLs
-      NEXT_PUBLIC_APP_URL: https://credentialing.essenmed.com
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://credentialing.essenmed.com}
       WORKER_INTERNAL_URL: http://ecred-worker-prod:6025
       # NextAuth / Security
-      NEXTAUTH_URL: https://credentialing.essenmed.com
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://credentialing.essenmed.com}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       # Misc
       NEXT_TELEMETRY_DISABLED: "1"
