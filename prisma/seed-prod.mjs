@@ -12,9 +12,15 @@
  */
 
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
+
+// The Next.js standalone runner tree-shakes bcryptjs out of node_modules, so
+// we ship a pre-computed bcrypt hash of the default admin password below.
+// This hash was generated with:  node -e "console.log(require('bcryptjs').hashSync('Users1!@#$%^', 12))"
+// If ADMIN_PASSWORD_HASH env var is set, we use that instead (e.g. for custom bootstrap passwords).
+const DEFAULT_ADMIN_PASSWORD_HASH =
+  "$2b$12$6FaanNq9RPeHwLBHs0.pKeUIJdLfUiBNYrOmUrUKT9prNZvmZdgWi";
 
 const PROVIDER_TYPES = [
   { abbreviation: "MD", name: "Doctor of Medicine" },
@@ -109,8 +115,8 @@ async function main() {
 
   console.log("→ Seeding admin user…");
   const adminEmail = process.env.ADMIN_EMAIL || "admin@essenhealth.com";
-  const adminPassword = process.env.ADMIN_PASSWORD || "Users1!@#$%^";
-  const passwordHash = await bcrypt.hash(adminPassword, 12);
+  const passwordHash =
+    process.env.ADMIN_PASSWORD_HASH || DEFAULT_ADMIN_PASSWORD_HASH;
   const admin = await prisma.user.upsert({
     where: { email: adminEmail },
     update: { isActive: true, role: "ADMIN" },
