@@ -19,6 +19,9 @@ export default authMiddleware((req) => {
     pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/api/webhooks/") ||
     pathname.startsWith("/api/health") ||
+    pathname.startsWith("/api/live") ||
+    pathname.startsWith("/api/ready") ||
+    pathname.startsWith("/api/metrics") ||
     pathname.startsWith("/api/v1/") ||
     pathname.startsWith("/api/fhir/") ||
     pathname.startsWith("/api/application/") ||
