@@ -106,6 +106,26 @@ still requires the "build once, test against `npm start`" roadmap
 item. The dev-loop fix is scoped to the interactive developer
 experience.
 
+### Portfolio rollout
+
+The same fix has been applied to **every** Next.js sibling app in
+the HDPulseAI portfolio so the regression cannot recur after a `git
+clone`. See `docs/standards/dev-loop-warmup.md` for the registry
+and the per-app rollout protocol. Apps covered in the same change:
+
+- `EssenWebsites/IntentionHealthcare`  (port 6008)
+- `EssenWebsites/NYReach`              (port 6005)
+- `EssenWebsites/BronxTreatmentCenter` (port 6009)
+- `EssenWebsites/EssenHealthcare`      (port 6006)
+- `WebsiteV1/frontend`                 (port 3000)
+
+Each sibling uses a stripped-down version of the warmer (no
+NextAuth, filesystem-discovered routes, locale-aware) since they
+are public marketing sites without authentication. The reference
+implementation lives in
+`scripts/dev/_canonical-sibling-warmer/` in this repository and is
+the source of truth for future apps.
+
 ## Anti-weakening attestation
 
 - [x] No per-test `timeout: 90_000` overrides have been added to mask
