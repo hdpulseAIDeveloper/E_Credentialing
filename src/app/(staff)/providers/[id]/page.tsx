@@ -7,9 +7,12 @@ import { TaskManager } from "@/components/tasks/TaskManager";
 import { AddEnrollmentModal } from "@/components/enrollments/AddEnrollmentModal";
 import { AuditTrailPanel } from "@/components/audit/AuditTrailPanel";
 import { CoiTrackingPanel } from "@/components/providers/CoiTrackingPanel";
+import { MalpracticeVerificationPanel } from "@/components/providers/MalpracticeVerificationPanel";
+import { TelehealthPanel } from "@/components/providers/TelehealthPanel";
 import { OnsiteMeetingPanel } from "@/components/providers/OnsiteMeetingPanel";
 import { CaqhSyncButton } from "@/components/providers/CaqhSyncButton";
 import { HospitalPrivilegesPanel } from "@/components/providers/HospitalPrivilegesPanel";
+import { PsvSlaPanel } from "@/components/providers/PsvSlaPanel";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -141,6 +144,14 @@ export default async function ProviderDetailPage({ params, searchParams }: Props
             currentMedicaidId={provider.medicaidId}
             staffUsers={staffUsers}
           />
+          {/* P1 Gap #10 — one-click delegated audit packet */}
+          <a
+            href={`/api/providers/${provider.id}/audit-packet`}
+            className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700"
+            title="Download delegated-audit ZIP packet (NCQA / payer reviews)"
+          >
+            <span aria-hidden>⬇</span> Audit packet (.zip)
+          </a>
         </div>
       </div>
 
@@ -183,6 +194,20 @@ export default async function ProviderDetailPage({ params, searchParams }: Props
       <div>
         {tab === "overview" && (
           <div className="space-y-6">
+            {/* NCQA PSV SLA countdown (90-day initial / 120-day recred) */}
+            <PsvSlaPanel
+              applicationSubmittedAt={provider.applicationSubmittedAt}
+              approvedAt={provider.approvedAt}
+              recredentialingCycles={provider.recredentialingCycles.map((c: any) => ({
+                id: c.id,
+                cycleNumber: c.cycleNumber,
+                startedAt: c.startedAt ?? null,
+                dueDate: c.dueDate ?? null,
+                completedAt: c.completedAt ?? null,
+                status: c.status,
+              }))}
+            />
+
             {/* COI and Onsite Meeting */}
             <div className="grid grid-cols-2 gap-6">
               <CoiTrackingPanel
@@ -200,6 +225,12 @@ export default async function ProviderDetailPage({ params, searchParams }: Props
                 meetingNotes={provider.onsiteMeetingNotes}
               />
             </div>
+
+            {/* P1 Gap #12 — malpractice carrier verification + threshold check */}
+            <MalpracticeVerificationPanel providerId={provider.id} />
+
+            {/* P1 Gap #15 — telehealth deepening: coverage / IMLC / platform certs */}
+            <TelehealthPanel providerId={provider.id} />
 
             {/* Provider Info + Timeline */}
             <div className="grid grid-cols-2 gap-6">
@@ -221,6 +252,62 @@ export default async function ProviderDetailPage({ params, searchParams }: Props
                     <CaqhSyncButton providerId={provider.id} caqhId={provider.caqhId} />
                   </dd>
                 </div>
+                {provider.caqhId && (
+                  <>
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500">CAQH Profile</dt>
+                      <dd className="font-medium">
+                        {provider.profile?.caqhProfileStatus ?? "—"}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500">Last Attestation</dt>
+                      <dd className="font-medium">
+                        {provider.profile?.caqhAttestationDate?.toLocaleDateString() ?? "—"}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500">Re-attest Due</dt>
+                      <dd className="font-medium">
+                        {(() => {
+                          const due = provider.profile?.caqhNextReattestDue;
+                          if (!due) return "—";
+                          const days = Math.ceil(
+                            (due.getTime() - Date.now()) / (24 * 60 * 60 * 1000)
+                          );
+                          const label = due.toLocaleDateString();
+                          if (days < 0) {
+                            return (
+                              <span className="text-red-600">
+                                {label} (overdue {Math.abs(days)}d)
+                              </span>
+                            );
+                          }
+                          if (days <= 14) {
+                            return (
+                              <span className="text-amber-600">
+                                {label} ({days}d)
+                              </span>
+                            );
+                          }
+                          return `${label} (${days}d)`;
+                        })()}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500">Essen Active Site</dt>
+                      <dd className="font-medium">
+                        {provider.profile?.caqhEssenIsActiveSite === true && (
+                          <span className="text-green-600">Yes</span>
+                        )}
+                        {provider.profile?.caqhEssenIsActiveSite === false && (
+                          <span className="text-red-600">No — request provider designate Essen</span>
+                        )}
+                        {provider.profile?.caqhEssenIsActiveSite == null && "—"}
+                      </dd>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between">
                   <dt className="text-gray-500">iCIMS ID</dt>
                   <dd className="font-medium">{provider.icimsId ?? "—"}</dd>

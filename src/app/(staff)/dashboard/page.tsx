@@ -2,6 +2,10 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { PipelineTable } from "@/components/dashboard/PipelineTable";
 import { TaskList } from "@/components/dashboard/TaskList";
+import {
+  PSV_SLA_INITIAL_DAYS,
+  PSV_SLA_RECRED_DAYS,
+} from "@/lib/psv-sla";
 
 const STATUS_COLORS: Record<string, string> = {
   INVITED: "#94a3b8",
@@ -49,6 +53,25 @@ export default async function DashboardPage() {
 
   const thirtyDaysFromNow = new Date();
   thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+  // P0 Gap #7 — NCQA PSV SLA breach windows.
+  // Initial: app submitted ≥ 90 days ago AND not yet approved → overdue.
+  // Initial at-risk: app submitted ≥ 60 days ago AND not yet approved.
+  // Recred: cycle started ≥ 120 days ago AND not yet completed → overdue.
+  // Recred at-risk: cycle started ≥ 90 days ago AND not yet completed.
+  const now = new Date();
+  const initialOverdueCutoff = new Date(
+    now.getTime() - PSV_SLA_INITIAL_DAYS * 24 * 60 * 60 * 1000
+  );
+  const initialAtRiskCutoff = new Date(
+    now.getTime() - (PSV_SLA_INITIAL_DAYS - 30) * 24 * 60 * 60 * 1000
+  );
+  const recredOverdueCutoff = new Date(
+    now.getTime() - PSV_SLA_RECRED_DAYS * 24 * 60 * 60 * 1000
+  );
+  const recredAtRiskCutoff = new Date(
+    now.getTime() - (PSV_SLA_RECRED_DAYS - 30) * 24 * 60 * 60 * 1000
+  );
 
   const [
     providers,
@@ -166,6 +189,68 @@ export default async function DashboardPage() {
         requestSentAt: {
           lte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
         },
+      },
+    }),
+  ]);
+
+  // P1 Gap #9 — Continuous monitoring alert counts (open + new in last 24h).
+  const [
+    monitoringCritical,
+    monitoringWarning,
+    monitoringNew24h,
+  ] = await Promise.all([
+    db.monitoringAlert.count({
+      where: { status: "OPEN", severity: "CRITICAL" },
+    }),
+    db.monitoringAlert.count({
+      where: { status: "OPEN", severity: "WARNING" },
+    }),
+    db.monitoringAlert.count({
+      where: { detectedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+    }),
+  ]);
+
+  // PSV SLA breach metrics — separate query block so the dashboard renders
+  // even if these counts are 0. We exclude already-approved providers from
+  // initial breaches and already-completed cycles from recred breaches.
+  const [
+    initialPsvOverdue,
+    initialPsvAtRisk,
+    recredPsvOverdue,
+    recredPsvAtRisk,
+  ] = await Promise.all([
+    db.provider.count({
+      where: {
+        applicationSubmittedAt: { lte: initialOverdueCutoff, not: null },
+        approvedAt: null,
+        status: { notIn: ["DENIED", "INACTIVE", "DEFERRED"] },
+      },
+    }),
+    db.provider.count({
+      where: {
+        applicationSubmittedAt: {
+          lte: initialAtRiskCutoff,
+          gt: initialOverdueCutoff,
+        },
+        approvedAt: null,
+        status: { notIn: ["DENIED", "INACTIVE", "DEFERRED"] },
+      },
+    }),
+    db.recredentialingCycle.count({
+      where: {
+        startedAt: { lte: recredOverdueCutoff, not: null },
+        completedAt: null,
+        status: { notIn: ["COMPLETED"] },
+      },
+    }),
+    db.recredentialingCycle.count({
+      where: {
+        startedAt: {
+          lte: recredAtRiskCutoff,
+          gt: recredOverdueCutoff,
+        },
+        completedAt: null,
+        status: { notIn: ["COMPLETED"] },
       },
     }),
   ]);
@@ -350,6 +435,151 @@ export default async function DashboardPage() {
                 })}
               </ul>
             )}
+          </div>
+
+          {/* PSV SLA Health (NCQA CR 4) */}
+          <div className="bg-white rounded-lg border">
+            <div className="px-3 py-2 border-b flex items-center justify-between">
+              <h2 className="text-xs font-semibold text-gray-900">
+                PSV SLA Health
+                <span className="ml-1 font-normal text-gray-400">
+                  · 90d initial / 120d recred
+                </span>
+              </h2>
+            </div>
+            <ul className="divide-y">
+              <li className="px-3 py-2">
+                <a
+                  href="/providers?slaBreach=initial"
+                  className="flex items-center justify-between hover:text-blue-600"
+                >
+                  <span className="text-sm text-gray-900">
+                    Initial PSV breached (&gt;{PSV_SLA_INITIAL_DAYS}d)
+                  </span>
+                  <span
+                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      initialPsvOverdue > 0
+                        ? "bg-red-50 text-red-600"
+                        : "bg-green-50 text-green-600"
+                    }`}
+                  >
+                    {initialPsvOverdue}
+                  </span>
+                </a>
+              </li>
+              <li className="px-3 py-2">
+                <a
+                  href="/providers?slaBreach=initial-at-risk"
+                  className="flex items-center justify-between hover:text-blue-600"
+                >
+                  <span className="text-sm text-gray-900">
+                    Initial PSV at risk (&lt;30d remaining)
+                  </span>
+                  <span
+                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      initialPsvAtRisk > 0
+                        ? "bg-amber-50 text-amber-700"
+                        : "bg-green-50 text-green-600"
+                    }`}
+                  >
+                    {initialPsvAtRisk}
+                  </span>
+                </a>
+              </li>
+              <li className="px-3 py-2">
+                <a
+                  href="/recredentialing?slaBreach=overdue"
+                  className="flex items-center justify-between hover:text-blue-600"
+                >
+                  <span className="text-sm text-gray-900">
+                    Recred PSV breached (&gt;{PSV_SLA_RECRED_DAYS}d)
+                  </span>
+                  <span
+                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      recredPsvOverdue > 0
+                        ? "bg-red-50 text-red-600"
+                        : "bg-green-50 text-green-600"
+                    }`}
+                  >
+                    {recredPsvOverdue}
+                  </span>
+                </a>
+              </li>
+              <li className="px-3 py-2">
+                <a
+                  href="/recredentialing?slaBreach=at-risk"
+                  className="flex items-center justify-between hover:text-blue-600"
+                >
+                  <span className="text-sm text-gray-900">
+                    Recred PSV at risk (&lt;30d remaining)
+                  </span>
+                  <span
+                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      recredPsvAtRisk > 0
+                        ? "bg-amber-50 text-amber-700"
+                        : "bg-green-50 text-green-600"
+                    }`}
+                  >
+                    {recredPsvAtRisk}
+                  </span>
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          {/* Continuous Monitoring Alerts (P1 Gap #9) */}
+          <div className="bg-white rounded-lg border">
+            <div className="px-3 py-2 border-b flex items-center justify-between">
+              <a
+                href="/monitoring"
+                className="text-xs font-semibold text-gray-900 hover:text-blue-600"
+              >
+                Continuous Monitoring →
+              </a>
+              <span className="text-[10px] text-gray-400">
+                {monitoringNew24h} new in 24h
+              </span>
+            </div>
+            <ul className="divide-y">
+              <li className="px-3 py-2">
+                <a
+                  href="/monitoring?status=OPEN&severity=CRITICAL"
+                  className="flex items-center justify-between hover:text-blue-600"
+                >
+                  <span className="text-sm text-gray-900">
+                    Critical alerts open
+                  </span>
+                  <span
+                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      monitoringCritical > 0
+                        ? "bg-red-50 text-red-600"
+                        : "bg-green-50 text-green-600"
+                    }`}
+                  >
+                    {monitoringCritical}
+                  </span>
+                </a>
+              </li>
+              <li className="px-3 py-2">
+                <a
+                  href="/monitoring?status=OPEN&severity=WARNING"
+                  className="flex items-center justify-between hover:text-blue-600"
+                >
+                  <span className="text-sm text-gray-900">
+                    Warning alerts open
+                  </span>
+                  <span
+                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      monitoringWarning > 0
+                        ? "bg-amber-50 text-amber-700"
+                        : "bg-green-50 text-green-600"
+                    }`}
+                  >
+                    {monitoringWarning}
+                  </span>
+                </a>
+              </li>
+            </ul>
           </div>
 
           {/* Cross-Module Alerts */}

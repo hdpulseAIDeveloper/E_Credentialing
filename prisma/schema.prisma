@@ -115,6 +115,8 @@ enum BotType {
   ENROLLMENT_SUBMISSION
   EDUCATION_AMA
   EDUCATION_ECFMG
+  EDUCATION_ACGME
+  STATE_MEDICAID_EXCLUSION
 }
 
 enum BotStatus {
@@ -281,17 +283,57 @@ enum ExpirableStatus {
 enum SanctionsSource {
   OIG
   SAM_GOV
+  STATE_MEDICAID
 }
 
 enum SanctionsTriggeredBy {
   AUTOMATIC_INITIAL
   AUTOMATIC_MONTHLY
+  AUTOMATIC_30DAY
   MANUAL
 }
 
 enum SanctionsResult {
   CLEAR
   FLAGGED
+}
+
+// P1 Gap #9 — continuous monitoring alerts (SAM.gov webhook + nightly polls).
+enum MonitoringAlertType {
+  LICENSE_STATUS_CHANGE
+  LICENSE_DISCIPLINARY_ACTION
+  SAM_EXCLUSION_ADDED
+  SAM_EXCLUSION_REMOVED
+  OIG_EXCLUSION_ADDED
+  STATE_MEDICAID_EXCLUSION_ADDED
+  NPDB_NEW_REPORT
+  BOARD_CERT_LAPSED
+  DEA_STATUS_CHANGE
+  MALPRACTICE_COVERAGE_BELOW_MIN
+  MALPRACTICE_COVERAGE_LAPSED
+  CAQH_ATTESTATION_DUE
+  CAQH_ESSEN_NOT_ACTIVE_SITE
+  TELEHEALTH_LICENSE_GAP
+  TELEHEALTH_PLATFORM_CERT_EXPIRING
+  IMLC_LOQ_EXPIRING
+  FSMB_BOARD_ACTION
+  FSMB_LICENSE_STATUS_CHANGE
+  FSMB_DISCIPLINARY_REPORT
+  SUPERVISION_ATTESTATION_OVERDUE
+  PROVISIONAL_LICENSE_EXPIRING
+}
+
+enum MonitoringAlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum MonitoringAlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  DISMISSED
 }
 
 enum NpdbQueryType {
@@ -387,9 +429,21 @@ model User {
   medicaidEnrollmentsCreated MedicaidEnrollment[] @relation("MedicaidCreatedBy")
   savedReports           SavedReport[]       @relation("SavedReportCreator")
   evaluationsAsEvaluator PracticeEvaluation[] @relation("EvaluationEvaluator")
+  peerReviewMeetingsLed  PeerReviewMeeting[]  @relation("PeerReviewChair")
+  peerReviewMinutesAuthored PeerReviewMinute[] @relation("PeerReviewMinuteAuthor")
   trainingRecords        StaffTrainingRecord[] @relation("UserTrainingRecords")
+  trainingAssignments    TrainingAssignment[]  @relation("TrainingAssignmentUser")
+  aiModelCardsReviewed   AiModelCard[]         @relation("AiModelCardReviewer")
+  aiDecisionsHuman       AiDecisionLog[]       @relation("AiDecisionLogHuman")
+  botExceptionVerdictsResolved BotExceptionVerdict[] @relation("BotExceptionVerdictResolvedBy")
   ncqaAssessments        NcqaCriterionAssessment[] @relation("NcqaAssessments")
   ncqaSnapshots          NcqaComplianceSnapshot[]  @relation("NcqaSnapshots")
+  monitoringAlertsAck    MonitoringAlert[]         @relation("MonitoringAlertAcknowledgedBy")
+  monitoringAlertsRes    MonitoringAlert[]         @relation("MonitoringAlertResolvedBy")
+  aiConversations        AiConversation[]          @relation("AiConversationUser")
+  complianceControlsOwned ComplianceControl[]      @relation("ComplianceControlOwner")
+  complianceEvidenceAdded ComplianceEvidence[]     @relation("ComplianceEvidenceAddedBy")
+  complianceGapsOwned    ComplianceGap[]           @relation("ComplianceGapOwner")
 
   @@index([role])
   @@index([isActive])
@@ -489,7 +543,18 @@ model Provider {
   workHistoryVerifications WorkHistoryVerification[] @relation("ProviderWorkHistoryVerifications")
   professionalReferences  ProfessionalReference[] @relation("ProviderProfessionalReferences")
   practiceEvaluations     PracticeEvaluation[] @relation("ProviderEvaluations")
+  peerReviewMinutes       PeerReviewMinute[]   @relation("PeerReviewMinuteProvider")
+  aiDecisionLogs          AiDecisionLog[]      @relation("AiDecisionLogProvider")
+  botExceptionVerdicts    BotExceptionVerdict[] @relation("ProviderBotExceptionVerdicts")
+  fsmbPdcSubscription     FsmbPdcSubscription?  @relation("ProviderFsmbPdcSubscription")
+  fsmbPdcEvents           FsmbPdcEvent[]        @relation("ProviderFsmbPdcEvents")
+  supervisionAttestations SupervisionAttestation[] @relation("ProviderSupervisionAttestations")
   cmeCredits              CmeCredit[]        @relation("ProviderCmeCredits")
+  monitoringAlerts        MonitoringAlert[]  @relation("ProviderMonitoringAlerts")
+  aiConversations         AiConversation[]   @relation("AiConversationProvider")
+  malpracticeVerifications MalpracticeVerification[] @relation("ProviderMalpracticeVerifications")
+  telehealthPlatformCerts TelehealthPlatformCert[] @relation("ProviderTelehealthPlatformCerts")
+  directoryPractitionerRoles DirectoryPractitionerRole[] @relation("ProviderDirectoryRoles")
 
   // Phase 1: initial approval date for recredentialing cycle calculation
   initialApprovalDate DateTime? @map("initial_approval_date")
@@ -533,6 +598,19 @@ model ProviderProfile {
   caqhDataSnapshot      Json?    @map("caqh_data_snapshot")
   icimsDataSnapshot     Json?    @map("icims_data_snapshot")
 
+  // ── P1 Gap #14: CAQH ProView 2026 alignment ────────────────────────────
+  // CAQH requires re-attestation every 120 days. Active-site enforcement
+  // means the org (Essen) must be designated as an active practice
+  // location, not merely a "viewer". The Groups module surfaces group
+  // affiliations the provider has linked to in CAQH.
+  caqhProfileStatus       String?   @map("caqh_profile_status")
+  caqhAttestationDate     DateTime? @map("caqh_attestation_date")
+  caqhNextReattestDue     DateTime? @map("caqh_next_reattest_due")
+  caqhEssenIsActiveSite   Boolean?  @map("caqh_essen_active_site")
+  caqhGroupAffiliations   Json?     @map("caqh_group_affiliations")
+  caqhLastReminderSentAt  DateTime? @map("caqh_last_reminder_sent_at")
+  caqhSyncedAt            DateTime? @map("caqh_synced_at")
+
   // Malpractice carrier verification (Gap #13)
   malpracticeCarrier         String?   @map("malpractice_carrier")
   malpracticePolicyNumber    String?   @map("malpractice_policy_number")
@@ -547,9 +625,49 @@ model ProviderProfile {
   teleHealthCertified      Boolean   @default(false) @map("telehealth_certified")
   teleHealthStates         String[]  @map("telehealth_states")
 
+  // P1 Gap #15 — IMLC (Interstate Medical Licensure Compact) eligibility.
+  // Captured separately because IMLC introduces a "letter of qualification"
+  // (LoQ) issued by the SPL (State of Principal License) which then expedites
+  // licensure in any other IMLC member state. Tracking the LoQ + member-state
+  // grants is the only way to honestly compute multi-state telehealth coverage.
+  imlcEligible             Boolean?  @map("imlc_eligible")
+  imlcSpl                  String?   @map("imlc_spl") // 2-letter state code
+  imlcLoqIssuedDate        DateTime? @map("imlc_loq_issued_date")
+  imlcLoqExpiresAt         DateTime? @map("imlc_loq_expires_at")
+  imlcLoqDocumentBlobUrl   String?   @map("imlc_loq_document_blob_url")
+  imlcMemberStatesGranted  String[]  @map("imlc_member_states_granted")
+
+  // ── P3 Gap #22 — Behavioral health specialty path ─────────────────────
+  // NUCC taxonomy code (e.g. 101YM0800X = Mental Health Counselor).
+  // Captured here so payer-roster and BCBS fast-track logic can identify
+  // behavioral-health practitioners without scraping specialty strings.
+  nuccTaxonomyPrimary       String?  @map("nucc_taxonomy_primary")
+  nuccTaxonomySecondary     String[] @map("nucc_taxonomy_secondary")
+  isBehavioralHealth        Boolean  @default(false) @map("is_behavioral_health")
+  // Provisionally-licensed flag — when true, the provider must have a
+  // current SupervisionAttestation on file with hours/supervisor logged.
+  isProvisionallyLicensed   Boolean  @default(false) @map("is_provisionally_licensed")
+  provisionalLicenseExpires DateTime? @map("provisional_license_expires")
+  // BCBS fast-track tracking. Anthem/BCBS offers a behavioral-health
+  // expedited credentialing track for under-served specialties; we track
+  // submission + status here.
+  bcbsFastTrackEligible     Boolean  @default(false) @map("bcbs_fast_track_eligible")
+  bcbsFastTrackSubmittedAt  DateTime? @map("bcbs_fast_track_submitted_at")
+  bcbsFastTrackStatus       String?  @map("bcbs_fast_track_status")
+  bcbsFastTrackRefId        String?  @map("bcbs_fast_track_ref_id")
+
   // Demographics for NCQA (Gap #14)
   race      String?
   ethnicity String?
+
+  // NCQA 2026 application standard — non-discrimination disclosure must be
+  // explicitly acknowledged by the practitioner during initial credentialing
+  // and recredentialing. We capture both the acknowledgment timestamp and
+  // the disclosure version the provider saw, so future revisions don't
+  // invalidate prior signatures.
+  nonDiscriminationAckAt      DateTime? @map("non_discrimination_ack_at")
+  nonDiscriminationAckVersion String?   @map("non_discrimination_ack_version")
+
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
 
@@ -610,6 +728,16 @@ model Document {
   ocrStatus            OcrStatus      @default(PENDING) @map("ocr_status")
   ocrData              Json?          @map("ocr_data")
   ocrConfidence        Float?         @map("ocr_confidence")
+
+  // AI document auto-classification (P1 Gap #8). When the uploader picks a
+  // document type, the classifier still runs and stores its independent
+  // suggestion so staff can spot mismatches (e.g., uploader picked
+  // BOARD_CERTIFICATION but the file is clearly a DEA certificate). The
+  // suggestion is advisory only — never overwrites documentType automatically.
+  suggestedDocumentType DocumentType? @map("suggested_document_type")
+  classifierConfidence  Float?        @map("classifier_confidence")
+  classifierVersion     String?       @map("classifier_version")
+  classifierReason      String?       @map("classifier_reason")
   isVerified           Boolean        @default(false) @map("is_verified")
   verificationRecordId String?        @map("verification_record_id")
   expirationDate       DateTime?      @map("expiration_date")
@@ -680,6 +808,7 @@ model BotRun {
   sanctionsChecks    SanctionsCheck[]     @relation("BotRunSanctions")
   npdbRecords        NPDBRecord[]         @relation("BotRunNpdb")
   medicaidEnrollments MedicaidEnrollment[] @relation("BotRunMedicaid")
+  exceptionVerdicts  BotExceptionVerdict[] @relation("BotRunExceptionVerdicts")
 
   @@index([providerId])
   @@index([status])
@@ -1281,6 +1410,24 @@ model PayerRoster {
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
+  // ── P1 Gap #13: per-payer SFTP delivery configuration ──────────────────
+  // Credentials are referenced by Azure Key Vault secret name, never stored
+  // in the DB directly. host/port/username/paths are non-secret and live here.
+  sftpHost              String? @map("sftp_host")
+  sftpPort              Int?    @map("sftp_port")
+  sftpUsername          String? @map("sftp_username")
+  // Vault secret names — looked up at runtime by the SFTP client.
+  sftpPasswordSecretRef String? @map("sftp_password_secret_ref")
+  sftpPrivateKeySecretRef String? @map("sftp_private_key_secret_ref")
+  // Remote directory layout.
+  sftpUploadDir         String? @map("sftp_upload_dir")
+  sftpAckDir            String? @map("sftp_ack_dir")
+  // Glob/regex used to match the ack file back to a submission.
+  // Supported placeholders: {basename}, {YYYYMMDD}.
+  sftpAckPattern        String? @map("sftp_ack_pattern")
+  sftpHostKeyFingerprint String? @map("sftp_host_key_fingerprint")
+  sftpEnabled           Boolean @default(false) @map("sftp_enabled")
+
   submissions RosterSubmission[] @relation("RosterSubmissions")
 
   @@map("payer_rosters")
@@ -1300,9 +1447,21 @@ model RosterSubmission {
   createdAt        DateTime     @default(now()) @map("created_at")
   updatedAt        DateTime     @updatedAt @map("updated_at")
 
+  // ── P1 Gap #13: real-SFTP delivery + ack tracking ──────────────────────
+  remoteFilename   String?  @map("remote_filename")
+  remotePath       String?  @map("remote_path")
+  remoteSize       Int?     @map("remote_size")
+  ackFilename      String?  @map("ack_filename")
+  ackContent       String?  @map("ack_content")
+  ackErrorMessage  String?  @map("ack_error_message")
+  attemptCount     Int      @default(0) @map("attempt_count")
+  lastAttemptAt    DateTime? @map("last_attempt_at")
+  lastError        String?  @map("last_error")
+
   roster PayerRoster @relation("RosterSubmissions", fields: [rosterId], references: [id])
 
   @@index([rosterId])
+  @@index([status])
   @@map("roster_submissions")
 }
 
@@ -1326,9 +1485,17 @@ model PracticeEvaluation {
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
 
+  // P2 Gap #17 (Joint Commission NPG 12) — peer review trigger metadata.
+  // Tracks WHY this evaluation was created (e.g. "new privilege grant",
+  // "performance concern", "patient complaint") so JC auditors can see
+  // the auto-FPPE chain of custody.
+  trigger           String?          @map("trigger")
+  triggerRefId     String?           @map("trigger_ref_id")
+
   provider          Provider           @relation("ProviderEvaluations", fields: [providerId], references: [id])
   hospitalPrivilege HospitalPrivilege? @relation("EvaluationPrivilege", fields: [privilegeId], references: [id])
   evaluator         User?              @relation("EvaluationEvaluator", fields: [evaluatorId], references: [id])
+  peerReviewMinutes PeerReviewMinute[] @relation("PeerReviewMinuteEvaluation")
 
   @@index([providerId])
   @@index([dueDate])
@@ -1407,18 +1574,22 @@ model CmeCredit {
 model StaffTrainingRecord {
   id             String    @id @default(uuid())
   userId         String    @map("user_id")
+  courseId       String?   @map("course_id")
   courseName     String    @map("course_name")
   courseCategory  String    @default("general") @map("course_category")
   completedAt    DateTime? @map("completed_at")
   expiresAt      DateTime? @map("expires_at")
   certificateUrl String?   @map("certificate_url")
+  scorePercent   Int?      @map("score_percent")
   source         String    @default("manual")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  user User @relation("UserTrainingRecords", fields: [userId], references: [id])
+  user   User            @relation("UserTrainingRecords", fields: [userId], references: [id])
+  course TrainingCourse? @relation("CourseRecords", fields: [courseId], references: [id])
 
   @@index([userId])
+  @@index([courseId])
   @@map("staff_training_records")
 }
 
@@ -1511,4 +1682,924 @@ model NcqaComplianceSnapshot {
 
   @@index([takenAt])
   @@map("ncqa_compliance_snapshots")
+}
+
+// ─── P1 Gap #11: Conversational AI Assistants ───────────────────────────────
+//
+// Two surfaces share the same underlying tables:
+//   • PROVIDER mode: provider self-service ("What's the status of my
+//     application?", "How do I update my CAQH attestation?")
+//   • STAFF mode: internal compliance coach ("Is this provider ready for
+//     committee?", "Which states require additional sanctions screening?")
+//
+// All Q&A is stored for: (a) NCQA AI governance audit trail, (b) follow-up
+// review, (c) RAG self-improvement over time. PHI is never sent to the LLM
+// unless the conversation is scoped to a specific provider AND the asker is
+// authorised for that provider.
+enum AiAssistantMode {
+  PROVIDER
+  STAFF_COACH
+}
+
+model AiConversation {
+  id              String          @id @default(uuid())
+  mode            AiAssistantMode
+  userId          String?         @map("user_id") // null for anonymous public-token sessions
+  providerId      String?         @map("provider_id") // scope, when applicable
+  title           String?
+  modelDeployment String?         @map("model_deployment")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  user     User?     @relation("AiConversationUser", fields: [userId], references: [id])
+  provider Provider? @relation("AiConversationProvider", fields: [providerId], references: [id])
+  messages AiMessage[]
+
+  @@index([userId])
+  @@index([providerId])
+  @@map("ai_conversations")
+}
+
+enum AiMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model AiMessage {
+  id             String        @id @default(uuid())
+  conversationId String        @map("conversation_id")
+  role           AiMessageRole
+  content        String
+  // Cited document/file paths from the RAG retriever, so the user (and an
+  // auditor) can see what knowledge backed the answer.
+  citations      Json          @default("[]")
+  promptTokens   Int?          @map("prompt_tokens")
+  completionTokens Int?        @map("completion_tokens")
+  latencyMs      Int?          @map("latency_ms")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("ai_messages")
+}
+
+// ─── P1 Gap #9: Continuous Monitoring Alerts ────────────────────────────────
+//
+// Generated by:
+//   • SAM.gov / OIG webhook ingestion (POST /api/webhooks/sam-gov)
+//   • Nightly state-board license polls (continuous-license-monitoring job)
+//   • NPDB Continuous Query alerts (when NPDB_ENABLED=true)
+//   • Sanctions-30day sweep state changes
+//
+// Surfaced on the staff dashboard and provider detail page so a license
+// suspension or new exclusion is acted on within hours, not at the next
+// scheduled credentialing cycle.
+model MonitoringAlert {
+  id          String                  @id @default(uuid())
+  providerId  String                  @map("provider_id")
+  type        MonitoringAlertType
+  severity    MonitoringAlertSeverity @default(WARNING)
+  status      MonitoringAlertStatus   @default(OPEN)
+  source      String // e.g., "SAM_GOV_WEBHOOK", "NY_OPMC_POLL", "NPDB_CONTINUOUS"
+  title       String
+  description String
+  evidence    Json                    @default("{}") // diff before/after, source URL, etc.
+
+  detectedAt   DateTime  @default(now()) @map("detected_at")
+  acknowledgedAt DateTime? @map("acknowledged_at")
+  acknowledgedById String? @map("acknowledged_by")
+  resolvedAt   DateTime? @map("resolved_at")
+  resolvedById String?   @map("resolved_by")
+  resolutionNotes String? @map("resolution_notes")
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  provider         Provider @relation("ProviderMonitoringAlerts", fields: [providerId], references: [id], onDelete: Cascade)
+  acknowledgedBy   User?    @relation("MonitoringAlertAcknowledgedBy", fields: [acknowledgedById], references: [id])
+  resolvedBy       User?    @relation("MonitoringAlertResolvedBy", fields: [resolvedById], references: [id])
+
+  @@index([providerId])
+  @@index([status])
+  @@index([severity])
+  @@index([detectedAt])
+  @@map("monitoring_alerts")
+}
+
+// ─── P1 Gap #12: Malpractice Carrier Verification ──────────────────────────
+//
+// Bot/outreach workflow for verifying a provider's malpractice coverage with
+// the insurance carrier. Mirrors the WorkHistory/Reference outreach pattern:
+// staff initiates, SendGrid emails the carrier with a token-bound response
+// link, the carrier completes a structured form, and we compare the reported
+// limits against per-facility minimums.
+//
+// On submission, if reportedPerOccurrence < FacilityCoverageMinimum.minPerOccurrence
+// or reportedAggregate < minAggregate, a MonitoringAlert is raised so the
+// credentialing specialist can resolve before committee.
+enum MalpracticeVerificationStatus {
+  PENDING
+  SENT
+  REMINDER_SENT
+  RECEIVED
+  EXPIRED
+  DECLINED
+}
+
+model MalpracticeVerification {
+  id              String                        @id @default(uuid())
+  providerId      String                        @map("provider_id")
+  carrierName     String                        @map("carrier_name")
+  contactName     String?                       @map("contact_name")
+  contactEmail    String?                       @map("contact_email")
+  contactPhone    String?                       @map("contact_phone")
+  policyNumber    String?                       @map("policy_number")
+  expectedExpDate DateTime?                     @map("expected_exp_date")
+  status          MalpracticeVerificationStatus @default(PENDING)
+  responseToken   String                        @unique @default(uuid()) @map("response_token")
+  requestSentAt   DateTime?                     @map("request_sent_at")
+  lastReminderAt  DateTime?                     @map("last_reminder_at")
+  reminderCount   Int                           @default(0) @map("reminder_count")
+  receivedAt      DateTime?                     @map("received_at")
+  // Reported coverage from the carrier response — Decimal-style values stored
+  // as integer cents to avoid floating-point drift.
+  reportedPerOccurrenceCents BigInt?  @map("reported_per_occurrence_cents")
+  reportedAggregateCents     BigInt?  @map("reported_aggregate_cents")
+  reportedEffectiveDate      DateTime? @map("reported_effective_date")
+  reportedExpirationDate     DateTime? @map("reported_expiration_date")
+  reportedClaimsHistory      String?  @map("reported_claims_history")
+  responseData               Json?    @map("response_data")
+  // Outcome of the threshold comparison after a response is received.
+  thresholdMet               Boolean? @map("threshold_met")
+  thresholdNotes             String?  @map("threshold_notes")
+  monitoringAlertId          String?  @map("monitoring_alert_id")
+  notes                      String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  provider Provider @relation("ProviderMalpracticeVerifications", fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([status])
+  @@map("malpractice_verifications")
+}
+
+// Per-facility minimum coverage requirements (e.g., a hospital may require
+// $1M/$3M while an outpatient clinic accepts $500K/$1M). Drives the
+// threshold comparison on every carrier response.
+model FacilityCoverageMinimum {
+  id                    String   @id @default(uuid())
+  facilityName          String   @map("facility_name")
+  state                 String?
+  minPerOccurrenceCents BigInt   @map("min_per_occurrence_cents")
+  minAggregateCents     BigInt   @map("min_aggregate_cents")
+  notes                 String?
+  isActive              Boolean  @default(true) @map("is_active")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@unique([facilityName])
+  @@map("facility_coverage_minimums")
+}
+
+// ─── P2 Gap #16 — CMS-0057-F Provider Directory (FHIR R4) ──────────────────
+// Minimal Organization / Location / Endpoint / PractitionerRole tables to
+// support FHIR R4 search and read endpoints required by CMS-0057-F.
+// Designed for the DaVinci PDex Plan-Net IG resource shapes, which is the
+// CMS-recommended profile for provider directory data.
+
+enum DirectoryOrganizationType {
+  PROV          // Healthcare Provider
+  PAYER
+  GOVT
+  OTHER
+}
+
+model DirectoryOrganization {
+  id           String                    @id @default(uuid())
+  name         String
+  alias        String?
+  type         DirectoryOrganizationType @default(PROV)
+  npi          String?
+  taxId        String?                   @map("tax_id")
+  active       Boolean                   @default(true)
+  // PDex Plan-Net partOf relationship (for parent/child orgs).
+  partOfId     String?                   @map("part_of_id")
+  phone        String?
+  email        String?
+  website      String?
+  createdAt    DateTime                  @default(now()) @map("created_at")
+  updatedAt    DateTime                  @updatedAt @map("updated_at")
+
+  partOf            DirectoryOrganization?  @relation("OrgPartOf", fields: [partOfId], references: [id])
+  children          DirectoryOrganization[] @relation("OrgPartOf")
+  locations         DirectoryLocation[]     @relation("LocationManagingOrg")
+  practitionerRoles DirectoryPractitionerRole[] @relation("RoleOrg")
+  endpoints         DirectoryEndpoint[]     @relation("EndpointOrg")
+
+  @@index([npi])
+  @@index([active])
+  @@map("directory_organizations")
+}
+
+model DirectoryLocation {
+  id            String   @id @default(uuid())
+  name          String
+  alias         String?
+  description   String?
+  status        String   @default("active") // active | suspended | inactive
+  street        String?
+  city          String?
+  state         String?
+  postalCode    String?  @map("postal_code")
+  country       String?  @default("US")
+  phone         String?
+  fax           String?
+  hoursJson     Json?    @map("hours_json")
+  managingOrgId String?  @map("managing_org_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  managingOrg       DirectoryOrganization?      @relation("LocationManagingOrg", fields: [managingOrgId], references: [id])
+  practitionerRoles DirectoryPractitionerRole[] @relation("RoleLocation")
+
+  @@index([managingOrgId])
+  @@index([state])
+  @@map("directory_locations")
+}
+
+enum DirectoryEndpointType {
+  FHIR_BASE
+  DIRECT_SECURE_MESSAGING
+  EHR_API
+  REFERRAL_FORM
+  OTHER
+}
+
+model DirectoryEndpoint {
+  id              String                @id @default(uuid())
+  name            String
+  status          String                @default("active") // active | suspended | error
+  connectionType  DirectoryEndpointType @map("connection_type")
+  payloadType     String?               @map("payload_type")
+  address         String                // URL
+  managingOrgId   String?               @map("managing_org_id")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+
+  managingOrg DirectoryOrganization? @relation("EndpointOrg", fields: [managingOrgId], references: [id])
+
+  @@index([managingOrgId])
+  @@map("directory_endpoints")
+}
+
+// PractitionerRole = membership of a Practitioner in an Organization, at a
+// Location, with specialties + accepted networks. We materialize it as its
+// own row instead of trying to derive it from Provider+ProviderProfile so
+// the same Practitioner can appear in multiple Org/Location combinations.
+model DirectoryPractitionerRole {
+  id             String  @id @default(uuid())
+  providerId     String  @map("provider_id")
+  organizationId String  @map("organization_id")
+  locationId     String? @map("location_id")
+  active         Boolean @default(true)
+  specialty      String?
+  startDate      DateTime? @map("start_date")
+  endDate        DateTime? @map("end_date")
+  acceptingNewPatients Boolean? @map("accepting_new_patients")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  provider     Provider              @relation("ProviderDirectoryRoles", fields: [providerId], references: [id], onDelete: Cascade)
+  organization DirectoryOrganization @relation("RoleOrg", fields: [organizationId], references: [id], onDelete: Cascade)
+  location     DirectoryLocation?    @relation("RoleLocation", fields: [locationId], references: [id])
+
+  @@index([providerId])
+  @@index([organizationId])
+  @@index([active])
+  @@map("directory_practitioner_roles")
+}
+
+// ─── P1 Gap #15 — Telehealth deepening ──────────────────────────────────────
+// Per-platform certification record. Most large telehealth providers require
+// platform-specific onboarding (e.g. Teladoc, Amwell, Doctor on Demand) plus
+// HIPAA + telehealth-specific clinical training. We track each platform as a
+// separate row so multiple platforms can be active in parallel and so renewal
+// timelines don't bleed across vendors.
+enum TelehealthPlatformCertStatus {
+  PENDING
+  IN_TRAINING
+  CERTIFIED
+  EXPIRED
+  REVOKED
+}
+
+model TelehealthPlatformCert {
+  id              String                       @id @default(uuid())
+  providerId      String                       @map("provider_id")
+  platformName    String                       @map("platform_name")
+  certificateNumber String?                    @map("certificate_number")
+  status          TelehealthPlatformCertStatus @default(PENDING)
+  trainingStartedAt   DateTime? @map("training_started_at")
+  trainingCompletedAt DateTime? @map("training_completed_at")
+  certifiedAt         DateTime? @map("certified_at")
+  expiresAt           DateTime? @map("expires_at")
+  documentBlobUrl     String?   @map("document_blob_url")
+  notes               String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  provider Provider @relation("ProviderTelehealthPlatformCerts", fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([status])
+  @@index([expiresAt])
+  @@unique([providerId, platformName])
+  @@map("telehealth_platform_certs")
+}
+
+// ─── P2 Gap #17 — Joint Commission NPG 12 (peer-review minutes) ─────────────
+// Per the Joint Commission Medical Staff standards (MS.04.01.05 + the
+// 2025 update), peer-review meetings must capture: attendees, cases
+// reviewed (provider-blinded if needed), findings, recommendations, and
+// final committee actions. We model them as Meeting + Minute(s):
+//   • PeerReviewMeeting — one row per scheduled peer-review session
+//   • PeerReviewMinute  — one row per case discussed (linked to a
+//                         provider, optional PracticeEvaluation, and
+//                         hospital privilege if relevant)
+enum PeerReviewMeetingStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PeerReviewMinuteOutcome {
+  NO_ACTION
+  CONTINUED_REVIEW
+  FOCUSED_REVIEW_REQUIRED   // triggers FPPE
+  PRIVILEGE_RESTRICTED
+  PRIVILEGE_SUSPENDED
+  PRIVILEGE_REVOKED
+  REFER_TO_MEC               // Medical Executive Committee
+  EXTERNAL_REVIEW_ORDERED
+}
+
+model PeerReviewMeeting {
+  id           String                   @id @default(uuid())
+  meetingDate  DateTime                 @map("meeting_date")
+  facilityName String?                  @map("facility_name")
+  chairId      String?                  @map("chair_id")
+  status       PeerReviewMeetingStatus  @default(SCHEDULED)
+  attendees    Json                     @default("[]")
+  agendaUrl    String?                  @map("agenda_url")
+  minutesDocBlobUrl String?             @map("minutes_doc_blob_url")
+  notes        String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  chair    User?              @relation("PeerReviewChair", fields: [chairId], references: [id])
+  minutes  PeerReviewMinute[] @relation("PeerReviewMinuteMeeting")
+
+  @@index([meetingDate])
+  @@index([status])
+  @@map("peer_review_meetings")
+}
+
+model PeerReviewMinute {
+  id                     String                  @id @default(uuid())
+  meetingId              String                  @map("meeting_id")
+  providerId             String                  @map("provider_id")
+  evaluationId           String?                 @map("evaluation_id")
+  caseSummary            String                  @map("case_summary")
+  caseDate               DateTime?               @map("case_date")
+  caseRefNumber          String?                 @map("case_ref_number")
+  outcome                PeerReviewMinuteOutcome
+  rationale              String?
+  followUpRequired       Boolean                 @default(false) @map("follow_up_required")
+  followUpDueDate        DateTime?               @map("follow_up_due_date")
+  authoredById           String?                 @map("authored_by_id")
+  isProviderBlinded      Boolean                 @default(false) @map("is_provider_blinded")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  meeting    PeerReviewMeeting   @relation("PeerReviewMinuteMeeting", fields: [meetingId], references: [id], onDelete: Cascade)
+  provider   Provider            @relation("PeerReviewMinuteProvider", fields: [providerId], references: [id])
+  evaluation PracticeEvaluation? @relation("PeerReviewMinuteEvaluation", fields: [evaluationId], references: [id])
+  authoredBy User?               @relation("PeerReviewMinuteAuthor", fields: [authoredById], references: [id])
+
+  @@index([meetingId])
+  @@index([providerId])
+  @@index([outcome])
+  @@map("peer_review_minutes")
+}
+
+// ─── P2 Gap #18 — NCQA staff data-integrity training tracker ────────────────
+//
+// NCQA CR-1 / CR-12 require all staff handling credentialing data to be
+// trained on data-integrity, confidentiality, non-discrimination, and
+// HIPAA. We model required courses + per-role assignment + per-user
+// assignment so the compliance dashboard can show coverage.
+
+enum TrainingCourseFrequency {
+  ONE_TIME
+  ANNUAL
+  EVERY_TWO_YEARS
+  EVERY_THREE_YEARS
+}
+
+enum TrainingAssignmentStatus {
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+  WAIVED
+}
+
+model TrainingCourse {
+  id              String                  @id @default(uuid())
+  code            String                  @unique
+  title           String
+  description     String?
+  category        String                  @default("data_integrity")
+  durationMinutes Int?                    @map("duration_minutes")
+  frequency       TrainingCourseFrequency @default(ANNUAL)
+  validityDays    Int?                    @map("validity_days")
+  contentUrl      String?                 @map("content_url")
+  externalLmsId   String?                 @map("external_lms_id")
+  isActive        Boolean                 @default(true) @map("is_active")
+  requiredForRoles String[]               @map("required_for_roles")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+
+  assignments TrainingAssignment[]  @relation("CourseAssignments")
+  records     StaffTrainingRecord[] @relation("CourseRecords")
+
+  @@map("training_courses")
+}
+
+model TrainingAssignment {
+  id            String                   @id @default(uuid())
+  userId        String                   @map("user_id")
+  courseId      String                   @map("course_id")
+  assignedAt    DateTime                 @default(now()) @map("assigned_at")
+  dueDate       DateTime?                @map("due_date")
+  completedAt   DateTime?                @map("completed_at")
+  status        TrainingAssignmentStatus @default(ASSIGNED)
+  recordId      String?                  @map("record_id")
+  remindersSent Int                      @default(0) @map("reminders_sent")
+  lastReminderSentAt DateTime?           @map("last_reminder_sent_at")
+  notes         String?
+  createdAt     DateTime                 @default(now()) @map("created_at")
+  updatedAt     DateTime                 @updatedAt @map("updated_at")
+
+  user   User           @relation("TrainingAssignmentUser", fields: [userId], references: [id], onDelete: Cascade)
+  course TrainingCourse @relation("CourseAssignments", fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([dueDate])
+  @@index([status])
+  @@map("training_assignments")
+}
+
+// ─── P2 Gap #19 — NCQA AI Governance scaffolding ────────────────────────────
+//
+// NCQA's 2026 AI guidance (and parallel ONC HTI-1 / CMS guidance) requires
+// covered entities to maintain:
+//   • a registry of all AI/ML models in use ("model cards")
+//   • the contractual posture for each vendor (no-training-on-customer-data)
+//   • a per-decision audit log for any AI-suggested action that shaped
+//     credentialing outcomes
+// We model these explicitly so the Compliance dashboard, internal audit,
+// and external NCQA reviewers can answer: "which model produced this
+// suggestion, who reviewed it, and what did the human decide?"
+
+enum AiModelRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  PROHIBITED
+}
+
+enum AiModelStatus {
+  ACTIVE
+  PILOT
+  RETIRED
+}
+
+enum AiHumanDecision {
+  ACCEPTED
+  MODIFIED
+  REJECTED
+  PENDING
+}
+
+model AiModelCard {
+  id                       String           @id @default(uuid())
+  name                     String           @unique
+  version                  String
+  vendor                   String
+  modality                 String           // text, vision, classification, etc.
+  purpose                  String           // narrative purpose statement
+  intendedUse              String           @map("intended_use")
+  outOfScopeUse            String?          @map("out_of_scope_use")
+  features                 String[]         @default([])
+  riskLevel                AiModelRiskLevel @default(MEDIUM)
+  status                   AiModelStatus    @default(PILOT)
+  hostingEnvironment       String?          @map("hosting_environment") // e.g. "Azure OpenAI - East US 2"
+  dataResidency            String?          @map("data_residency")
+  trainingDataPolicy       String?          @map("training_data_policy")
+  noTrainingOnCustomerData Boolean          @default(false) @map("no_training_on_customer_data")
+  contractClauseRef        String?          @map("contract_clause_ref")
+  contractEffectiveDate    DateTime?        @map("contract_effective_date")
+  contractReviewDueDate    DateTime?        @map("contract_review_due_date")
+  knownLimitations         String?          @map("known_limitations")
+  evaluationMetrics        Json?            @map("evaluation_metrics")
+  fairnessNotes            String?          @map("fairness_notes")
+  humanReviewRequired      Boolean          @default(true) @map("human_review_required")
+  lastReviewedAt           DateTime?        @map("last_reviewed_at")
+  lastReviewedById         String?          @map("last_reviewed_by_id")
+  documentationUrl         String?          @map("documentation_url")
+  createdAt                DateTime         @default(now()) @map("created_at")
+  updatedAt                DateTime         @updatedAt @map("updated_at")
+
+  lastReviewedBy User?            @relation("AiModelCardReviewer", fields: [lastReviewedById], references: [id])
+  decisions      AiDecisionLog[]  @relation("ModelCardDecisions")
+
+  @@map("ai_model_cards")
+}
+
+model AiDecisionLog {
+  id                String           @id @default(uuid())
+  modelCardId       String?          @map("model_card_id")
+  feature           String           // e.g. "document.classify", "compliance.coach"
+  providerId        String?          @map("provider_id")
+  entityType        String?          @map("entity_type")
+  entityId          String?          @map("entity_id")
+  promptSummary     String?          @map("prompt_summary")
+  responseSummary   String?          @map("response_summary")
+  suggestedAction   String?          @map("suggested_action")
+  rationale         String?
+  citations         Json             @default("[]")
+  confidenceScore   Float?           @map("confidence_score")
+  humanDecision     AiHumanDecision  @default(PENDING) @map("human_decision")
+  humanDecisionById String?          @map("human_decision_by_id")
+  humanDecisionAt   DateTime?        @map("human_decision_at")
+  humanNote         String?          @map("human_note")
+  containsPhi       Boolean          @default(false) @map("contains_phi")
+  promptTokens      Int?             @map("prompt_tokens")
+  completionTokens  Int?             @map("completion_tokens")
+  latencyMs         Int?             @map("latency_ms")
+  createdAt         DateTime         @default(now()) @map("created_at")
+
+  modelCard       AiModelCard? @relation("ModelCardDecisions", fields: [modelCardId], references: [id], onDelete: SetNull)
+  provider        Provider?    @relation("AiDecisionLogProvider", fields: [providerId], references: [id], onDelete: SetNull)
+  humanDecisionBy User?        @relation("AiDecisionLogHuman", fields: [humanDecisionById], references: [id])
+
+  @@index([feature])
+  @@index([providerId])
+  @@index([humanDecision])
+  @@index([createdAt])
+  @@map("ai_decision_logs")
+}
+
+// ─── P3 Gap #20 — Autonomous AI agent orchestrator on Playwright bots ───────
+//
+// When a PSV bot run ends in FAILED, REQUIRES_MANUAL, or returns a flagged
+// verification, the autonomous orchestrator examines the run, reasons about
+// the most likely cause (transient infra, captcha/IP block, real adverse
+// finding, site changed, missing data) and recommends a next action that
+// staff can either accept or override. Every recommendation is logged here
+// AND mirrored to AiDecisionLog so the AI Governance dashboard can see the
+// full audit trail.
+
+enum BotExceptionAction {
+  RETRY_NOW
+  RETRY_LATER
+  ESCALATE_TO_STAFF
+  MARK_REQUIRES_MANUAL
+  RAISE_ALERT
+  DEFER_NO_ACTION
+}
+
+enum BotExceptionVerdictStatus {
+  PENDING_REVIEW
+  AUTO_EXECUTED
+  ACCEPTED
+  OVERRIDDEN
+  RESOLVED
+}
+
+model BotExceptionVerdict {
+  id                String                    @id @default(uuid())
+  botRunId          String                    @map("bot_run_id")
+  providerId        String                    @map("provider_id")
+  triggerReason     String                    @map("trigger_reason") // e.g. "FAILED", "REQUIRES_MANUAL", "FLAGGED"
+  recommendedAction BotExceptionAction        @map("recommended_action")
+  rationale         String                    // LLM or rule-based explanation
+  confidence        Float                     @default(0.5)
+  evidence          Json                      @default("{}")
+  source            String                    @default("rules") // "llm" | "rules"
+  modelUsed         String?                   @map("model_used")
+  status            BotExceptionVerdictStatus @default(PENDING_REVIEW)
+  resolvedAt        DateTime?                 @map("resolved_at")
+  resolvedById      String?                   @map("resolved_by_id")
+  resolutionNote    String?                   @map("resolution_note")
+  aiDecisionLogId   String?                   @map("ai_decision_log_id")
+  createdAt         DateTime                  @default(now()) @map("created_at")
+  updatedAt         DateTime                  @updatedAt @map("updated_at")
+
+  botRun     BotRun    @relation("BotRunExceptionVerdicts", fields: [botRunId], references: [id], onDelete: Cascade)
+  provider   Provider  @relation("ProviderBotExceptionVerdicts", fields: [providerId], references: [id], onDelete: Cascade)
+  resolvedBy User?     @relation("BotExceptionVerdictResolvedBy", fields: [resolvedById], references: [id])
+
+  @@index([providerId])
+  @@index([status])
+  @@index([botRunId])
+  @@index([createdAt])
+  @@map("bot_exception_verdicts")
+}
+
+// ─── P3 Gap #21 — FSMB Practitioner Data Center continuous monitoring ───────
+//
+// Federation of State Medical Boards' "Practitioner Data Center" (PDC) ships
+// daily/hourly diffs whenever a board action, license-status change, or
+// disciplinary report is filed against a subscribed physician. We model
+// per-provider subscriptions and the raw events received so the rest of the
+// platform (MonitoringAlert + provider dashboard) can react.
+
+enum FsmbPdcSubscriptionStatus {
+  ACTIVE
+  PENDING
+  SUSPENDED
+  CANCELLED
+}
+
+enum FsmbPdcEventType {
+  BOARD_ACTION
+  LICENSE_STATUS_CHANGE
+  DEMOGRAPHIC_UPDATE
+  ADDRESS_UPDATE
+  DISCIPLINARY_REPORT
+  EDUCATION_UPDATE
+  OTHER
+}
+
+enum FsmbPdcEventSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum FsmbPdcEventProcessingStatus {
+  RECEIVED
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
+model FsmbPdcSubscription {
+  id                    String                    @id @default(uuid())
+  providerId            String                    @unique @map("provider_id")
+  fsmbId                String?                    @map("fsmb_id") // FSMB subscriber identifier
+  status                FsmbPdcSubscriptionStatus @default(PENDING)
+  enrolledAt            DateTime?                 @map("enrolled_at")
+  lastEventReceivedAt   DateTime?                 @map("last_event_received_at")
+  lastSyncedAt          DateTime?                 @map("last_synced_at")
+  cancelledAt           DateTime?                 @map("cancelled_at")
+  notes                 String?
+  createdAt             DateTime                  @default(now()) @map("created_at")
+  updatedAt             DateTime                  @updatedAt @map("updated_at")
+
+  provider Provider @relation("ProviderFsmbPdcSubscription", fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("fsmb_pdc_subscriptions")
+}
+
+model FsmbPdcEvent {
+  id                String                       @id @default(uuid())
+  providerId        String                       @map("provider_id")
+  externalEventId   String?                      @unique @map("external_event_id")
+  eventType         FsmbPdcEventType             @map("event_type")
+  severity          FsmbPdcEventSeverity         @default(INFO)
+  occurredAt        DateTime                     @map("occurred_at")
+  receivedAt        DateTime                     @default(now()) @map("received_at")
+  state             String?                      // 2-char state code if relevant
+  summary           String                       // short human-readable summary
+  rawPayload        Json                         @map("raw_payload")
+  processingStatus  FsmbPdcEventProcessingStatus @default(RECEIVED) @map("processing_status")
+  monitoringAlertId String?                      @map("monitoring_alert_id")
+  errorMessage      String?                      @map("error_message")
+  createdAt         DateTime                     @default(now()) @map("created_at")
+  updatedAt         DateTime                     @updatedAt @map("updated_at")
+
+  provider Provider @relation("ProviderFsmbPdcEvents", fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([eventType])
+  @@index([processingStatus])
+  @@index([occurredAt])
+  @@map("fsmb_pdc_events")
+}
+
+// ─── P3 Gap #22 — Behavioral health supervision attestations ────────────────
+//
+// Provisionally-licensed clinicians (LMSW, LMHC-Permit, MFT-Limited, etc.)
+// must practice under the documented supervision of a fully-licensed
+// clinician. Most payers (especially BCBS) require a current attestation
+// with hours-completed and supervisor-license info on file before they
+// will allow billing. We model each quarterly attestation period.
+
+enum SupervisionAttestationStatus {
+  DRAFT
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+model SupervisionAttestation {
+  id                   String                       @id @default(uuid())
+  providerId           String                       @map("provider_id")
+  supervisorName       String                       @map("supervisor_name")
+  supervisorLicenseNum String                       @map("supervisor_license_num")
+  supervisorLicenseState String                     @map("supervisor_license_state")
+  supervisorEmail      String                       @map("supervisor_email")
+  supervisorLicenseType String?                     @map("supervisor_license_type") // LCSW, LMHC, etc.
+  periodStart          DateTime                     @map("period_start")
+  periodEnd            DateTime                     @map("period_end")
+  hoursDirect          Float                        @default(0) @map("hours_direct")
+  hoursIndirect        Float                        @default(0) @map("hours_indirect")
+  attestationDate      DateTime?                    @map("attestation_date")
+  attestationDocBlobUrl String?                     @map("attestation_doc_blob_url")
+  status               SupervisionAttestationStatus @default(DRAFT)
+  notes                String?
+  createdAt            DateTime                     @default(now()) @map("created_at")
+  updatedAt            DateTime                     @updatedAt @map("updated_at")
+
+  provider Provider @relation("ProviderSupervisionAttestations", fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([periodEnd])
+  @@index([status])
+  @@map("supervision_attestations")
+}
+
+// ─── P3 Gap #23 — HITRUST r2 / SOC 2 Type II readiness tracker ──────────────
+//
+// We don't run the actual external audit — that's a third-party assessor —
+// but the platform owns the control inventory, evidence binders, ownership,
+// gap log, and audit-period management so that when the assessor walks in,
+// every artefact they need is one click away. Generic enough to hold either
+// HITRUST CSF v11.x r2 controls or SOC 2 Trust Services Criteria.
+
+enum ComplianceFramework {
+  HITRUST_R2
+  SOC2_TYPE_II
+}
+
+enum ComplianceControlStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  IMPLEMENTED
+  PARTIAL
+  NOT_APPLICABLE
+}
+
+enum ComplianceControlMaturity {
+  POLICY        // 0 — none documented
+  PROCESS       // 1 — written process exists
+  IMPLEMENTED   // 2 — process is operating
+  MEASURED      // 3 — KPIs / metrics tracked
+  MANAGED       // 4 — continuously improved
+}
+
+enum ComplianceGapSeverity {
+  LOW
+  MODERATE
+  HIGH
+  CRITICAL
+}
+
+enum ComplianceGapStatus {
+  OPEN
+  IN_REMEDIATION
+  PENDING_VALIDATION
+  CLOSED
+  RISK_ACCEPTED
+}
+
+enum ComplianceAuditPeriodStatus {
+  PLANNING
+  FIELDWORK
+  REPORTING
+  COMPLETED
+  CANCELLED
+}
+
+enum ComplianceEvidenceType {
+  POLICY
+  PROCEDURE
+  SCREENSHOT
+  LOG_EXPORT
+  CONFIG_EXPORT
+  ATTESTATION
+  TICKET
+  TRAINING_CERT
+  REPORT
+  OTHER
+}
+
+model ComplianceControl {
+  id              String                    @id @default(uuid())
+  framework       ComplianceFramework
+  controlRef      String                    @map("control_ref")  // e.g. "01.a" (HITRUST) or "CC1.1" (SOC 2)
+  title           String
+  description     String?
+  category        String?                   // e.g. "Access Control", "Security"
+  ownerUserId     String?                   @map("owner_user_id")
+  status          ComplianceControlStatus   @default(NOT_STARTED)
+  maturity        ComplianceControlMaturity @default(POLICY)
+  testProcedure   String?                   @map("test_procedure")
+  lastReviewedAt  DateTime?                 @map("last_reviewed_at")
+  nextReviewDue   DateTime?                 @map("next_review_due")
+  notes           String?
+  createdAt       DateTime                  @default(now()) @map("created_at")
+  updatedAt       DateTime                  @updatedAt @map("updated_at")
+
+  owner    User?                @relation("ComplianceControlOwner", fields: [ownerUserId], references: [id])
+  evidence ComplianceEvidence[] @relation("ComplianceControlEvidence")
+  gaps     ComplianceGap[]      @relation("ComplianceControlGaps")
+
+  @@unique([framework, controlRef])
+  @@index([framework])
+  @@index([status])
+  @@index([ownerUserId])
+  @@map("compliance_controls")
+}
+
+model ComplianceEvidence {
+  id          String                 @id @default(uuid())
+  controlId   String                 @map("control_id")
+  type        ComplianceEvidenceType
+  title       String
+  description String?
+  url         String?                // SharePoint / Confluence / Jira link
+  blobPath    String?                @map("blob_path") // Azure blob path
+  periodStart DateTime?              @map("period_start")
+  periodEnd   DateTime?              @map("period_end")
+  addedById   String?                @map("added_by_id")
+  addedAt     DateTime               @default(now()) @map("added_at")
+
+  control ComplianceControl @relation("ComplianceControlEvidence", fields: [controlId], references: [id], onDelete: Cascade)
+  addedBy User?             @relation("ComplianceEvidenceAddedBy", fields: [addedById], references: [id])
+
+  @@index([controlId])
+  @@index([periodEnd])
+  @@map("compliance_evidence")
+}
+
+model ComplianceGap {
+  id            String                 @id @default(uuid())
+  controlId     String                 @map("control_id")
+  description   String
+  severity      ComplianceGapSeverity  @default(MODERATE)
+  status        ComplianceGapStatus    @default(OPEN)
+  ownerUserId   String?                @map("owner_user_id")
+  remediation   String?
+  dueDate       DateTime?              @map("due_date")
+  identifiedAt  DateTime               @default(now()) @map("identified_at")
+  closedAt      DateTime?              @map("closed_at")
+
+  control ComplianceControl @relation("ComplianceControlGaps", fields: [controlId], references: [id], onDelete: Cascade)
+  owner   User?             @relation("ComplianceGapOwner", fields: [ownerUserId], references: [id])
+
+  @@index([controlId])
+  @@index([status])
+  @@index([severity])
+  @@map("compliance_gaps")
+}
+
+model ComplianceAuditPeriod {
+  id           String                       @id @default(uuid())
+  framework    ComplianceFramework
+  periodStart  DateTime                     @map("period_start")
+  periodEnd    DateTime                     @map("period_end")
+  assessorOrg  String?                      @map("assessor_org")
+  assessorName String?                      @map("assessor_name")
+  status       ComplianceAuditPeriodStatus  @default(PLANNING)
+  reportUrl    String?                      @map("report_url")
+  notes        String?
+  createdAt    DateTime                     @default(now()) @map("created_at")
+  updatedAt    DateTime                     @updatedAt @map("updated_at")
+
+  @@index([framework, status])
+  @@map("compliance_audit_periods")
 }

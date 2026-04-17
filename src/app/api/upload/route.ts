@@ -16,6 +16,8 @@ import { uploadDocument } from "@/lib/azure/blob";
 import { documentBlobPath } from "@/lib/blob-naming";
 import { writeAuditLog } from "@/lib/audit";
 import { ProviderTokenError, verifyProviderInviteToken } from "@/lib/auth/provider-token";
+import { classifyDocument } from "@/lib/ai/document-classifier";
+import { logAiDecision } from "@/lib/ai/governance";
 import type { DocumentType, DocumentSource } from "@prisma/client";
 
 const ALLOWED_MIME_TYPES = [
@@ -143,10 +145,53 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "File upload failed" }, { status: 500 });
   }
 
+  // P1 Gap #8 — AI document auto-classification (advisory only). Never
+  // overwrites the uploader's documentType; surfaced in the staff UI so
+  // mismatches are caught before verification.
+  let classifierUpdate: {
+    suggestedDocumentType?: DocumentType | null;
+    classifierConfidence?: number | null;
+    classifierVersion?: string | null;
+    classifierReason?: string | null;
+  } = {};
+  try {
+    const startedAt = Date.now();
+    const result = await classifyDocument(file.name);
+    classifierUpdate = {
+      suggestedDocumentType: result.documentType ?? null,
+      classifierConfidence: result.confidence || null,
+      classifierVersion: result.classifierVersion,
+      classifierReason: result.reason,
+    };
+    // P2 Gap #19 — log every classification suggestion for AI governance.
+    void logAiDecision(db, {
+      feature: "document.classify",
+      modelName: result.classifierVersion?.startsWith("azure-openai")
+        ? "Azure AI Document Intelligence (Document Classifier)"
+        : undefined,
+      providerId: doc.providerId,
+      entityType: "Document",
+      entityId: doc.id,
+      promptSummary: `filename=${file.name}`,
+      responseSummary: result.documentType ?? "no-match",
+      suggestedAction:
+        result.documentType
+          ? `Classify document as ${result.documentType}`
+          : "No classification produced",
+      rationale: result.reason,
+      confidenceScore: result.confidence,
+      latencyMs: Date.now() - startedAt,
+      // Filename and metadata only — never PHI body content.
+      containsPhi: false,
+    });
+  } catch (classifierError) {
+    console.error("[Classifier] Skipped due to error:", classifierError);
+  }
+
   // Persist blob coordinates only — no public URL is stored or returned.
   const updatedDoc = await db.document.update({
     where: { id: doc.id },
-    data: { blobUrl: "", blobPath },
+    data: { blobUrl: "", blobPath, ...classifierUpdate },
   });
 
   const checklistItem = await db.checklistItem.findFirst({

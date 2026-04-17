@@ -65,6 +65,7 @@
     "express": "^5.2.1",
     "ioredis": "^5.4.1",
     "jose": "^5.9.3",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.441.0",
     "next": "^14.2.14",
     "next-auth": "^5.0.0-beta.22",

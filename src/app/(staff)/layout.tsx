@@ -1,6 +1,7 @@
 import { auth } from "@/server/auth";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
+import { AiChatLauncher } from "@/components/ai/AiChatLauncher";
 
 export default async function StaffLayout({
   children,
@@ -19,6 +20,8 @@ export default async function StaffLayout({
       <main className="flex-1 overflow-auto">
         <div className="p-6">{children}</div>
       </main>
+      {/* P1 Gap #11 — staff compliance coach */}
+      <AiChatLauncher mode="STAFF_COACH" />
     </div>
   );
 }

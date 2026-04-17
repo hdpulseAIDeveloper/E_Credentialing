@@ -33,6 +33,7 @@ const TRIGGERABLE_BOT_TYPES = [
   "EMEDRAL_ETIN",
   "EDUCATION_AMA",
   "EDUCATION_ECFMG",
+  "EDUCATION_ACGME",
 ] as const;
 type TriggerableBotType = (typeof TRIGGERABLE_BOT_TYPES)[number];
 
@@ -48,6 +49,7 @@ const BOT_TYPE_MAP: Record<TriggerableBotType, string> = {
   EMEDRAL_ETIN: "emedral-enrollment",
   EDUCATION_AMA: "education-ama",
   EDUCATION_ECFMG: "education-ecfmg",
+  EDUCATION_ACGME: "education-acgme",
 };
 
 export const botRouter = createTRPCRouter({

@@ -8,6 +8,9 @@ import type { BotType, CredentialType, VerificationStatus } from "@prisma/client
 import { uploadDocument } from "../lib/azure/blob";
 import { verificationBlobPath } from "../lib/blob-naming";
 import { writeAuditLog } from "../lib/audit";
+import { createMonitoringAlert } from "../lib/monitoring-alerts";
+import type { MonitoringAlertType } from "@prisma/client";
+import { orchestrateBotException } from "../lib/ai/agent-orchestrator";
 
 const db = new PrismaClient();
 
@@ -71,6 +74,10 @@ export abstract class BotBase {
         select: { status: true },
       });
       if (current.status === "REQUIRES_MANUAL") {
+        // P3 Gap #20 — let the orchestrator triage the manual escalation.
+        await orchestrateBotException(this.db, botRunId).catch((err) =>
+          console.error("[Bot] orchestrator (REQUIRES_MANUAL) failed:", err)
+        );
         await this.publishResult(providerId, botRunId, "completed", result);
         return;
       }
@@ -132,6 +139,41 @@ export abstract class BotBase {
         afterState: { status: result.status, isFlagged: result.isFlagged },
       });
 
+      // P1 Gap #9 — automatically raise a MonitoringAlert when a bot run
+      // produces a flagged verification (sanctions hit, board sanction,
+      // license discipline, etc.). This is the single funnel for all
+      // bot-driven alerts; webhook ingestion + nightly diff jobs use the
+      // same helper.
+      if (result.isFlagged) {
+        const alertType = this.flaggedAlertType();
+        if (alertType) {
+          await createMonitoringAlert(this.db, {
+            providerId,
+            type: alertType,
+            severity: "CRITICAL",
+            source: `BOT_${this.getBotType()}`,
+            title: `${this.getBotType().replace(/_/g, " ")} flagged`,
+            description:
+              result.flagReason ??
+              `Bot ${this.getBotType()} returned a flagged verification.`,
+            evidence: {
+              botRunId,
+              verificationRecordId: verificationRecord.id,
+              status: result.status,
+              sourceWebsite: result.sourceWebsite,
+              flagReason: result.flagReason ?? null,
+              resultDetails: result.resultDetails,
+            },
+          });
+        }
+
+        // P3 Gap #20 — orchestrator triages every flagged result so a verdict
+        // (and rationale) shows up in the Bot Exceptions queue.
+        await orchestrateBotException(this.db, botRunId).catch((err) =>
+          console.error("[Bot] orchestrator (FLAGGED) failed:", err)
+        );
+      }
+
       // Publish to Redis pub/sub for real-time updates
       await this.publishResult(providerId, botRunId, "completed", result);
 
@@ -162,6 +204,14 @@ export abstract class BotBase {
         providerId,
         afterState: { error: errorMessage, attemptCount },
       });
+
+      // P3 Gap #20 — only triage when this was the FINAL attempt (status
+      // = FAILED). Intermediate RETRYING attempts are noise.
+      if (attemptCount >= 3) {
+        await orchestrateBotException(this.db, botRunId).catch((err) =>
+          console.error("[Bot] orchestrator (FAILED) failed:", err)
+        );
+      }
 
       await this.publishResult(providerId, botRunId, "failed", null);
       throw error; // Re-throw for BullMQ retry
@@ -205,4 +255,31 @@ export abstract class BotBase {
     provider: BotProviderPayload,
     botRunId: string
   ): Promise<BotVerificationResult>;
+
+  /**
+   * Maps this bot's type to a MonitoringAlertType for the auto-alert funnel.
+   * Returning null disables alerting for that bot (e.g., manual stubs).
+   */
+  protected flaggedAlertType(): MonitoringAlertType | null {
+    switch (this.getBotType()) {
+      case "OIG_SANCTIONS":
+        return "OIG_EXCLUSION_ADDED";
+      case "SAM_SANCTIONS":
+        return "SAM_EXCLUSION_ADDED";
+      case "STATE_MEDICAID_EXCLUSION":
+        return "STATE_MEDICAID_EXCLUSION_ADDED";
+      case "LICENSE_VERIFICATION":
+        return "LICENSE_DISCIPLINARY_ACTION";
+      case "DEA_VERIFICATION":
+        return "DEA_STATUS_CHANGE";
+      case "BOARD_NCCPA":
+      case "BOARD_ABIM":
+      case "BOARD_ABFM":
+        return "BOARD_CERT_LAPSED";
+      case "NPDB":
+        return "NPDB_NEW_REPORT";
+      default:
+        return null;
+    }
+  }
 }

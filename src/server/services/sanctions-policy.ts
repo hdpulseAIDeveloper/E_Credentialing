@@ -20,6 +20,10 @@ import type { SanctionsResult, SanctionsSource } from "@prisma/client";
 export const SANCTIONS_CADENCE_DAYS: Readonly<Record<SanctionsSource, number>> = {
   OIG: 7,
   SAM_GOV: 7,
+  // P0 Gap #5 — state Medicaid exclusion screening. NCQA 2026 mandates
+  // ≤30-day cadence; Essen targets every 25 days so the 30-day window is
+  // never missed even on holiday/maintenance lapses.
+  STATE_MEDICAID: 25,
 };
 
 export function sanctionsCadenceDays(source: SanctionsSource): number {

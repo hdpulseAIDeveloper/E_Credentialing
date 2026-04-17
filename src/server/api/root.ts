@@ -26,6 +26,16 @@ import { cmeRouter } from "@/server/api/routers/cme";
 import { apiKeyRouter } from "@/server/api/routers/apiKey";
 import { trainingRouter } from "@/server/api/routers/training";
 import { ncqaRouter } from "@/server/api/routers/ncqa";
+import { monitoringRouter } from "@/server/api/routers/monitoring";
+import { malpracticeRouter } from "@/server/api/routers/malpractice";
+import { telehealthRouter } from "@/server/api/routers/telehealth";
+import { directoryRouter } from "@/server/api/routers/directory";
+import { peerReviewRouter } from "@/server/api/routers/peerReview";
+import { aiGovernanceRouter } from "@/server/api/routers/aiGovernance";
+import { botOrchestratorRouter } from "@/server/api/routers/botOrchestrator";
+import { fsmbPdcRouter } from "@/server/api/routers/fsmbPdc";
+import { behavioralHealthRouter } from "@/server/api/routers/behavioralHealth";
+import { complianceRouter } from "@/server/api/routers/compliance";
 
 export const appRouter = createTRPCRouter({
   provider: providerRouter,
@@ -51,6 +61,16 @@ export const appRouter = createTRPCRouter({
   apiKey: apiKeyRouter,
   training: trainingRouter,
   ncqa: ncqaRouter,
+  monitoring: monitoringRouter,
+  malpractice: malpracticeRouter,
+  telehealth: telehealthRouter,
+  directory: directoryRouter,
+  peerReview: peerReviewRouter,
+  aiGovernance: aiGovernanceRouter,
+  botOrchestrator: botOrchestratorRouter,
+  fsmbPdc: fsmbPdcRouter,
+  behavioralHealth: behavioralHealthRouter,
+  compliance: complianceRouter,
 });
 
 export type AppRouter = typeof appRouter;

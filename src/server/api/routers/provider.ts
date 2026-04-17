@@ -484,17 +484,81 @@ export const providerRouter = createTRPCRouter({
       if (!provider) throw new TRPCError({ code: "NOT_FOUND" });
       if (!provider.caqhId) throw new TRPCError({ code: "BAD_REQUEST", message: "Provider has no CAQH ID" });
 
-      const { pullProviderData } = await import("@/lib/integrations/caqh");
+      const { pullProviderData, computeNextReattestDue } = await import(
+        "@/lib/integrations/caqh"
+      );
       const caqhData = await pullProviderData(provider.caqhId);
+
+      const nextReattest = caqhData.nextReattestDue
+        ? new Date(caqhData.nextReattestDue)
+        : caqhData.attestationDate
+          ? computeNextReattestDue(caqhData.attestationDate)
+          : null;
+
+      const baseFields = {
+        caqhDataSnapshot: caqhData as unknown as Prisma.InputJsonValue,
+        caqhProfileStatus: caqhData.profileStatus ?? null,
+        caqhAttestationDate: caqhData.attestationDate
+          ? new Date(caqhData.attestationDate)
+          : null,
+        caqhNextReattestDue: nextReattest,
+        caqhEssenIsActiveSite: caqhData.essenIsActiveSite ?? null,
+        caqhGroupAffiliations:
+          (caqhData.groupAffiliations ?? []) as unknown as Prisma.InputJsonValue,
+        caqhSyncedAt: new Date(),
+      } as const;
 
       await ctx.db.providerProfile.upsert({
         where: { providerId: input.providerId },
-        update: { caqhDataSnapshot: caqhData as unknown as Prisma.InputJsonValue },
+        update: baseFields,
         create: {
           providerId: input.providerId,
-          caqhDataSnapshot: caqhData as unknown as Prisma.InputJsonValue,
+          ...baseFields,
         },
       });
+
+      // P1 Gap #14: raise monitoring alerts on the two failure modes that
+      // most often break payer rosters and recredentialing.
+      const { createMonitoringAlert } = await import("@/lib/monitoring-alerts");
+
+      if (caqhData.essenIsActiveSite === false) {
+        await createMonitoringAlert(ctx.db, {
+          providerId: input.providerId,
+          type: "CAQH_ESSEN_NOT_ACTIVE_SITE",
+          severity: "WARNING",
+          source: "CAQH",
+          title:
+            "Essen Medical is not designated as an active practice site on this CAQH ProView profile",
+          description:
+            "Until the provider lists Essen as an active practice location on CAQH ProView, payers will not be able to pull the latest profile via roster-based delegated credentialing. Ask the provider to update CAQH and re-attest.",
+          evidence: {
+            caqhId: provider.caqhId,
+            essenIsActiveSite: false,
+          },
+        });
+      }
+
+      if (nextReattest) {
+        const daysUntilDue = Math.ceil(
+          (nextReattest.getTime() - Date.now()) / (24 * 60 * 60 * 1000)
+        );
+        if (daysUntilDue < 0) {
+          await createMonitoringAlert(ctx.db, {
+            providerId: input.providerId,
+            type: "CAQH_ATTESTATION_DUE",
+            severity: "CRITICAL",
+            source: "CAQH",
+            title: `CAQH re-attestation is overdue by ${Math.abs(daysUntilDue)} day(s)`,
+            description:
+              "Provider's CAQH ProView 120-day re-attestation is past due. Most payers will treat the profile as stale until re-attestation completes.",
+            evidence: {
+              caqhId: provider.caqhId,
+              nextReattestDue: nextReattest.toISOString(),
+              daysUntilDue,
+            },
+          });
+        }
+      }
 
       await writeAuditLog({
         actorId: ctx.session!.user.id,
@@ -519,14 +583,151 @@ export const providerRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const before = await ctx.db.hospitalPrivilege.findUnique({
+        where: { id: input.id },
+        select: { id: true, status: true, providerId: true },
+      });
+      if (!before) throw new TRPCError({ code: "NOT_FOUND" });
+
       const data: Prisma.HospitalPrivilegeUpdateInput = {};
       if (input.status) data.status = input.status;
       if (input.notes !== undefined) data.notes = input.notes;
       if (input.approvedDate) data.approvedDate = new Date(input.approvedDate);
 
-      return ctx.db.hospitalPrivilege.update({
+      const updated = await ctx.db.hospitalPrivilege.update({
         where: { id: input.id },
         data,
       });
+
+      // P2 Gap #17 — Joint Commission NPG 12: when a privilege transitions
+      // to APPROVED for the first time, automatically open the FPPE.
+      if (
+        input.status === "APPROVED" &&
+        before.status !== "APPROVED"
+      ) {
+        const { createAutoFppeForPrivilege } = await import("@/lib/fppe");
+        const fppeId = await createAutoFppeForPrivilege(ctx.db, updated.id);
+        if (fppeId) {
+          await writeAuditLog({
+            actorId: ctx.session!.user.id,
+            actorRole: ctx.session!.user.role,
+            action: "evaluation.fppe.auto_created",
+            entityType: "PracticeEvaluation",
+            entityId: fppeId,
+            providerId: before.providerId,
+            afterState: {
+              trigger: "privilege_status_to_approved",
+              privilegeId: updated.id,
+            },
+          });
+        }
+      }
+
+      return updated;
+    }),
+
+  // ─── Hospital privilege create (Gap P0-#8) ─────────────────────────────
+  // Closes the gap where new hospital privileges could only be added via seed.
+  createHospitalPrivilege: staffProcedure
+    .input(
+      z.object({
+        providerId: z.string().uuid(),
+        facilityName: z.string().min(1),
+        facilityAddress: z.string().optional(),
+        privilegeType: z.string().min(1),
+        status: z.nativeEnum(HospitalPrivilegeStatus).optional(),
+        appliedDate: z.string().optional(),
+        approvedDate: z.string().optional(),
+        effectiveDate: z.string().optional(),
+        expirationDate: z.string().optional(),
+        notes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const provider = await ctx.db.provider.findUnique({
+        where: { id: input.providerId },
+        select: { id: true },
+      });
+      if (!provider) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const created = await ctx.db.hospitalPrivilege.create({
+        data: {
+          providerId: input.providerId,
+          facilityName: input.facilityName,
+          facilityAddress: input.facilityAddress ?? null,
+          privilegeType: input.privilegeType,
+          status: input.status ?? HospitalPrivilegeStatus.APPLIED,
+          appliedDate: input.appliedDate ? new Date(input.appliedDate) : null,
+          approvedDate: input.approvedDate ? new Date(input.approvedDate) : null,
+          effectiveDate: input.effectiveDate ? new Date(input.effectiveDate) : null,
+          expirationDate: input.expirationDate ? new Date(input.expirationDate) : null,
+          notes: input.notes ?? null,
+          submittedById: ctx.session!.user.id,
+        },
+      });
+
+      await writeAuditLog({
+        actorId: ctx.session!.user.id,
+        actorRole: ctx.session!.user.role,
+        action: "hospitalPrivilege.created",
+        entityType: "HospitalPrivilege",
+        entityId: created.id,
+        providerId: input.providerId,
+        afterState: {
+          facilityName: input.facilityName,
+          privilegeType: input.privilegeType,
+          status: created.status,
+        },
+      });
+
+      // P2 Gap #17 — Joint Commission NPG 12: any newly approved privilege
+      // requires an FPPE within the JC standard window. Auto-create the
+      // PracticeEvaluation row so it shows up immediately in the OPPE/FPPE
+      // dashboard.
+      if (created.status === "APPROVED") {
+        const { createAutoFppeForPrivilege } = await import("@/lib/fppe");
+        const fppeId = await createAutoFppeForPrivilege(ctx.db, created.id);
+        if (fppeId) {
+          await writeAuditLog({
+            actorId: ctx.session!.user.id,
+            actorRole: ctx.session!.user.role,
+            action: "evaluation.fppe.auto_created",
+            entityType: "PracticeEvaluation",
+            entityId: fppeId,
+            providerId: input.providerId,
+            afterState: {
+              trigger: "new_privilege_grant",
+              privilegeId: created.id,
+            },
+          });
+        }
+      }
+
+      return created;
+    }),
+
+  // ─── Hospital privilege delete ─────────────────────────────────────────
+  deleteHospitalPrivilege: staffProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.hospitalPrivilege.findUnique({
+        where: { id: input.id },
+        select: { id: true, providerId: true, facilityName: true, status: true },
+      });
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
+
+      await ctx.db.hospitalPrivilege.delete({ where: { id: input.id } });
+
+      await writeAuditLog({
+        actorId: ctx.session!.user.id,
+        actorRole: ctx.session!.user.role,
+        action: "hospitalPrivilege.deleted",
+        entityType: "HospitalPrivilege",
+        entityId: input.id,
+        providerId: existing.providerId,
+        beforeState: { facilityName: existing.facilityName, status: existing.status },
+      });
+
+      return { success: true };
     }),
 });

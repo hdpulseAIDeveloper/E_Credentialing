@@ -61,6 +61,25 @@ export function npdbQueryFilename(queryDate: Date): string {
 }
 
 /**
+ * Education verification PDF filename.
+ * Example: "AMA Physician Masterfile Verification 04.14.2026"
+ *          "ECFMG Verification 04.14.2026"
+ *          "ACGME Residency Verification 04.14.2026"
+ */
+export function educationVerificationFilename(
+  source: "AMA" | "ECFMG" | "ACGME",
+  queryDate: Date
+): string {
+  const label =
+    source === "AMA"
+      ? "AMA Physician Masterfile Verification"
+      : source === "ECFMG"
+        ? "ECFMG Verification"
+        : "ACGME Residency Verification";
+  return `${label} ${formatDate(queryDate)}`;
+}
+
+/**
  * Bot run execution log blob path.
  */
 export function botRunLogPath(providerId: string, botRunId: string): string {

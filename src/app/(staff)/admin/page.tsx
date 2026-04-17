@@ -1,6 +1,6 @@
 import { db } from "@/server/db";
 import Link from "next/link";
-import { Users, Stethoscope, Settings, Shield, Activity, AlertTriangle } from "lucide-react";
+import { Users, Stethoscope, Settings, Shield, Activity, AlertTriangle, GraduationCap, Bot } from "lucide-react";
 
 export default async function AdminPage() {
   const [userCount, providerCount, providerTypeCount, failedBots, activeUsers, inactiveUsers] =
@@ -27,6 +27,8 @@ export default async function AdminPage() {
     { href: "/admin/provider-types", label: "Provider Types", desc: "Configure provider types and document requirements", icon: Stethoscope, color: "text-purple-600" },
     { href: "/admin/settings", label: "Application Settings", desc: "System-wide preferences for workflows and notifications", icon: Settings, color: "text-gray-600" },
     { href: "/admin/roles", label: "Roles & Permissions", desc: "View role definitions and permission matrix", icon: Shield, color: "text-green-600" },
+    { href: "/admin/training", label: "Training Catalog", desc: "Manage NCQA-required staff training courses & monitor compliance", icon: GraduationCap, color: "text-emerald-600" },
+    { href: "/admin/ai-governance", label: "AI Governance", desc: "Model cards, contract posture, and AI decision audit trail (NCQA / ONC HTI-1)", icon: Bot, color: "text-indigo-600" },
     { href: "/bull-board", label: "Queue Dashboard", desc: "Monitor BullMQ job queues (Bull Board)", icon: Activity, color: "text-orange-600", external: true },
   ];
 

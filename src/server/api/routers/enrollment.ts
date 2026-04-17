@@ -264,18 +264,77 @@ export const enrollmentRouter = createTRPCRouter({
       return { botRunId: botRun.id, message: "Enrollment bot queued for submission" };
     }),
 
-  // ─── Stub: Upload roster via SFTP ──────────────────────────────────────
+  // ─── Upload roster via SFTP (real, per-payer config) ───────────────────
+  // P1 Gap #13: pulls SFTP host/auth from PayerRoster + Azure Key Vault,
+  // creates a RosterSubmission row for ack-polling, and audit-logs the
+  // delivery attempt. Falls back to env-var SFTP for legacy/dev mode.
   uploadRosterSftp: staffProcedure
-    .input(z.object({ csv: z.string(), filename: z.string(), payerName: z.string() }))
-    .mutation(async ({ input }) => {
+    .input(
+      z.object({
+        csv: z.string(),
+        filename: z.string(),
+        payerName: z.string(),
+        // Optional: when omitted, the router resolves the most recent
+        // PayerRoster row matching `payerName` and uses its config.
+        rosterId: z.string().uuid().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const roster = input.rosterId
+        ? await ctx.db.payerRoster.findUnique({ where: { id: input.rosterId } })
+        : await ctx.db.payerRoster.findFirst({
+            where: { payerName: input.payerName },
+            orderBy: { updatedAt: "desc" },
+          });
+
+      const fileBuffer = Buffer.from(input.csv, "utf-8");
+      const providerCount = Math.max(0, input.csv.split(/\r?\n/).length - 1);
+
+      let submission = roster
+        ? await ctx.db.rosterSubmission.create({
+            data: {
+              rosterId: roster.id,
+              status: "GENERATED",
+              providerCount,
+              submittedBy: ctx.session!.user.id,
+            },
+          })
+        : null;
+
       const { uploadRoster } = await import("@/lib/integrations/sftp");
       const result = await uploadRoster({
+        payer: roster ?? undefined,
         payerName: input.payerName,
-        remotePath: `/rosters/${input.payerName.replace(/\s+/g, "_")}`,
-        fileBuffer: Buffer.from(input.csv, "utf-8"),
+        fileBuffer,
         filename: input.filename,
       });
-      return result;
+
+      if (submission) {
+        submission = await ctx.db.rosterSubmission.update({
+          where: { id: submission.id },
+          data: {
+            status: result.success ? "SUBMITTED" : "ERROR",
+            submittedAt: result.success ? new Date() : null,
+            remoteFilename: input.filename,
+            remotePath: result.remotePath,
+            remoteSize: result.remoteSize,
+            attemptCount: { increment: 1 },
+            lastAttemptAt: new Date(),
+            lastError: result.error ?? null,
+          },
+        });
+        if (result.success) {
+          await ctx.db.payerRoster.update({
+            where: { id: roster!.id },
+            data: { lastSubmittedAt: new Date() },
+          });
+        }
+      }
+
+      return {
+        ...result,
+        submissionId: submission?.id ?? null,
+      };
     }),
 
   // ─── Push enrollment status to eCW/RCM ─────────────────────────────────

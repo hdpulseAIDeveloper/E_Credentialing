@@ -63,6 +63,27 @@ export function ChecklistPanel({ providerId, checklistItems }: Props) {
                         {item.document.originalFilename}
                       </div>
                     )}
+                    {item.document?.suggestedDocumentType &&
+                      item.document.suggestedDocumentType !== item.documentType && (
+                        <div className="text-xs mt-1 inline-flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-800">
+                          <span aria-hidden>⚠</span>
+                          <span>
+                            Classifier suggests{" "}
+                            <strong>
+                              {item.document.suggestedDocumentType
+                                .replace(/_/g, " ")
+                                .toLowerCase()}
+                            </strong>
+                            {typeof item.document.classifierConfidence === "number" && (
+                              <span className="text-amber-700">
+                                {" "}
+                                ({Math.round(item.document.classifierConfidence * 100)}%
+                                conf.)
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

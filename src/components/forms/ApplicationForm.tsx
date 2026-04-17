@@ -29,6 +29,39 @@ const LICENSE_TYPES = [
 
 const AFFILIATION_STATUSES = ["Active", "Pending", "Inactive", "Resigned", "Revoked", "Suspended"] as const;
 
+// NCQA 2026 application standard: OMB-aligned race / ethnicity categories,
+// always self-reported and always optional. Always include "Prefer not to
+// answer" so the field is never coercive.
+const RACE_OPTIONS = [
+  "American Indian or Alaska Native",
+  "Asian",
+  "Black or African American",
+  "Native Hawaiian or Other Pacific Islander",
+  "White",
+  "Two or More Races",
+  "Other",
+  "Prefer not to answer",
+] as const;
+
+const ETHNICITY_OPTIONS = [
+  "Hispanic or Latino",
+  "Not Hispanic or Latino",
+  "Prefer not to answer",
+] as const;
+
+// Non-discrimination disclosure shown in the attestation block. Version is
+// stored alongside the acknowledgment so future revisions are auditable.
+export const NON_DISCRIMINATION_DISCLOSURE_VERSION = "2026.1";
+export const NON_DISCRIMINATION_DISCLOSURE_TEXT =
+  "Essen Medical does not make credentialing or recredentialing decisions " +
+  "based on an applicant's race, ethnicity, national origin, religion, sex, " +
+  "age, sexual orientation, gender identity, the type of procedures " +
+  "performed, the type of patients served (e.g., Medicaid), or any other " +
+  "protected status. Credentialing decisions are based solely on objective " +
+  "verification of professional qualifications, training, licensure, board " +
+  "certification, work history, malpractice history, and sanctions/exclusion " +
+  "screening as required by NCQA Credentialing Standard CR 2.";
+
 // ---------------------------------------------------------------------------
 // Empty row templates for repeatable groups
 // ---------------------------------------------------------------------------
@@ -57,7 +90,10 @@ const emptyLicense = {
 const optStr = z.string().optional().or(z.literal(""));
 
 const sectionSchemas = [
-  // 0 — Personal Info
+  // 0 — Personal Info (NCQA 2026: race / ethnicity / languages are
+  // self-reported, optional, and stored verbatim — used only for compliance
+  // reporting + cultural-competency matching, never for credentialing
+  // decisions per the non-discrimination disclosure in section 9)
   z.object({
     legalFirstName: z.string().min(1, "Required"),
     legalLastName: z.string().min(1, "Required"),
@@ -65,6 +101,9 @@ const sectionSchemas = [
     dateOfBirth: z.string().min(1, "Required"),
     gender: optStr,
     ssn: z.string().regex(/^\d{3}-\d{2}-\d{4}$/, "Format: XXX-XX-XXXX").optional().or(z.literal("")),
+    race: optStr,
+    ethnicity: optStr,
+    languagesSpoken: optStr,
   }),
   // 1 — Contact
   z.object({
@@ -162,12 +201,15 @@ const sectionSchemas = [
       isPrimary: z.boolean().optional(),
     })).min(1, "Add at least one entry"),
   }),
-  // 9 — Attestation
+  // 9 — Attestation (NCQA 2026: the non-discrimination disclosure block
+  // must be acknowledged with a separate checkbox so it's audit-trailed
+  // independently of the truthfulness attestations.)
   z.object({
     attestTruthful: z.literal(true, { errorMap: () => ({ message: "You must agree to continue" }) }),
     attestAuthorizeVerification: z.literal(true, { errorMap: () => ({ message: "You must agree to continue" }) }),
     attestNotifyChanges: z.literal(true, { errorMap: () => ({ message: "You must agree to continue" }) }),
     attestUnderstandFalsification: z.literal(true, { errorMap: () => ({ message: "You must agree to continue" }) }),
+    attestNonDiscrimination: z.literal(true, { errorMap: () => ({ message: "You must acknowledge the non-discrimination disclosure" }) }),
     signatureName: z.string().min(1, "Your typed signature is required"),
     signatureDate: z.string().min(1, "Required"),
   }),
@@ -205,6 +247,7 @@ function getDefaults(section: number): Record<string, unknown> {
     case 9: return {
       attestTruthful: false, attestAuthorizeVerification: false,
       attestNotifyChanges: false, attestUnderstandFalsification: false,
+      attestNonDiscrimination: false,
       signatureName: "", signatureDate: new Date().toISOString().split("T")[0],
     };
     default: return {};
@@ -268,7 +311,16 @@ function SectionForm({ section, onNext, onPrev, token }: Props) {
   const onSubmit = async (data: unknown) => {
     setSaving(true);
     try {
-      const payload = { token, section, data: data as Record<string, unknown> };
+      // Stamp the disclosure version on section 9 so the audit trail captures
+      // exactly which non-discrimination text the practitioner saw.
+      const augmented =
+        section === 9
+          ? {
+              ...(data as Record<string, unknown>),
+              nonDiscriminationDisclosureVersion: NON_DISCRIMINATION_DISCLOSURE_VERSION,
+            }
+          : (data as Record<string, unknown>);
+      const payload = { token, section, data: augmented };
       const res = await fetch("/api/application/save-section", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -334,6 +386,63 @@ function SectionForm({ section, onNext, onPrev, token }: Props) {
                 className={inputCls(!!errors.ssn)}
               />
               <Err msg={fe(errors, "ssn")} />
+            </div>
+          </div>
+
+          {/* NCQA 2026 demographic fields (self-reported, optional) */}
+          <div className="mt-2 pt-4 border-t border-gray-200">
+            <h4 className="text-sm font-semibold text-gray-900">
+              Demographics{" "}
+              <span className="font-normal text-gray-500">
+                (self-reported, optional)
+              </span>
+            </h4>
+            <p className="text-xs text-gray-500 mt-1 mb-3">
+              These fields support cultural-competency reporting and language
+              matching for patients. They are <strong>never</strong> used in
+              credentialing decisions — see the non-discrimination disclosure
+              in the final attestation step.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Race
+                </label>
+                <select {...register("race")} className={selectCls(false)}>
+                  <option value="">Select…</option>
+                  {RACE_OPTIONS.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Ethnicity
+                </label>
+                <select {...register("ethnicity")} className={selectCls(false)}>
+                  <option value="">Select…</option>
+                  {ETHNICITY_OPTIONS.map((e) => (
+                    <option key={e} value={e}>
+                      {e}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Languages Spoken{" "}
+                  <span className="text-gray-400 text-xs">
+                    (comma-separated)
+                  </span>
+                </label>
+                <input
+                  {...register("languagesSpoken")}
+                  placeholder="English, Spanish, Mandarin"
+                  className={inputCls(false)}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -967,6 +1076,35 @@ function SectionForm({ section, onNext, onPrev, token }: Props) {
               </span>
             </label>
             <Err msg={fe(errors, "attestUnderstandFalsification")} />
+          </div>
+
+          {/* NCQA 2026 Non-Discrimination Disclosure */}
+          <div className="border-t pt-6 mt-6 space-y-3">
+            <h4 className="font-medium text-gray-900">
+              Non-Discrimination Disclosure
+              <span className="ml-2 text-xs font-normal text-gray-400">
+                v{NON_DISCRIMINATION_DISCLOSURE_VERSION} · NCQA CR 2
+              </span>
+            </h4>
+            <div className="rounded-md bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-900 leading-relaxed">
+              {NON_DISCRIMINATION_DISCLOSURE_TEXT}
+            </div>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                {...register("attestNonDiscrimination")}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700 leading-relaxed">
+                I have read and acknowledge the{" "}
+                <strong>Non-Discrimination Disclosure</strong> above and
+                understand that demographic information I provided
+                (race, ethnicity, language, gender, age) will{" "}
+                <strong>never</strong> be used in credentialing or
+                recredentialing decisions.
+              </span>
+            </label>
+            <Err msg={fe(errors, "attestNonDiscrimination")} />
           </div>
 
           {/* Digital Signature */}

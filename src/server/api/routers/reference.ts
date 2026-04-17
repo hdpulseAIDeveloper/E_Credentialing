@@ -7,6 +7,7 @@ import { createTRPCRouter, staffProcedure, publicProcedure } from "@/server/api/
 import { TRPCError } from "@trpc/server";
 import { writeAuditLog } from "@/lib/audit";
 import type { ReferenceRequestStatus } from "@prisma/client";
+import { sendReferenceEmail, tryEmail } from "@/lib/email/verifications";
 
 export const referenceRouter = createTRPCRouter({
   // ─── List references for a provider ─────────────────────────────────
@@ -70,14 +71,34 @@ export const referenceRouter = createTRPCRouter({
       return record;
     }),
 
-  // ─── Mark reference as SENT ─────────────────────────────────────────
+  // ─── Mark reference as SENT (also fires SendGrid outreach) ──────────
+  // P0 Gap #2: previously this only flipped status; now it actually emails
+  // the reference using the token-bound response URL.
   sendRequest: staffProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db.professionalReference.findUnique({
         where: { id: input.id },
+        include: {
+          provider: {
+            select: { legalFirstName: true, legalLastName: true },
+          },
+        },
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const providerName =
+        `${existing.provider.legalFirstName} ${existing.provider.legalLastName}`.trim();
+
+      const result = await tryEmail(() =>
+        sendReferenceEmail({
+          to: existing.referenceEmail,
+          referenceName: existing.referenceName,
+          providerName,
+          responseToken: existing.responseToken,
+          relationship: existing.relationship,
+        })
+      );
 
       const updated = await ctx.db.professionalReference.update({
         where: { id: input.id },
@@ -94,19 +115,44 @@ export const referenceRouter = createTRPCRouter({
         entityType: "ProfessionalReference",
         entityId: input.id,
         providerId: existing.providerId,
+        afterState: {
+          to: existing.referenceEmail,
+          delivered: result.delivered,
+          messageId: result.messageId,
+          reason: result.reason ?? null,
+        },
       });
 
-      return updated;
+      return { ...updated, emailDelivered: result.delivered, emailReason: result.reason };
     }),
 
-  // ─── Send reminder ──────────────────────────────────────────────────
+  // ─── Send reminder (also fires SendGrid outreach) ───────────────────
   sendReminder: staffProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db.professionalReference.findUnique({
         where: { id: input.id },
+        include: {
+          provider: {
+            select: { legalFirstName: true, legalLastName: true },
+          },
+        },
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const providerName =
+        `${existing.provider.legalFirstName} ${existing.provider.legalLastName}`.trim();
+
+      const result = await tryEmail(() =>
+        sendReferenceEmail({
+          to: existing.referenceEmail,
+          referenceName: existing.referenceName,
+          providerName,
+          responseToken: existing.responseToken,
+          isReminder: true,
+          relationship: existing.relationship,
+        })
+      );
 
       const updated = await ctx.db.professionalReference.update({
         where: { id: input.id },
@@ -124,9 +170,15 @@ export const referenceRouter = createTRPCRouter({
         entityType: "ProfessionalReference",
         entityId: input.id,
         providerId: existing.providerId,
+        afterState: {
+          to: existing.referenceEmail,
+          delivered: result.delivered,
+          messageId: result.messageId,
+          reason: result.reason ?? null,
+        },
       });
 
-      return updated;
+      return { ...updated, emailDelivered: result.delivered, emailReason: result.reason };
     }),
 
   // ─── Public: reference person submits their response ────────────────

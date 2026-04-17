@@ -1,28 +1,30 @@
 /**
- * NPDB Query Bot — STUBBED
+ * NPDB Query Bot — STUBBED (manual workflow gate)
  *
- * IMPORTANT: This bot is intentionally stubbed. Essen must complete NPDB
- * registration and obtain API credentials before this can be implemented.
+ * P0 Gap #1 (April 2026 re-audit): Until Essen completes NPDB registration and
+ * obtains HIQA API credentials, this bot does NOT generate fake "no reports"
+ * results. Instead, every run is marked REQUIRES_MANUAL with a clear, audit-
+ * trailed message so staff perform the NPDB query manually and upload the
+ * resulting PDF as documentation of primary source verification.
  *
- * TODO: See docs/planning/open-questions.md Q7 for outstanding items:
- *   - NPDB HIQA API credentials (entity code, authorization key)
- *   - Store in Azure Key Vault as: npdb-entity-code, npdb-authorization-key
- *   - NPDB continuous query enrollment setup
- *   - HIQA API endpoint URL
+ * To enable real automated NPDB Continuous Query when credentials are ready:
+ *   1. Set NPDB_ENABLED=true and provide NPDB_ENTITY_CODE / NPDB_DUNS via
+ *      Azure Key Vault.
+ *   2. Replace the manual stub block below with the real HIQA flow:
+ *        - send HIQA API request (NPI + name + DOB)
+ *        - parse XML response for report count and types
+ *        - download full NPDB report PDF if reports found
+ *        - create NPDBRecord row and flag any reports
  *
- * When credentials are available, implement:
- *   1. Send HIQA API request (XML or REST) with provider NPI + name + DOB
- *   2. Parse response XML for report count and types
- *   3. Download full NPDB report PDF if reports found
- *   4. Create NPDBRecord in database
- *   5. Flag if any reports found (adverse action, malpractice, etc.)
- *
- * Dev mode: Returns mock "no_reports" result.
+ * See docs/competitive-gap-analysis.md (P0 #1) and
+ * docs/planning/open-questions.md Q7.
  */
 
 import { BotBase, type BotVerificationResult, type BotProviderPayload } from "../bot-base";
 import { npdbQueryFilename } from "../../lib/blob-naming";
-import type { BotType, NpdbResult } from "@prisma/client";
+import type { BotType } from "@prisma/client";
+
+const NPDB_ENABLED = process.env.NPDB_ENABLED === "true";
 
 export class NpdbQueryBot extends BotBase {
   getBotType(): BotType {
@@ -34,59 +36,40 @@ export class NpdbQueryBot extends BotBase {
     botRunId: string
   ): Promise<BotVerificationResult> {
     const queryDate = new Date();
-    const isDev = process.env.NODE_ENV === "development";
 
     console.log(
-      `[NPDB Bot STUB] Provider: ${provider.legalFirstName} ${provider.legalLastName}, NPI: ${provider.npi ?? "N/A"}, BotRunId: ${botRunId}`
+      `[NPDB Bot] Provider: ${provider.legalFirstName} ${provider.legalLastName}, ` +
+        `NPI: ${provider.npi ?? "N/A"}, BotRunId: ${botRunId}, NPDB_ENABLED=${NPDB_ENABLED}`
     );
 
-    // In dev mode, return mock no_reports result
-    if (isDev) {
-      const result: NpdbResult = "NO_REPORTS";
-
-      await this.db.nPDBRecord.create({
-        data: {
-          providerId: provider.id,
-          queryDate,
-          queryType: "INITIAL",
-          continuousQueryEnrolled: false,
-          result,
-          reportCount: 0,
-          reports: [],
-          botRunId,
-        },
-      });
-
-      const outputFilename = npdbQueryFilename(queryDate);
-
-      return {
-        status: "VERIFIED",
-        credentialType: "NPDB",
-        verifiedDate: queryDate,
-        sourceWebsite: "https://www.npdb.hrsa.gov/",
-        resultDetails: {
-          stub: true,
-          mode: "development_mock",
-          result: "NO_REPORTS",
-          message:
-            "NPDB bot is STUBBED — awaiting NPDB registration. Returns mock 'no_reports' in dev mode. See open-questions.md Q7.",
-          npdbRecordCreated: true,
-        },
-        outputFilename,
-        isFlagged: false,
-      };
+    if (NPDB_ENABLED) {
+      // Future: real HIQA Continuous Query implementation goes here.
+      // For now, when toggled on without an implementation, fail loudly so
+      // it's never confused with a successful verification.
+      throw new Error(
+        "NPDB_ENABLED=true but the real HIQA Continuous Query integration " +
+          "has not yet been implemented. Set NPDB_ENABLED=false until it ships."
+      );
     }
 
-    // Production stub — mark as requires_manual
+    // Manual workflow path — flag the bot run as requiring a human and write
+    // a clear message to the audit trail. Do NOT create a fake NPDBRecord.
+    const message =
+      "NPDB automated query is not yet enabled. Please run the NPDB query " +
+      "manually at https://www.npdb.hrsa.gov/, download the report PDF, and " +
+      "upload it under Documents → NPDB Report. This will be replaced by " +
+      "real Continuous Query integration once credentials are provisioned.";
+
     await this.db.botRun.update({
       where: { id: botRunId },
       data: {
         status: "REQUIRES_MANUAL",
-        errorMessage:
-          "NPDB query bot is pending registration. See open-questions.md Q7. Manual NPDB query required.",
+        errorMessage: message,
         completedAt: new Date(),
       },
     });
+
+    const outputFilename = npdbQueryFilename(queryDate);
 
     return {
       status: "ERROR",
@@ -95,9 +78,11 @@ export class NpdbQueryBot extends BotBase {
       sourceWebsite: "https://www.npdb.hrsa.gov/",
       resultDetails: {
         stub: true,
-        message: "NPDB bot requires registration. See open-questions.md Q7.",
         requiresManual: true,
+        npdbEnabled: NPDB_ENABLED,
+        message,
       },
+      outputFilename,
       isFlagged: false,
     };
   }

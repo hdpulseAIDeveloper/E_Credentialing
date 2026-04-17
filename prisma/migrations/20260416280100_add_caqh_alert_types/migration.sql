@@ -1,0 +1,3 @@
+-- P1 Gap #14: CAQH ProView 2026 alignment alert types
+ALTER TYPE "MonitoringAlertType" ADD VALUE IF NOT EXISTS 'CAQH_ATTESTATION_DUE';
+ALTER TYPE "MonitoringAlertType" ADD VALUE IF NOT EXISTS 'CAQH_ESSEN_NOT_ACTIVE_SITE';

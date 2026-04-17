@@ -18,6 +18,8 @@ const BOT_LABELS: Record<BotType, string> = {
   ENROLLMENT_SUBMISSION: "Enrollment Submission",
   EDUCATION_AMA: "AMA Education Verification",
   EDUCATION_ECFMG: "ECFMG Certification Verification",
+  EDUCATION_ACGME: "ACGME Residency Verification",
+  STATE_MEDICAID_EXCLUSION: "State Medicaid Exclusion Check",
 };
 
 const STATUS_CONFIG = {

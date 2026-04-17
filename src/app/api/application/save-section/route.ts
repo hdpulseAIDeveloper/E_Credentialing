@@ -52,6 +52,15 @@ export async function POST(req: NextRequest) {
   try {
     switch (section) {
       case 0: {
+        // Provider-level fields (legal identity, gender, languages)
+        const languagesSpoken =
+          typeof data.languagesSpoken === "string" && data.languagesSpoken.trim()
+            ? data.languagesSpoken
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean)
+            : undefined;
+
         await db.provider.update({
           where: { id: providerId },
           data: {
@@ -59,6 +68,7 @@ export async function POST(req: NextRequest) {
             legalLastName: typeof data.legalLastName === "string" ? data.legalLastName : undefined,
             legalMiddleName: typeof data.legalMiddleName === "string" ? data.legalMiddleName : null,
             gender: typeof data.gender === "string" ? data.gender : null,
+            languagesSpoken: languagesSpoken ?? undefined,
             // PHI: encrypted at rest
             dateOfBirth: typeof data.dateOfBirth === "string" ? encryptOptional(data.dateOfBirth) : undefined,
             ssn: typeof data.ssn === "string" ? encryptOptional(data.ssn) : undefined,
@@ -66,6 +76,17 @@ export async function POST(req: NextRequest) {
             applicationStartedAt: new Date(),
           },
         });
+
+        // Profile-level demographics for NCQA 2026 reporting
+        const race = typeof data.race === "string" && data.race ? data.race : null;
+        const ethnicity = typeof data.ethnicity === "string" && data.ethnicity ? data.ethnicity : null;
+        if (race !== null || ethnicity !== null) {
+          await db.providerProfile.upsert({
+            where: { providerId },
+            update: { race, ethnicity },
+            create: { providerId, race, ethnicity },
+          });
+        }
         break;
       }
       case 1: {
@@ -153,6 +174,31 @@ export async function POST(req: NextRequest) {
         break;
       }
       case 9: {
+        // Capture the non-discrimination acknowledgment with the disclosure
+        // version so future revisions don't invalidate prior signatures
+        // (NCQA 2026 application standard, P0 Gap #6).
+        const ackd = data.attestNonDiscrimination === true;
+        if (ackd) {
+          await db.providerProfile.upsert({
+            where: { providerId },
+            update: {
+              nonDiscriminationAckAt: new Date(),
+              nonDiscriminationAckVersion:
+                typeof data.nonDiscriminationDisclosureVersion === "string"
+                  ? data.nonDiscriminationDisclosureVersion
+                  : "2026.1",
+            },
+            create: {
+              providerId,
+              nonDiscriminationAckAt: new Date(),
+              nonDiscriminationAckVersion:
+                typeof data.nonDiscriminationDisclosureVersion === "string"
+                  ? data.nonDiscriminationDisclosureVersion
+                  : "2026.1",
+            },
+          });
+        }
+
         await db.provider.update({
           where: { id: providerId },
           data: {

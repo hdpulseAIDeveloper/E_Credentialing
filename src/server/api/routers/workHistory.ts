@@ -7,6 +7,7 @@ import { createTRPCRouter, staffProcedure, publicProcedure } from "@/server/api/
 import { TRPCError } from "@trpc/server";
 import { writeAuditLog } from "@/lib/audit";
 import type { ReferenceRequestStatus } from "@prisma/client";
+import { sendWorkHistoryEmail, tryEmail } from "@/lib/email/verifications";
 
 export const workHistoryRouter = createTRPCRouter({
   // ─── List work history verifications for a provider ─────────────────
@@ -76,14 +77,45 @@ export const workHistoryRouter = createTRPCRouter({
       return record;
     }),
 
-  // ─── Mark verification as SENT ──────────────────────────────────────
+  // ─── Mark verification as SENT (also fires SendGrid outreach) ───────
+  // P0 Gap #2: previously this only flipped status; now it actually emails
+  // the employer using the token-bound response URL.
   sendRequest: staffProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db.workHistoryVerification.findUnique({
         where: { id: input.id },
+        include: {
+          provider: {
+            select: { legalFirstName: true, legalLastName: true },
+          },
+        },
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
+
+      if (!existing.employerEmail) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Cannot send verification: employer email is missing on this record.",
+        });
+      }
+
+      const providerName =
+        `${existing.provider.legalFirstName} ${existing.provider.legalLastName}`.trim();
+
+      const result = await tryEmail(() =>
+        sendWorkHistoryEmail({
+          to: existing.employerEmail!,
+          contactName: existing.contactName,
+          employerName: existing.employerName,
+          providerName,
+          responseToken: existing.responseToken,
+          position: existing.position,
+          startDate: existing.startDate,
+          endDate: existing.endDate,
+        })
+      );
 
       const updated = await ctx.db.workHistoryVerification.update({
         where: { id: input.id },
@@ -100,19 +132,54 @@ export const workHistoryRouter = createTRPCRouter({
         entityType: "WorkHistoryVerification",
         entityId: input.id,
         providerId: existing.providerId,
+        afterState: {
+          to: existing.employerEmail,
+          delivered: result.delivered,
+          messageId: result.messageId,
+          reason: result.reason ?? null,
+        },
       });
 
-      return updated;
+      return { ...updated, emailDelivered: result.delivered, emailReason: result.reason };
     }),
 
-  // ─── Send reminder ──────────────────────────────────────────────────
+  // ─── Send reminder (also fires SendGrid outreach) ───────────────────
   sendReminder: staffProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db.workHistoryVerification.findUnique({
         where: { id: input.id },
+        include: {
+          provider: {
+            select: { legalFirstName: true, legalLastName: true },
+          },
+        },
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
+      if (!existing.employerEmail) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Cannot send reminder: employer email is missing on this record.",
+        });
+      }
+
+      const providerName =
+        `${existing.provider.legalFirstName} ${existing.provider.legalLastName}`.trim();
+
+      const result = await tryEmail(() =>
+        sendWorkHistoryEmail({
+          to: existing.employerEmail!,
+          contactName: existing.contactName,
+          employerName: existing.employerName,
+          providerName,
+          responseToken: existing.responseToken,
+          isReminder: true,
+          position: existing.position,
+          startDate: existing.startDate,
+          endDate: existing.endDate,
+        })
+      );
 
       const updated = await ctx.db.workHistoryVerification.update({
         where: { id: input.id },
@@ -130,9 +197,15 @@ export const workHistoryRouter = createTRPCRouter({
         entityType: "WorkHistoryVerification",
         entityId: input.id,
         providerId: existing.providerId,
+        afterState: {
+          to: existing.employerEmail,
+          delivered: result.delivered,
+          messageId: result.messageId,
+          reason: result.reason ?? null,
+        },
       });
 
-      return updated;
+      return { ...updated, emailDelivered: result.delivered, emailReason: result.reason };
     }),
 
   // ─── Public: employer submits verification response ─────────────────

@@ -1,3 +1,5 @@
+import { AiChatLauncher } from "@/components/ai/AiChatLauncher";
+
 export default function ProviderLayout({
   children,
 }: {
@@ -15,6 +17,8 @@ export default function ProviderLayout({
       <footer className="border-t mt-12 py-6 text-center text-sm text-gray-400">
         © Essen Medical Associates · Credentialing Department · cred_onboarding@essenmed.com
       </footer>
+      {/* P1 Gap #11 — provider self-service AI assistant */}
+      <AiChatLauncher mode="PROVIDER" />
     </div>
   );
 }
