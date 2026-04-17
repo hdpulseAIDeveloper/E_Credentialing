@@ -17,16 +17,22 @@ import type { ProviderStatus } from "@prisma/client";
  * back to VERIFICATION_IN_PROGRESS if new evidence is found).
  */
 export const STATUS_TRANSITIONS: Readonly<Record<ProviderStatus, readonly ProviderStatus[]>> = {
-  INVITED: ["ONBOARDING_IN_PROGRESS"],
-  ONBOARDING_IN_PROGRESS: ["DOCUMENTS_PENDING", "INVITED"],
-  DOCUMENTS_PENDING: ["VERIFICATION_IN_PROGRESS", "ONBOARDING_IN_PROGRESS"],
+  INVITED: ["ONBOARDING_IN_PROGRESS", "WITHDRAWN"],
+  ONBOARDING_IN_PROGRESS: ["DOCUMENTS_PENDING", "INVITED", "WITHDRAWN"],
+  DOCUMENTS_PENDING: ["VERIFICATION_IN_PROGRESS", "ONBOARDING_IN_PROGRESS", "WITHDRAWN"],
   VERIFICATION_IN_PROGRESS: ["COMMITTEE_READY", "DOCUMENTS_PENDING"],
   COMMITTEE_READY: ["COMMITTEE_IN_REVIEW", "VERIFICATION_IN_PROGRESS"],
   COMMITTEE_IN_REVIEW: ["APPROVED", "DENIED", "DEFERRED", "COMMITTEE_READY"],
-  APPROVED: ["INACTIVE"],
+  APPROVED: ["INACTIVE", "TERMINATED"],
   DENIED: ["INVITED"],
   DEFERRED: ["COMMITTEE_READY", "VERIFICATION_IN_PROGRESS"],
-  INACTIVE: ["INVITED"],
+  INACTIVE: ["INVITED", "TERMINATED"],
+  // Terminal: provider has separated from the organization. No further
+  // transitions; re-credentialing requires a new Provider record.
+  TERMINATED: [],
+  // Withdrew their application before approval. Allow re-invite if they
+  // change their mind (e.g., delayed start date).
+  WITHDRAWN: ["INVITED"],
 };
 
 export class InvalidStatusTransitionError extends Error {
@@ -81,6 +87,8 @@ export const TERMINAL_STATUSES: readonly ProviderStatus[] = [
   "APPROVED",
   "DENIED",
   "INACTIVE",
+  "TERMINATED",
+  "WITHDRAWN",
 ];
 
 export function isActive(status: ProviderStatus): boolean {

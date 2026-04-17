@@ -12,6 +12,8 @@ const STATUS_CONFIG: Record<ProviderStatus, { label: string; className: string }
   DENIED: { label: "Denied", className: "bg-red-100 text-red-700" },
   DEFERRED: { label: "Deferred", className: "bg-orange-100 text-orange-700" },
   INACTIVE: { label: "Inactive", className: "bg-gray-100 text-gray-500" },
+  TERMINATED: { label: "Terminated", className: "bg-red-100 text-red-800" },
+  WITHDRAWN: { label: "Withdrawn", className: "bg-gray-200 text-gray-600" },
 };
 
 interface Props {

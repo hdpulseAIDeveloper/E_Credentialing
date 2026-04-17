@@ -86,6 +86,8 @@ export const STATUS_COLORS: Record<ProviderStatus, string> = {
   DENIED: "bg-red-100 text-red-700",
   DEFERRED: "bg-amber-100 text-amber-700",
   INACTIVE: "bg-slate-100 text-slate-700",
+  TERMINATED: "bg-red-100 text-red-800",
+  WITHDRAWN: "bg-gray-200 text-gray-600",
 };
 
 export const STATUS_LABELS: Record<ProviderStatus, string> = {
@@ -99,6 +101,8 @@ export const STATUS_LABELS: Record<ProviderStatus, string> = {
   DENIED: "Denied",
   DEFERRED: "Deferred",
   INACTIVE: "Inactive",
+  TERMINATED: "Terminated",
+  WITHDRAWN: "Withdrawn",
 };
 
 // ─── Nav items ────────────────────────────────────────────────────────────

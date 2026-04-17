@@ -14,15 +14,26 @@ type ProviderStatus =
   | "APPROVED"
   | "DENIED"
   | "DEFERRED"
-  | "INACTIVE";
+  | "INACTIVE"
+  | "TERMINATED"
+  | "WITHDRAWN";
 
 const STATUS_TRANSITIONS: Record<
   ProviderStatus,
   { status: ProviderStatus; label: string; color: string }[]
 > = {
-  INVITED: [{ status: "ONBOARDING_IN_PROGRESS", label: "Start Onboarding", color: "blue" }],
-  ONBOARDING_IN_PROGRESS: [{ status: "DOCUMENTS_PENDING", label: "Mark Docs Pending", color: "yellow" }],
-  DOCUMENTS_PENDING: [{ status: "VERIFICATION_IN_PROGRESS", label: "Start Verification", color: "purple" }],
+  INVITED: [
+    { status: "ONBOARDING_IN_PROGRESS", label: "Start Onboarding", color: "blue" },
+    { status: "WITHDRAWN", label: "Mark Withdrawn", color: "gray" },
+  ],
+  ONBOARDING_IN_PROGRESS: [
+    { status: "DOCUMENTS_PENDING", label: "Mark Docs Pending", color: "yellow" },
+    { status: "WITHDRAWN", label: "Mark Withdrawn", color: "gray" },
+  ],
+  DOCUMENTS_PENDING: [
+    { status: "VERIFICATION_IN_PROGRESS", label: "Start Verification", color: "purple" },
+    { status: "WITHDRAWN", label: "Mark Withdrawn", color: "gray" },
+  ],
   VERIFICATION_IN_PROGRESS: [{ status: "COMMITTEE_READY", label: "Mark Committee Ready", color: "indigo" }],
   COMMITTEE_READY: [{ status: "COMMITTEE_IN_REVIEW", label: "Begin Review", color: "indigo" }],
   COMMITTEE_IN_REVIEW: [
@@ -30,16 +41,26 @@ const STATUS_TRANSITIONS: Record<
     { status: "DENIED", label: "Deny", color: "red" },
     { status: "DEFERRED", label: "Defer", color: "orange" },
   ],
-  APPROVED: [{ status: "INACTIVE", label: "Mark Inactive", color: "gray" }],
+  APPROVED: [
+    { status: "INACTIVE", label: "Mark Inactive", color: "gray" },
+    { status: "TERMINATED", label: "Terminate", color: "red" },
+  ],
   DENIED: [{ status: "INVITED", label: "Re-invite", color: "blue" }],
   DEFERRED: [{ status: "COMMITTEE_READY", label: "Return to Queue", color: "indigo" }],
-  INACTIVE: [{ status: "INVITED", label: "Re-activate", color: "blue" }],
+  INACTIVE: [
+    { status: "INVITED", label: "Re-activate", color: "blue" },
+    { status: "TERMINATED", label: "Terminate", color: "red" },
+  ],
+  TERMINATED: [],
+  WITHDRAWN: [{ status: "INVITED", label: "Re-invite", color: "blue" }],
 };
 
 const REASON_REQUIRED: Partial<Record<ProviderStatus, string>> = {
   DENIED: "Denial reason",
   DEFERRED: "Deferral reason",
   INACTIVE: "Reason for inactivation",
+  TERMINATED: "Termination reason",
+  WITHDRAWN: "Withdrawal reason",
 };
 
 const BTN_COLORS: Record<string, string> = {
