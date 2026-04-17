@@ -30,4 +30,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV CHOKIDAR_USEPOLLING=true
 ENV WATCHPACK_POLLING=true
 
-CMD ["npm", "run", "dev"]
+# `dev:warm` runs `next dev` and spawns the route pre-warmer once the
+# server is accepting connections. This eliminates the "every link
+# feels slow the first time" experience caused by Next's lazy
+# per-route compilation in dev mode (see DEF-INFRA-0001 and
+# scripts/dev/dev-with-warmup.mjs). To opt out, set SKIP_WARMUP=1.
+CMD ["npm", "run", "dev:warm"]

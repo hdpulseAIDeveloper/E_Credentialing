@@ -44,6 +44,11 @@ services:
       - ./src:/app/src
       - ./prisma:/app/prisma
       - ./public:/app/public
+      - ./scripts:/app/scripts
+      - ./package.json:/app/package.json
+      # Mount the route inventory so the dev warmer (scripts/dev/warm-routes.mjs)
+      # can pre-compile every static route, not just its hard-coded fallback list.
+      - ./docs/qa/inventories:/app/docs/qa/inventories
       - ./next.config.mjs:/app/next.config.mjs
       - ./tailwind.config.ts:/app/tailwind.config.ts
       - ./tsconfig.json:/app/tsconfig.json
@@ -63,6 +68,11 @@ services:
     restart: unless-stopped
     stdin_open: true
     tty: true
+    # `dev:warm` runs `next dev` and pre-compiles every static route once
+    # the server is healthy, so the user never pays the per-route compile
+    # cost interactively. This `command:` line overrides the image CMD so a
+    # `docker compose up -d` picks up the change without an image rebuild.
+    command: ["npm", "run", "dev:warm"]
 
   # -------------------------------------------------------------------------
   # Worker Container — BullMQ + Playwright PSV Bots + Bull Board (port 6025)

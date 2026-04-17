@@ -62,6 +62,50 @@ static route as the admin user before the suite starts. This makes
 Pillar A reliably green but **does not fix Pillar E timeouts** when
 axe analysis stacks on top.
 
+## Developer-experience fix shipped 2026-04-17
+
+Users reported the same underlying symptom interactively: "every link
+feels slow the first time I go to it." That was the exact same lazy
+per-route compile lag this defect documents, surfaced by actual
+clicks instead of automated specs. We shipped a three-part fix:
+
+1. **Dev-server route cache is no longer evicted in 15s.**
+   `next.config.mjs` sets `onDemandEntries.maxInactiveAge = 24h` and
+   `pagesBufferLength = 200` so once a page is compiled it stays hot
+   for the entire dev session. Default was 15s / 5 pages, which
+   caused the second and third "first visits" to each route.
+
+2. **Dev container auto-prewarms every static route at boot.**
+   `scripts/dev/dev-with-warmup.mjs` spawns `next dev`, waits for the
+   first `Ready` log line, then runs `scripts/dev/warm-routes.mjs` in
+   the background. The warmer authenticates as the seeded admin via
+   NextAuth's Credentials API, reads `docs/qa/inventories/route-inventory.json`,
+   and GETs every static route once so Next compiles on the warmer's
+   request — not on the user's click. Docker compose runs this via
+   `command: ["npm", "run", "dev:warm"]` so it's the default when the
+   user runs `docker compose up`. `SKIP_WARMUP=1` opts out.
+
+3. **`npm run preview` builds and serves the prod bundle** for
+   demos / UAT where zero first-click latency matters and HMR is not
+   needed. Same as the E2E roadmap fix above but as a developer
+   escape hatch rather than a test-runner mode.
+
+Observed effect (measured 2026-04-17 on this workspace):
+
+- first `docker compose up -d ecred-web`: dev server Ready in ~5s,
+  warmer compiles all 45 static routes in ~4m, then idle.
+- subsequent user clicks on any warmed route: **~100ms** middleware
+  redirect / page render — no on-demand compile.
+- a Fast Refresh edit still hot-reloads in <1s; the cache eviction
+  change does not break HMR because HMR uses its own invalidation
+  path, not `onDemandEntries`.
+
+This does **not** close the defect — the E2E stability half of the
+problem (Pillar E axe + first-compile stacking on the same spec)
+still requires the "build once, test against `npm start`" roadmap
+item. The dev-loop fix is scoped to the interactive developer
+experience.
+
 ## Anti-weakening attestation
 
 - [x] No per-test `timeout: 90_000` overrides have been added to mask

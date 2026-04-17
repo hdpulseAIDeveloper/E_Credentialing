@@ -5,8 +5,11 @@
   "scripts": {
     "postinstall": "prisma generate",
     "dev": "next dev -p 6015",
+    "dev:warm": "node scripts/dev/dev-with-warmup.mjs",
+    "warm": "node scripts/dev/warm-routes.mjs",
     "build": "next build",
     "start": "next start -p 6015",
+    "preview": "next build && next start -p 6015",
     "dev:worker": "tsx watch src/workers/index.ts",
     "build:worker": "tsc --project tsconfig.worker.json && tsc-alias --project tsconfig.worker.json",
     "db:migrate": "prisma migrate dev",
