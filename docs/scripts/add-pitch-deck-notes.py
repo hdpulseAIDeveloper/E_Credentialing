@@ -891,7 +891,8 @@ SLIDES = {
       "first external deployment.",
       "Three asks at the bottom of the slide. Read them verbatim - "
       "this is the close.",
-      "Ask 1: sign-off on the build-vs-buy recap (slide 22).",
+      "Ask 1: sign-off on the build-vs-buy recap (slide 24, post-AI-"
+      "section insert).",
       "Ask 2: authorization to begin SOC 2 Type II audit period.",
       "Ask 3: approval to publish ESSEN externally as a HD Pulse AI "
       "offering.",
@@ -921,6 +922,202 @@ SLIDES = {
      ["Pacing: ~3 minutes on this slide.",
       "Close: 'Open for questions.' Then sit down."]),
 ],
+}
+
+
+# ---------------------------------------------------------------------------
+# AI-section speaker notes (keys 6 and 7 in the FINAL post-renumber map).
+# These slides are inserted by docs/scripts/add-ai-section-to-pitch-deck.py
+# and answer the leadership question "What is AI about this solution?"
+# ---------------------------------------------------------------------------
+
+AI_SLIDE_NOTES = {
+
+6: [
+    ("PURPOSE",
+     ["Answer the question 'What is AI about this solution?' in one "
+      "slide. Five distinct AI capabilities, all in production today, "
+      "all grounded in named Azure services. This slide exists because "
+      "leadership asked - the AI references were previously scattered "
+      "across the deck and not summarized in one place."]),
+    ("TALKING POINTS",
+     ["Frame: not a roadmap. These are five concrete features running "
+      "in the platform today, each grounded in source code and a "
+      "named Azure service.",
+      "Document Intelligence (OCR + auto-fill): Azure AI Document "
+      "Intelligence reads uploaded credentials - license PDFs, DEA "
+      "certs, board certs, COIs - and auto-fills the application "
+      "form. 85% confidence threshold; below that, a field-by-field "
+      "confirmation pop-up lets the provider review and accept each "
+      "extracted value. Cuts provider data-entry time from minutes "
+      "to seconds.",
+      "Document Auto-Classification: layered classifier - filename "
+      "keyword rules (always on, deterministic) plus an Azure OpenAI "
+      "GPT-4o-mini fallback when filename confidence is low. "
+      "Suggests the right DocumentType for every upload so misfiled "
+      "credentials surface to the reviewer immediately. Advisory "
+      "only - the uploader's documentType is authoritative.",
+      "Conversational AI - Provider Self-Service Copilot: a "
+      "retrieval-augmented assistant trained on the platform's own "
+      "docs corpus. Providers ask 'what do I still owe?' or 'how do "
+      "I attest supervision?' or 'what's the BCBS fast-track path?' "
+      "and get cited answers. Reduces email back-and-forth with "
+      "credentialing staff.",
+      "Conversational AI - Staff Compliance Coach: same RAG stack, "
+      "different prompt set. Staff ask 'what does NCQA require for "
+      "primary-source verification of board cert?' or 'is this a JC "
+      "NPG 12 trigger?' and get cited answers from the standards "
+      "corpus. Replaces tribal knowledge with a queryable second set "
+      "of eyes.",
+      "Autonomous Agent Orchestrator: triages every PSV bot exception "
+      "(DEA portal MFA failure, license-board CAPTCHA, sanctions-list "
+      "timeout) and recommends the next action with a confidence "
+      "score. Rules-based safety floor; Azure OpenAI GPT-4o overrides "
+      "only when its confidence is higher AND the action is in the "
+      "allow-list. Only safe RETRY_NOW is auto-executed; everything "
+      "else queues for human acceptance. Never auto-runs an adverse "
+      "credentialing decision.",
+      "Last tile is intentionally a forward-pointer to slide 7 (AI "
+      "Governance) - we never present AI without immediately "
+      "presenting the governance trail."]),
+    ("BACKUP DETAIL",
+     ["Document Intelligence: src/lib/azure/document-intelligence.ts "
+      "+ src/components/forms/ApplicationForm.tsx.",
+      "Document Auto-Classification: src/lib/ai/document-"
+      "classifier.ts. Two classifier versions: 'filename-keyword-v1' "
+      "and 'azure-openai-gpt-4o-mini-v1'.",
+      "Conversational AI: src/lib/ai/knowledge-base.ts (RAG), "
+      "src/lib/ai/chat-client.ts (Azure OpenAI client), "
+      "src/lib/ai/assistant-prompts.ts (per-persona system prompts), "
+      "src/app/api/ai/chat/route.ts (HTTP endpoint).",
+      "Knowledge base today is a deterministic BM25-ish keyword "
+      "scorer over the docs/planning corpus + CLAUDE.md. No vector "
+      "DB needed at this scale; module is API-compatible with a "
+      "future pgvector / Azure AI Search swap.",
+      "Agent Orchestrator: src/lib/ai/agent-orchestrator.ts. The "
+      "model is named 'Bot Exception Orchestrator (Azure OpenAI "
+      "GPT-4o)'. Verdict source is one of 'rules' or 'llm' and "
+      "tracked in the AiDecisionLog."]),
+    ("ANTICIPATED Q&A",
+     ["Q: Is this just OCR rebranded? -> A: No. Five distinct "
+      "capabilities, only ONE of which is OCR. OCR is the "
+      "Document Intelligence tile.",
+      "Q: Did we build our own LLM? -> A: No. Azure OpenAI runs "
+      "under Essen's Azure tenant. PHI stays on Essen "
+      "infrastructure - we do not call OpenAI's public endpoints.",
+      "Q: Which model? -> A: GPT-4o for the orchestrator and "
+      "copilots; GPT-4o-mini for document classification (cheaper, "
+      "faster, accuracy adequate for the classification task).",
+      "Q: What if Azure OpenAI is down? -> A: Every AI feature has "
+      "a deterministic fallback - filename rules for classification, "
+      "rule-based verdicts for the orchestrator, BM25 retrieval for "
+      "RAG. The platform stays functional; AI is an accelerator, "
+      "not a single point of failure. See slide 7.",
+      "Q: How do we measure that the AI is actually right? -> A: "
+      "Every output is logged with confidence + the human's "
+      "eventual ACCEPTED / OVERRIDDEN / REJECTED decision. We can "
+      "report accuracy per feature per month from the decision log "
+      "alone. See slide 7."]),
+    ("TRANSITION",
+     ["Transition: 'AI in healthcare is only credible if every "
+      "output is traceable. Here's how we make sure of that.'"]),
+],
+
+7: [
+    ("PURPOSE",
+     ["Close the AI conversation by showing leadership that every "
+      "AI output in the platform is traceable, governed, and safe. "
+      "This is the slide that satisfies risk, compliance, and "
+      "auditors - and it is the unique-in-market story the deck "
+      "leans on later (slide 21, Where ESSEN Wins, 'AI governance "
+      "is unique')."]),
+    ("TALKING POINTS",
+     ["Six bullets. All shipped. Walk them in order.",
+      "Model Cards: every model in production has an AiModelCard "
+      "row with name, vendor, version, intended use, training data "
+      "class, known limits, last reviewed. Surfaced in the AI "
+      "Governance dashboard. Aligns with NCQA / ONC HTI-1 / CMS AI "
+      "transparency expectations.",
+      "Tamper-Evident Decision Log: every AI output - "
+      "classification, OCR field, copilot answer, agent verdict - "
+      "writes an AiDecisionLog row with prompt summary, response "
+      "summary, confidence, citations, PHI flag, latency, and the "
+      "human's eventual ACCEPTED / OVERRIDDEN / REJECTED decision. "
+      "Hash-chained to detect tampering, same scheme as the system "
+      "audit log on slide 10 (post-renumber).",
+      "Human-in-the-Loop by Default: the platform never auto-"
+      "executes adverse credentialing decisions. The orchestrator "
+      "only auto-runs safe RETRY_NOW actions. OCR fields below 85% "
+      "confidence go to a confirmation pop-up. Classification is "
+      "advisory only. The human is always the final authority.",
+      "PHI Guardrails: SSN, DOB, and full PHI are stripped before "
+      "any LLM call. Bot orchestrator prompts contain only "
+      "structured run metadata + the bot's own error message - no "
+      "patient data, no provider PHI beyond ID.",
+      "Deterministic Floor: every AI feature has a deterministic "
+      "fallback. Filename rules for classification. Rule-based "
+      "verdicts for the orchestrator. BM25 keyword retrieval for "
+      "the RAG knowledge base. If Azure OpenAI is unavailable, the "
+      "platform still functions.",
+      "Auditor Access: one-click export of the AI Decision Log for "
+      "any provider, any feature, any date range. Feeds the existing "
+      "1-click Audit-Ready Packet ZIP. This is the 'AI evidence "
+      "binder' that competitor vendors leave to professional "
+      "services - we ship it.",
+      "Closing line: marketplace credentialing platforms ship one "
+      "or two of these. The platform ships all six. That is the "
+      "'AI governance is unique' claim on slide 21."]),
+    ("BACKUP DETAIL",
+     ["Model card / decision log Prisma models: AiModelCard, "
+      "AiDecisionLog. Decision log links back to the model card "
+      "by name resolution at write time.",
+      "AiHumanDecision enum: ACCEPTED / OVERRIDDEN / REJECTED / "
+      "PENDING. Initial decision is set at write time; final "
+      "decision is updated by the reviewer's UI action.",
+      "Logging is best-effort: src/lib/ai/governance.ts wraps all "
+      "writes in try/catch so logging failures never break the "
+      "calling feature. The risk we trade off here is missing one "
+      "log entry vs. breaking a credentialing feature - we chose "
+      "the former.",
+      "PHI guardrails enforced at the call site: the orchestrator "
+      "prompt builder explicitly excludes provider demographics; "
+      "the RAG knowledge base loads ONLY from docs/, never from "
+      "PHI-bearing tables.",
+      "Hash-chained audit: same HMAC-SHA256 scheme used by the "
+      "platform-wide audit trail (slide 10 post-renumber). The AI "
+      "Governance page has a 'verify integrity' button that "
+      "recomputes the chain end-to-end."]),
+    ("ANTICIPATED Q&A",
+     ["Q: What happens when AI is wrong? -> A: Three answers in "
+      "order of severity. (1) Deterministic floor still produces "
+      "a sensible result. (2) Human reviews and OVERRIDES - the "
+      "override is logged with reason. (3) The decision log lets "
+      "us measure error rate per feature and tune prompts / "
+      "thresholds / models.",
+      "Q: Who reviews the model cards? -> A: AI Governance "
+      "dashboard owner is the Compliance lead. Reviewed quarterly "
+      "and at any model version bump.",
+      "Q: How do we prove to NCQA / SOC 2 / HITRUST that we have "
+      "AI governance? -> A: Hand them a date-range export of the "
+      "AiDecisionLog plus the AiModelCard table. Both are "
+      "first-class artifacts in the platform; no separate evidence "
+      "binder needed.",
+      "Q: What about prompt injection? -> A: Two defenses. (1) "
+      "Provider-supplied content is summarized into structured "
+      "fields before reaching the orchestrator prompt - never "
+      "passed verbatim. (2) The orchestrator's allowed-action set "
+      "is enforced at the LLM JSON schema layer; an injected "
+      "prompt cannot expand the action vocabulary.",
+      "Q: Are we using customer data to train models? -> A: No. "
+      "Azure OpenAI under our tenant; data is not used to train "
+      "OpenAI's foundation models per Microsoft's published "
+      "policy."]),
+    ("TRANSITION",
+     ["Transition: 'AI capabilities + AI governance shipped. Now "
+      "let's get back to the rest of the platform - here's how "
+      "PARCS workflows compare to the new system.'"]),
+],
+
 }
 
 
@@ -961,6 +1158,25 @@ def set_notes(slide, blocks) -> None:
         sp.text = ""
 
 
+def build_renumbered_slides() -> dict:
+    """Return the final notes map after the AI-section insert.
+
+    Pre-insert slide N (1-based, N >= 6) becomes post-insert slide N+2.
+    Pre-insert slides 1..5 keep their numbering. AI slides 6 and 7 from
+    AI_SLIDE_NOTES are inserted at the new positions.
+
+    If the deck has NOT yet had the AI section inserted (slide count
+    still 23) we fall back to the pre-insert SLIDES map so this script
+    remains useful when run before the inserter.
+    """
+    out = {}
+    for k, v in SLIDES.items():
+        out[k + 2 if k >= 6 else k] = v
+    for k, v in AI_SLIDE_NOTES.items():
+        out[k] = v
+    return out
+
+
 def main() -> int:
     if not os.path.isfile(DECK):
         print(f"ERROR: deck not found at {DECK}")
@@ -968,17 +1184,29 @@ def main() -> int:
 
     pres = Presentation(DECK)
     total_slides = len(pres.slides)
-    if total_slides != max(SLIDES.keys()):
-        print(f"WARNING: deck has {total_slides} slides; notes plan covers "
-              f"slides 1..{max(SLIDES.keys())}")
 
-    for idx_one_based, blocks in SLIDES.items():
+    if total_slides >= 25:
+        plan = build_renumbered_slides()
+        print(f"Deck has {total_slides} slides - applying POST-INSERT "
+              f"notes plan (covers 1..{max(plan.keys())})")
+    else:
+        plan = SLIDES
+        print(f"Deck has {total_slides} slides - applying PRE-INSERT "
+              f"notes plan (covers 1..{max(plan.keys())}). Run "
+              f"add-ai-section-to-pitch-deck.py first to enable the "
+              f"post-insert plan.")
+
+    if total_slides != max(plan.keys()):
+        print(f"WARNING: deck has {total_slides} slides; notes plan "
+              f"covers slides 1..{max(plan.keys())}")
+
+    for idx_one_based in sorted(plan.keys()):
+        blocks = plan[idx_one_based]
         if idx_one_based > total_slides:
             print(f"SKIP slide {idx_one_based}: out of range")
             continue
         slide = pres.slides[idx_one_based - 1]
         set_notes(slide, blocks)
-        # Estimate words written for this slide.
         wc = sum(len(line.split())
                  for _, body in blocks for line in body)
         print(f"OK  slide {idx_one_based:>2}  notes set  ({wc} words)")
