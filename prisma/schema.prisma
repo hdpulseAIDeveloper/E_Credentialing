@@ -28,6 +28,12 @@ enum ProviderStatus {
   DENIED
   DEFERRED
   INACTIVE
+  // ── Gap Analysis 2026 — terminal states referenced by P1 / P3 worker
+  // jobs (caqh-reattestation, telehealth-compliance, supervision-
+  // reminder). Added so those nightly sweeps can exclude providers who
+  // have left the organization or withdrew their application.
+  TERMINATED
+  WITHDRAWN
 }
 
 enum LicenseStatus {
