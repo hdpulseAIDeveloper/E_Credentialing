@@ -2,6 +2,99 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Testing Standard (BINDING)
+
+This repo follows the **HDPulseAI QA Standard — Comprehensive QA Test Layer**, the
+versioned binding spec at [docs/qa/STANDARD.md](docs/qa/STANDARD.md). The
+per-PR checklist is [docs/qa/definition-of-done.md](docs/qa/definition-of-done.md).
+Both apply to every code change you make.
+
+Every change you produce MUST:
+
+1. Be covered by at least one spec under the relevant pillar(s) A–R
+   (see `STANDARD.md` §2). The spec lives under `tests/e2e/<pillar>/**`,
+   `tests/contract/**`, `tests/perf/**`, `tests/security/**`, `tests/data/**`,
+   `tests/observability/**`, or `tests/docs/**` as appropriate.
+2. Pass the smoke pillar (`tests/e2e/smoke/**`) before you claim "done".
+3. Add a per-screen card under `docs/qa/per-screen/<slug>.md` for any new
+   route, and a per-flow card under `docs/qa/per-flow/<slug>.md` for any new
+   user flow. Cards without `Linked specs:` count as missing coverage.
+4. Update the inventories under `docs/qa/inventories/` (regenerate via
+   `npm run qa:inventory`) so `scripts/qa/check-coverage.ts` stays green.
+5. Treat the following as **hard failures**, never as warnings:
+   - any browser console `error`,
+   - any React hydration warning (`Expected server HTML to contain a matching …`),
+   - any uncaught `TypeError: Cannot read properties of undefined (reading 'call')`,
+   - any 5xx from a first-party route, tRPC procedure, or webhook,
+   - any axe-core `serious`/`critical` violation,
+   - any PHI leakage to a role that should not see it.
+6. End any test report you produce with the **headline reporting block** from
+   `STANDARD.md` §3 — coverage numbers FIRST, pass/fail second:
+
+   ```
+   Routes covered:    X of Y
+   Roles exercised:   X of N
+   Pillars touched:   <A–R IDs>
+   Pillars green:     <A–R IDs>
+   Pillars not run:   <A–R IDs>     (must be empty for release)
+   Pass / Fail / Skip: P / F / S
+   ```
+
+**Forbidden report shape:** "Pass: 33, Fail: 0, Not Run: 223" without a
+coverage line is explicitly disallowed (`STANDARD.md` §10). A run with any
+"Not Run" entry for a covered pillar is a **fail** of the gate, not a pass.
+
+If you are about to mark a feature as "tested" without (a) automation under
+the right pillar AND (b) a per-screen / per-flow card with `Linked specs:`
+populated, stop and write both before you report.
+
+### Fix-Until-Green loop (BINDING — `STANDARD.md` §4.1)
+
+If any spec fails or any §4 hard-fail condition fires, you MUST enter the
+loop and stay in it until the pillar is green. You may NOT report results,
+mark the work "done", or hand the branch back while red.
+
+Loop:
+
+1. **Capture** evidence: spec name + path, console error, stack trace,
+   `trace.zip`, screenshot, video, network HAR for any 5xx, browser, role,
+   route at time of fail.
+2. **File a defect card** at `docs/qa/defects/DEF-####.md` (template at
+   `docs/qa/defects/_TEMPLATE.md`).
+3. **Diagnose** the root cause. Fix priority: (a) production code →
+   (b) genuinely-wrong assertion → (c) flaky fixture. Never weaken the
+   assertion.
+4. **Apply the minimum fix** (one root cause per commit). Update the DEF card.
+5. **Re-run the FULL pillar**, not just the single spec. The smoke pillar
+   (A) is re-run on every fix regardless. Cross-cutting fixes
+   (auth / layout / middleware / schema) require re-running every pillar
+   that exercises the touched layer.
+6. **Loop** until green OR until 3 attempts on the same root cause have
+   failed.
+
+**Attempt cap: N=3 per root cause.** After three unsuccessful attempts on
+the same root cause: STOP, update the defect card with every attempt and
+output, escalate to the user explicitly with the evidence, and do NOT mark
+the work done.
+
+**Anti-weakening (`STANDARD.md` §4.2).** A failing spec MUST NOT be made to
+pass by: weakening the assertion, deleting / renaming / `.skip` / `.todo` /
+`.fixme` / `xtest` / `xit` / `describe.skip`, widening a selector to match
+anything, swallowing the error with `try { } catch {}` / `.catch(() => {})` /
+`expect.soft` / `test.fail`, adding `@ts-expect-error` or
+`eslint-disable-next-line`, mocking out the failing path without proving the
+mock matches production, increasing a timeout to mask a race, replacing
+strict equality with substring / regex match, lowering a coverage threshold,
+or editing `scripts/qa/check-coverage.ts` / pillar inventories to silence
+a complaint. Any one of these is, by itself, a violation and grounds for
+revert.
+
+The only legitimate ways to turn a red spec green are: (1) fix the
+production code, (2) fix a genuinely-wrong assertion (cite the
+doc / ADR / requirement that establishes the corrected expectation in the
+DEF card), (3) fix a flaky fixture (prove with 3 consecutive green runs
+recorded in the DEF card).
+
 ## Project Overview
 
 **ESSEN Credentialing Platform** — a healthcare provider credentialing and onboarding web application for Essen Medical. This platform **replaces PARCS** (the previous credentialing system) and serves as the new system of record for all provider credentialing activity.

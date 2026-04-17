@@ -13,6 +13,13 @@ Role-based training plans for the ESSEN Credentialing Platform. Each plan lists 
 | Compliance Officer | 2 hours | [compliance-officer.md](compliance-officer.md) |
 | Administrator | 3 hours | [administrator.md](administrator.md) |
 
+## Slide deck
+
+- [user-training.pptx](user-training.pptx) — single canonical training deck
+  used in onboarding sessions. The platform is in active development;
+  everything in the deck is part of the current capability set, not a
+  separate "what's new" tier.
+
 ## Delivery
 
 - Each plan is self-paced; materials link into the user guide and the live platform (sandbox tenant).

@@ -48,9 +48,13 @@ services:
       - ./tailwind.config.ts:/app/tailwind.config.ts
       - ./tsconfig.json:/app/tsconfig.json
       - ./postcss.config.mjs:/app/postcss.config.mjs
-      # Preserve container node_modules and .next cache
-      - /app/node_modules
-      - /app/.next
+      # Pin node_modules and .next to NAMED volumes so a `docker compose rm -fv`
+      # or host bind doesn't strand package.json ahead of node_modules. This
+      # was the root cause of two production-class incidents (DEF-001 missing
+      # pino, and the prior @prisma/client outage). Named volumes survive
+      # container recreation and are explicitly removed only by name.
+      - ecred_web_node_modules:/app/node_modules
+      - ecred_web_next_cache:/app/.next
     networks:
       - ecred-network
       - localai_default
@@ -89,13 +93,19 @@ services:
       - ./src/server:/app/src/server
       - ./prisma:/app/prisma
       - ./logs:/app/logs
-      - /app/node_modules
+      - ecred_worker_node_modules:/app/node_modules
     networks:
       - ecred-network
       - localai_default
     restart: unless-stopped
     stdin_open: true
     tty: true
+
+volumes:
+  # Named volumes for node_modules — see comment in ecred-web service for why.
+  ecred_web_node_modules:
+  ecred_web_next_cache:
+  ecred_worker_node_modules:
 
 networks:
   ecred-network:

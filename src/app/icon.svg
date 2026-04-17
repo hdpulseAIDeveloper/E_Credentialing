@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- ESSEN Credentialing Platform  shield-with-check favicon. Drawn at
+       64x64 so Next.js can rasterize it for any size. Brand color is the same
+       teal used in the staff sidebar header. -->
+  <defs>
+    <linearGradient id="g" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0F766E"/>
+      <stop offset="100%" stop-color="#115E59"/>
+    </linearGradient>
+  </defs>
+  <path d="M32 4 L58 14 V32 C58 47 47 56 32 60 C17 56 6 47 6 32 V14 Z"
+        fill="url(#g)" stroke="#064E3B" stroke-width="1.5"/>
+  <path d="M19 33 L29 43 L46 22"
+        fill="none" stroke="#FFFFFF" stroke-width="6"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,308 @@
+# Development Plan — ESSEN Credentialing Platform
+
+**Status:** REQUIRED. Keep current with every scope or schedule change.
+**Audience:** Project Manager, Tech Lead, Sponsors, Steering Committee.
+**Last Updated:** 2026-04-17
+
+---
+
+## 1. Executive summary
+
+The ESSEN Credentialing Platform is in production at
+`credentialing.hdpulseai.com`. All 20 functional modules have implemented at
+least their P0 surface; the focus has shifted from build to **integration
+activation**, **operational hardening**, **organizational rollout**, and
+**continuous compliance**.
+
+| Phase | Name | Window | Status |
+|---|---|---|---|
+| 1 | Core Platform Build | Apr 2026 (4 weeks) | **Complete** |
+| 2 | Integration Activation | May–Jun 2026 (8 weeks) | In progress |
+| 3 | Training & Pilot | Jul–Aug 2026 (8 weeks) | Planned |
+| 4 | Full Rollout & PARCS Sunset | Sep–Oct 2026 (8 weeks) | Planned |
+| 5 | Optimization & Roadmap | Nov 2026 → ongoing | Planned |
+
+Phases 2–5 below contain explicit tasks, owners, dependencies, and acceptance
+criteria. Use the [pm/status-reports.md](pm/status-reports.md) template to
+report against this plan every Friday.
+
+---
+
+## 2. Phase 1 — Core Platform Build (complete)
+
+Delivered in April 2026. Outcomes:
+
+- All 20 modules built; tRPC routers, pages, and Prisma models in place.
+- Two-container architecture (web + worker) running locally and in production.
+- Auth.js v5 with Entra ID; provider invite tokens with single-active enforcement.
+- AES-256-GCM PHI encryption at the application layer.
+- HMAC-chained, tamper-evident `AuditLog` with DB triggers blocking DELETE/TRUNCATE.
+- PSV bots: License, DEA, Boards, Education (AMA / ECFMG / ACGME), OIG, SAM.
+- Sanctions weekly sweep; expirables daily outreach; recredentialing daily initiation; roster monthly generation.
+- Public REST v1 (read-only) + FHIR R4 `Practitioner` endpoint.
+- NCQA CVO criterion catalog + compliance dashboard.
+- 234 automated tests, all green.
+- Master Test Plan workbook + automated runner.
+- Production deployed to VPS; SSL via Certbot; deploy through `python .claude/deploy.py`.
+
+Detailed Phase 1 deliverables are preserved in
+[planning/scope.md](planning/scope.md) and the prior implementation plan now
+mirrored at [pm/development-plan.md](pm/development-plan.md).
+
+---
+
+## 3. Phase 2 — Integration Activation (May–June 2026, 8 weeks)
+
+**Goal:** Connect every external system, validate every PSV bot against real
+endpoints, and prove the platform end-to-end with production credentials.
+
+### Week 1–2 — Azure infrastructure
+
+| Task | Owner | Acceptance |
+|---|---|---|
+| Provision Azure Key Vault (production) | DevOps | Vault reachable from prod containers via Managed Identity |
+| Store all integration credentials in Key Vault | DevOps + Credentialing Manager | Zero plaintext credentials in env or code |
+| Provision Azure Blob Storage container `essen-credentialing` | DevOps | Container is **Private** (no public access); SAS-only download path verified |
+| Configure Managed Identity for `ecred-web-prod` and `ecred-worker-prod` | DevOps | Containers authenticate to Key Vault and Blob via MI |
+| Install Azure CLI on dev machine | Developer | `az login` works; local dev can read Key Vault |
+| Set `AUDIT_HMAC_KEY` and `ENCRYPTION_KEY` in prod env | DevOps | Server boots; `verifyAuditChain()` returns OK on existing rows |
+
+### Week 3–4 — Data integrations
+
+| Task | Owner | Acceptance |
+|---|---|---|
+| iCIMS OAuth credentials live in Key Vault | IT / iCIMS Admin | API returns provider data for known iCIMS ID |
+| iCIMS webhook configured | Developer | New hire in iCIMS triggers `Provider` row creation |
+| CAQH UPDS API credentials live | Credentialing Manager | CAQH application data ingested for known CAQH ID |
+| CAQH ProView 2026 connector | Developer | Practice updates push from platform to CAQH; alerts on failure |
+| Entra ID production app registration | IT | Staff SSO works against the prod tenant; MFA enforced |
+| SendGrid sender authentication | IT / DevOps | Email from `@essenmed.com` arrives without spam flags |
+| Azure Communication Services (SMS) live | IT | Test SMS delivered to staff phone |
+| SFTP per-payer credentials | DevOps | `ssh2-sftp-client` connects with payer-specific config |
+
+### Week 5–6 — Bot activation against production endpoints
+
+| Task | Owner | Acceptance |
+|---|---|---|
+| DEA portal credentials + TOTP seed in Key Vault | DevOps + Manager | DEA bot signs in, completes TOTP, downloads PDF |
+| License Verification bot validated for top 5 states | Developer + QA | All 5 states succeed end-to-end with stored PDFs |
+| Board Certification bots (NCCPA, ABIM, ABFM) | Developer + QA | Each board returns parsed result + PDF |
+| OIG sanctions bot | Developer + QA | Clear and flagged outcomes both produce PDFs |
+| SAM.gov API key | DevOps | Bot returns expected exclusion data for known test NPI |
+| NPDB initial query + Continuous Query enrollment | DevOps + Manager | Bot returns results for test provider; CQ enrollment tracked |
+| Payer portal bots (Availity, My Practice Profile, Verity, EyeMed, eMedNY) | DevOps + Manager | Each bot signs in and reaches the enrollment section |
+| Education PSV (AMA Masterfile, ECFMG, ACGME) | Developer | Each bot completes verification on a synthetic case |
+| Malpractice carrier verification bot | Developer | Bot returns parsed coverage record |
+| FSMB Practitioner Direct continuous monitoring | DevOps | Subscription created; events flow into `FsmbPdcEvent` |
+| State Medicaid (NY OMIG) screening | DevOps | Bot returns clean / flagged result with PDF |
+| End-to-end PSV suite for 3 test providers | QA | All 11 NCQA CVO products verified for each |
+
+### Week 7–8 — Validation & hardening
+
+| Task | Owner | Acceptance |
+|---|---|---|
+| Load test: 50 concurrent bot runs | Developer | No queue failures; all complete within 30 minutes |
+| Validate Blob filename conventions | QA | Every output matches the legacy K: drive naming convention |
+| Notification pipeline (email + in-app + SMS) | QA | Each notification type delivered correctly |
+| Audit-trail completeness | QA | Every action has an audit row with chain integrity verified |
+| `pino` PHI scrub | Security | `rg` against logs shows zero SSN/DOB values |
+| Integration health dashboard | QA | All 21 integrations reported with green/yellow/red status |
+| Per-integration runbook | Developer | Each runbook exists under [`dev/runbooks/`](dev/runbooks/) |
+
+**Phase 2 exit criteria:** All bots run successfully against production
+endpoints; all integrations show green on the integration health page;
+penetration test scoping kickoff complete.
+
+---
+
+## 4. Phase 3 — Training & Pilot (July–August 2026, 8 weeks)
+
+**Goal:** Train all credentialing staff and run a controlled pilot with 10–20
+live providers to validate end-to-end workflows.
+
+### Week 1–2 — Training preparation
+
+| Task | Owner | Acceptance |
+|---|---|---|
+| Refresh user training guide (`docs/user/`) | Training Lead | All workflows current; screenshots match shipped UI |
+| Role-specific quick reference cards | Training Lead | One-page card per role: Specialist, Manager, Committee, Roster Manager, Admin, Compliance Officer |
+| Training environment seeded | Developer | 50 demo providers spanning every status; all bots in stub mode |
+| Training calendar | Training Lead | 4 sessions scheduled; all attendees confirmed |
+| Recorded short videos (5) | Training Lead | Login, onboarding, bots, committee, enrollments |
+
+### Week 3–4 — Staff training
+
+| Session | Audience | Length | Content |
+|---|---|---|---|
+| 1. Overview & Navigation | All staff | 2h | Login, dashboard, search, role permissions |
+| 2. Onboarding Workflow | Specialist + Manager | 3h | Add provider, checklist, bots, tasks, communications |
+| 3. Committee & Approvals | Manager + Committee | 2h | Sessions, agendas, approve/deny/defer |
+| 4. Enrollments & Expirables | Specialist + Manager | 2h | Records, follow-ups, expirable monitoring |
+
+Each session: live demo + hands-on practice + Q&A + post-session survey.
+
+### Week 5–8 — Pilot
+
+| Task | Owner | Acceptance |
+|---|---|---|
+| Select 10–20 pilot providers (new hires preferred) | Manager | Pilot list approved |
+| Run pilots through full lifecycle | Specialists | All providers reach an outcome (approved / denied / deferred) |
+| Run PSV bots on every pilot provider | Specialists | Verifications complete or flagged correctly |
+| Process 2–3 through committee | Manager | Decisions recorded with attestations |
+| Create enrollment records | Specialists | At least 5 enrollments with follow-up cadence |
+| Daily standup (15 min) | Training Lead | Issues logged and triaged within 24 hours |
+
+**Pilot success criteria:**
+
+| Metric | Target |
+|---|---|
+| Time to credential (invite → committee ready) | < 20 days |
+| Bot success rate (no manual fallback) | > 90% |
+| Staff satisfaction | > 4.0 / 5.0 |
+| Missed expirations | 0 |
+| Data loss incidents | 0 |
+| Audit completeness | 100% |
+
+---
+
+## 5. Phase 4 — Full Rollout & PARCS Sunset (September–October 2026, 8 weeks)
+
+**Goal:** Migrate all active providers from PARCS, transition all credentialing
+operations, and decommission PARCS and the K: drive PCD folders.
+
+### Week 1–2 — Data migration
+
+| Task | Owner | Acceptance |
+|---|---|---|
+| Export all active provider data from PARCS | Developer + Manager | CSV/JSON export complete |
+| Build PARCS → Platform migration script | Developer | Field map signed off; idempotent rerun supported |
+| Dry-run migration on staging | Developer | All providers imported with zero data loss |
+| Spot-check 20 providers | QA + Specialists | All match the source record |
+| Production migration run | Developer | All active providers in platform; counts reconciled |
+
+### Week 3–4 — Document migration
+
+| Task | Owner | Acceptance |
+|---|---|---|
+| Inventory K: drive PCD folders | Developer | Per-provider counts captured |
+| Build K: → Blob migration script | Developer | Filename convention preserved; checksums recorded |
+| Run document migration in batches | Developer | All files in Blob, linked to provider records |
+| Spot-check 20 providers | QA | All expected documents present and downloadable via SAS endpoint |
+
+### Week 5–6 — Operational transition
+
+| Task | Owner | Acceptance |
+|---|---|---|
+| All new providers onboarded through the platform | Manager | Zero new PARCS entries |
+| All bot verifications run through the platform | Specialists | Zero manual website checks |
+| All enrollment tracking in the platform | Specialists | PARCS enrollment sheets retired |
+| All expirable tracking in the platform | Specialists | Spreadsheets retired |
+| Committee sessions in the platform | Manager | No paper agendas or manual summary sheets |
+| Daily PARCS ↔ Platform reconciliation | QA | Records match; no orphans |
+
+### Week 7–8 — PARCS decommissioning
+
+| Task | Owner | Acceptance |
+|---|---|---|
+| Final PARCS export (archival) | Developer / IT | Full archive stored |
+| K: drive set read-only | IT | No new writes possible |
+| PARCS access revoked for staff | IT / Manager | No staff signed in to PARCS |
+| Sunset announcement | Manager | All stakeholders notified |
+| 30-day hold | IT | Emergency rollback path remains for 30 days |
+| PARCS decommissioned | IT | PARCS offline; archive retained |
+
+---
+
+## 6. Phase 5 — Optimization & Continuous Improvement (November 2026 → ongoing)
+
+| Theme | Initiative | Priority | Window |
+|---|---|---|---|
+| Compliance | Quarterly NCQA dashboard reviews + auditor package generation | High | Quarterly |
+| Compliance | HITRUST CSF v11 r2 / SOC 2 Type II readiness tracker | High | Q4 2026 → Q2 2027 |
+| Compliance | AI governance maturity (model cards + decision audit logs) | High | Q4 2026 → ongoing |
+| Bots | Self-healing selectors + visual diff fixtures | Medium | Q4 2026 |
+| Bots | Autonomous AI agent orchestrator over Playwright bots | Medium | Q1 2027 |
+| Compliance | JC NPG 12 alignment (peer-review minutes, auto-FPPE, semi-annual OPPE) | High | Q4 2026 |
+| Provider experience | Provider self-service copilot (RAG over policies) | Medium | Q1 2027 |
+| Staff experience | Compliance coach copilot (RAG over playbooks) | Medium | Q1 2027 |
+| Public APIs | Add `PractitionerRole`, `Organization`, `Location`, `Endpoint` FHIR resources | High | Q1 2027 |
+| Public APIs | OpenAPI spec served at `/api/v1/openapi.json` | Medium | Q1 2027 |
+| Performance | Sentry + OpenTelemetry traces + Prometheus + Grafana dashboards | Medium | Q1 2027 |
+| Performance | Move to Azure Container Apps via Bicep | Low | Q2 2027 |
+| Performance | k6 perf environment with weekly run | Medium | Q1 2027 |
+| Bots | NPDB Continuous Query webhook integration | Medium | Q1 2027 |
+| Bots | Telehealth deepening (IMLC tracking, platform certs, coverage gap alerts) | Medium | Q1 2027 |
+| UX | TanStack Table wrapper, shared `ThemeProvider`, ESLint color ban, Storybook coverage | Medium | Q1 2027 |
+| Infrastructure | Visual regression in Storybook + Chromatic | Low | Q2 2027 |
+
+Roadmap detail and rationale: [product/roadmap.md](product/roadmap.md).
+
+---
+
+## 7. Risk register (top risks)
+
+| Risk | Probability | Impact | Mitigation |
+|---|---|---|---|
+| External website changes break PSV bots | Medium | High | Resilient role-based selectors; snapshot fixture tests; `REQUIRES_MANUAL` fallback; alerting on success-rate drops |
+| PARCS data export quality | Medium | Medium | Dry-run on staging; spot-check; manual correction buffer |
+| Staff resistance to new system | Low | Medium | Hands-on pilot; quick feedback loops; champions in each role |
+| Entra ID configuration delays | Low | High | Start app registration early in Phase 2; engage IT in week 1 |
+| iCIMS API access delays | Medium | Medium | Manual provider creation as fallback; CAQH ingestion as alternative source |
+| DEA portal MFA changes | Low | High | TOTP rotatable in Key Vault; manual fallback path |
+| Document migration corruption | Low | High | Checksum validation; K: drive preserved read-only for 90 days |
+| Production VPS limits as load grows | Medium | Medium | Migrate to Azure Container Apps via Bicep in Phase 5 |
+| AUDIT_HMAC_KEY rotation invalidates chain | Low | High | Procedure: rotate ⇒ snapshot existing chain ⇒ start a new chain root with explicit `previous_hash = null` row + audit annotation |
+
+The full register is maintained in [pm/risk-register.md](pm/risk-register.md).
+
+---
+
+## 8. Resource plan
+
+| Role | Phase 2 | Phase 3 | Phase 4 | Phase 5 |
+|---|---|---|---|---|
+| Developer | 1.0 FTE | 0.5 FTE | 1.0 FTE | 0.5 FTE |
+| QA / Tester | 0.5 FTE | 0.5 FTE | 1.0 FTE | 0.25 FTE |
+| DevOps / IT | 0.25 FTE | — | 0.25 FTE | 0.25 FTE |
+| Credentialing Manager | 0.25 FTE | 1.0 FTE | 1.0 FTE | 0.25 FTE |
+| Training Lead | — | 1.0 FTE | 0.5 FTE | — |
+| Compliance Officer | 0.1 FTE | 0.25 FTE | 0.5 FTE | 0.25 FTE |
+
+---
+
+## 9. Success metrics
+
+| Metric | PARCS baseline | Platform target | Measurement |
+|---|---|---|---|
+| Average time to credential (invite → approved) | 45+ days | < 18 days | System timestamp delta |
+| Manual PSV hours per provider | 3–4 hours | < 30 minutes | Bot run duration + manual fallback time |
+| Expired credential discovery | Reactive (days/weeks late) | Proactive (90-day lead) | Expirable alert lead-time |
+| Committee prep time per session | 2–3 hours | < 15 minutes | Auto-generation duration |
+| Enrollment follow-up compliance | ~60% on time | > 95% on time | Cadence adherence rate |
+| Audit completeness | Partial / manual | 100% automated | Random audit sampling |
+| NCQA file completeness | TBD | 100% | Compliance dashboard tile |
+
+---
+
+## 10. Governance
+
+- **Executive Sponsor:** TBD (CTO or VP of Operations).
+- **Project Manager:** Credentialing Manager.
+- **Technical Lead:** Lead Developer.
+- **Status reporting:** Weekly, every Friday, using the
+  [pm/status-reports.md](pm/status-reports.md) template, distributed to all
+  stakeholders.
+- **Steering Committee:** Monthly, Phases 2–4.
+- **Go/No-Go decision points:** End of Phase 2 (proceed to pilot), End of
+  Phase 3 (proceed to full rollout), End of Phase 4 (proceed to PARCS sunset).
+- **Documentation governance:** [docs/README.md](README.md), section
+  "Documentation governance".
+
+---
+
+## 11. Change log
+
+| Date | Author | Change |
+|---|---|---|
+| 2026-04-15 | HDPulse | Initial implementation plan (Phase 1 complete). |
+| 2026-04-17 | Documentation refresh | Promoted to required document; added Phase 5 detail; aligned roadmap with shipped feature set; added governance and metric sections. |

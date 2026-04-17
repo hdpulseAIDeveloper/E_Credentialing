@@ -46,9 +46,11 @@ When an item is unblocked, move it to `docs/status/resolved.md` (create as neede
 
 ### B-007  Legal/policy text for provider-facing consent, privacy notice, attestation language
 - **Added:** 2026-04-16
-- **Owner:** Legal + Compliance
-- **Detail:** The final copy for the attestation page, privacy notice, terms of service, and consent language inside the application form must come from legal. Placeholders in the codebase are marked `// TODO(legal)`.
-- **Unblocks:** user-facing docs (D-5) and live provider traffic.
+- **Updated:** 2026-04-17 — downgraded from "blocked on Legal authorship" to "blocked on Legal **review** of drafts".
+- **Owner:** Legal + Compliance (review); Tech Writer + Tech Lead (drafts).
+- **Status:** Comprehensive `v1.0-draft` copy for **Attestation, Privacy Notice, Terms of Service, Consent for PSV & Data Use, ESIGN Disclosure, Cookie & Session Notice,** and **HIPAA NPP pointer** is authored and merged under [`docs/legal/`](../legal/README.md). Each document carries a per-document review checklist for Legal. The runtime mirrors live in [`src/lib/legal/copy.ts`](../../src/lib/legal/copy.ts) (`LEGAL_COPY_VERSION = "v1.0-draft"`). The provider attestation page, the provider portal footer, and the public `/legal/{privacy,terms,cookies,hipaa}` pages all render from the canonical copy. Every attestation audit log entry records `afterState.legalCopyVersion` plus the verbatim acknowledged statements (`afterState.acknowledgements`).
+- **Detail:** Legal + Compliance must work through each per-document checklist, then change the `Status:` line in each markdown file from `DRAFT` to `APPROVED`. When all documents are approved, bump `LEGAL_COPY_VERSION` from `v1.0-draft` to `v1.0` and set `LEGAL_COPY_EFFECTIVE_DATE`. No further code change is required to publish.
+- **Unblocks:** user-facing docs (D-5) and live provider traffic. Drafts can be reviewed by Legal in parallel with development.
 
 ### B-008  SSL certificate for `credentialing.hdpulseai.com`
 - **Added:** 2026-04-16

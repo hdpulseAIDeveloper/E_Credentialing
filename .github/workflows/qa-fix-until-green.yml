@@ -1,0 +1,220 @@
+name: QA Fix-Until-Green Gate
+
+# Enforces the HDPulseAI QA Standard (docs/qa/STANDARD.md).
+# This workflow is a HARD GATE on every PR. A red run blocks merge — there is
+# no override and no "report as warning" path. The contributor enters the
+# Fix-Until-Green loop (STANDARD.md §4.1) and stays in it until the gate is
+# green or the N=3 attempt cap is hit and the user is escalated.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  schedule:
+    - cron: '0 6 * * *'   # 06:00 UTC nightly full sweep
+
+concurrency:
+  group: qa-fix-until-green-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qa-gate:
+    name: QA Gate (smoke pillar + coverage + anti-weakening)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: ecred_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ecred_ci
+      REDIS_URL: redis://localhost:6379
+      NEXTAUTH_SECRET: ci-only-do-not-use-in-prod
+      ENCRYPTION_KEY: ci-only-32-byte-key-do-not-use==
+      E2E_AUTH_SECRET: ci-only-e2e-secret
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ────────────────────────────────────────────────────────────────────
+      # Anti-weakening static checks (STANDARD.md §4.2). These are scanned
+      # against the diff so a bad fix from the loop cannot land silently.
+      # ────────────────────────────────────────────────────────────────────
+      - name: Anti-weakening scan (STANDARD.md §4.2)
+        run: |
+          set -e
+          base="${{ github.event.pull_request.base.sha || 'origin/master' }}"
+          head="${{ github.event.pull_request.head.sha || github.sha }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --no-tags --depth=50 origin "${{ github.base_ref }}"
+            range="origin/${{ github.base_ref }}..."
+          else
+            range="HEAD~1..."
+          fi
+          diff="$(git diff -U0 $range -- '*.ts' '*.tsx' '*.js' '*.jsx' || true)"
+          if [ -z "$diff" ]; then
+            echo "No code diff to scan."
+            exit 0
+          fi
+          echo "$diff" > /tmp/qa-diff.patch
+          violations=0
+          declare -a patterns=(
+            '\.skip\('                          # test.skip / it.skip / describe.skip
+            '\.todo\('
+            '\.fixme\('
+            '\bxtest\b'
+            '\bxit\b'
+            '@ts-expect-error'
+            'eslint-disable-next-line'
+            '\.catch\(\s*\(\s*\)\s*=>\s*\{?\s*\}?\s*\)'    # .catch(() => {})
+            'try\s*\{[^}]*\}\s*catch\s*\([^)]*\)\s*\{\s*\}' # empty catch
+            'expect\.soft'
+            'test\.fail'
+            'page\.setDefaultTimeout\(\s*[1-9][0-9]{4,}'    # raising timeout > 10s
+            'waitForTimeout\('
+            'toBeTruthy\('
+          )
+          for p in "${patterns[@]}"; do
+            hits=$(grep -E "^\+" /tmp/qa-diff.patch | grep -E "$p" || true)
+            if [ -n "$hits" ]; then
+              echo "::error::Anti-weakening violation (STANDARD.md §4.2): pattern \"$p\" introduced in this PR."
+              echo "$hits"
+              violations=$((violations+1))
+            fi
+          done
+          if [ $violations -gt 0 ]; then
+            echo "::error::This PR introduces $violations anti-weakening pattern(s). Per STANDARD.md §4.2, the legitimate fixes are: (1) production code, (2) corrected assertion with cited reason in the DEF card, (3) fixed flaky fixture with 3 consecutive green runs recorded. If your change is one of those legitimate cases, document the justification in the DEF card and re-request review from CODEOWNERS."
+            exit 1
+          fi
+
+      # ────────────────────────────────────────────────────────────────────
+      # Build hygiene
+      # ────────────────────────────────────────────────────────────────────
+      - name: Typecheck
+        run: npm run typecheck --if-present
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Forbidden terms
+        run: node scripts/forbidden-terms.mjs
+        continue-on-error: false
+
+      - name: Unit + integration tests (Vitest)
+        run: npm test --if-present -- --reporter=default
+
+      # ────────────────────────────────────────────────────────────────────
+      # QA Standard inventories + coverage gate
+      # ────────────────────────────────────────────────────────────────────
+      - name: Regenerate QA inventories
+        run: npm run qa:inventory --if-present
+
+      - name: Verify inventories are committed (no drift)
+        run: |
+          if [ -n "$(git status --porcelain docs/qa/inventories/)" ]; then
+            echo "::error::Inventories are out of date. Run 'npm run qa:inventory' locally and commit the result."
+            git --no-pager diff docs/qa/inventories/
+            exit 1
+          fi
+
+      - name: Coverage gate (scripts/qa/check-coverage.ts)
+        run: npx tsx scripts/qa/check-coverage.ts
+
+      # ────────────────────────────────────────────────────────────────────
+      # Smoke pillar (A) — REQUIRED on every PR. Other pillars run nightly.
+      # Hard-fail conditions per STANDARD.md §4 are encoded in the fixtures.
+      # ────────────────────────────────────────────────────────────────────
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Prisma migrate
+        run: npx prisma migrate deploy
+
+      - name: Seed test data
+        run: npm run db:seed --if-present
+
+      - name: Build app for E2E
+        run: npm run build
+
+      - name: Smoke pillar (A) — every route, every role, browser-real
+        run: npx playwright test tests/e2e/smoke --reporter=line,html
+        env:
+          PLAYWRIGHT_HARD_FAIL_CONSOLE: '1'
+          PLAYWRIGHT_HARD_FAIL_HYDRATION: '1'
+          PLAYWRIGHT_HARD_FAIL_5XX: '1'
+
+      - name: Upload Playwright report (evidence for DEF cards)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 30
+
+      # ────────────────────────────────────────────────────────────────────
+      # Headline reporting block (STANDARD.md §3) — coverage FIRST.
+      # ────────────────────────────────────────────────────────────────────
+      - name: Emit headline reporting block
+        if: always()
+        run: npx tsx scripts/qa/merge-results.ts --emit-headline
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Nightly full sweep — runs all pillars (B–R). PRs are gated only by the
+  # smoke job above; nightly failures open / update DEF cards automatically.
+  # ─────────────────────────────────────────────────────────────────────────
+  nightly-full-sweep:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx playwright install --with-deps
+      - name: Run all pillars
+        run: |
+          npx playwright test tests/e2e/rbac        || true
+          npx playwright test tests/e2e/phi-scope   || true
+          npx playwright test tests/e2e/flows       || true
+          npx playwright test tests/e2e/a11y        || true
+          npx playwright test tests/e2e/visual      || true
+          npx playwright test tests/e2e/responsive  || true
+          npx playwright test tests/e2e/time        || true
+          npx playwright test tests/e2e/concurrency || true
+          npx playwright test tests/e2e/files       || true
+          npx playwright test tests/e2e/compliance  || true
+          npx playwright test tests/e2e/observability || true
+      - name: Open / update DEF cards for nightly failures
+        run: npx tsx scripts/qa/auto-defect.ts --source nightly

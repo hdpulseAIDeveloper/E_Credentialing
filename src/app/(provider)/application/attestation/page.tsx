@@ -1,24 +1,24 @@
 "use client";
 
+import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { formatDateTime } from "@/lib/format-date";
-
-const ATTESTATION_QUESTIONS = [
-  "I certify that all information provided in this application is complete, accurate, and true to the best of my knowledge.",
-  "I understand that any misrepresentation or omission of material facts may result in denial or revocation of credentials.",
-  "I have not had my license or privileges revoked, suspended, or restricted at any facility or by any licensing authority.",
-  "I am not currently excluded from participation in any federal or state healthcare program.",
-  "I do not have any pending investigations, disciplinary actions, or malpractice claims not disclosed in this application.",
-  "I consent to Essen Medical conducting primary source verification of all credentials listed in this application.",
-  "I understand that I am required to notify Essen Medical of any changes to the information in this application within 30 days.",
-];
+import {
+  ATTESTATION_CONFIRMATION_BODY,
+  ATTESTATION_CONFIRMATION_HEADING,
+  ATTESTATION_HEADING,
+  ATTESTATION_LEAD,
+  ATTESTATION_QUESTIONS,
+  ATTESTATION_SIGNATURE_DISCLAIMER,
+  ESIGN_DISCLOSURE,
+  LEGAL_COPY_VERSION,
+} from "@/lib/legal/copy";
 
 interface AttestationForm {
   attestations: boolean[];
   electronicSignature: string;
-  signedDate: string;
 }
 
 export default function AttestationPage() {
@@ -50,13 +50,20 @@ function AttestationContent() {
     setSubmitting(true);
     setError(null);
     try {
+      const acknowledgements = ATTESTATION_QUESTIONS.map((question, i) => ({
+        questionId: question.id,
+        accepted: Boolean(data.attestations?.[i]),
+      }));
+
       const response = await fetch("/api/attestation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token,
           attestations: data.attestations,
+          acknowledgements,
           electronicSignature: data.electronicSignature,
+          legalCopyVersion: LEGAL_COPY_VERSION,
         }),
       });
 
@@ -81,10 +88,9 @@ function AttestationContent() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h2 className="text-xl font-semibold text-gray-900">Application Submitted</h2>
-        <p className="text-gray-500 mt-2">
-          Your credentialing application has been submitted. The Essen Medical credentialing team will
-          review your application and contact you if additional information is needed.
+        <h2 className="text-xl font-semibold text-gray-900">{ATTESTATION_CONFIRMATION_HEADING}</h2>
+        <p className="text-gray-500 mt-2 max-w-2xl mx-auto leading-relaxed">
+          {ATTESTATION_CONFIRMATION_BODY}
         </p>
       </div>
     );
@@ -92,47 +98,81 @@ function AttestationContent() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-2">Attestation & Electronic Signature</h2>
-      <p className="text-gray-500 mb-8">
-        Please read and acknowledge each statement below, then provide your electronic signature.
-      </p>
+      <h2 className="text-2xl font-bold text-gray-900 mb-2">{ATTESTATION_HEADING}</h2>
+      <p className="text-gray-500 mb-8 leading-relaxed">{ATTESTATION_LEAD}</p>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div className="bg-white rounded-lg border p-6 space-y-4">
           {ATTESTATION_QUESTIONS.map((question, i) => (
-            <label key={i} className="flex gap-3 cursor-pointer">
+            <label key={question.id} className="flex gap-3 cursor-pointer">
               <input
                 type="checkbox"
                 {...register(`attestations.${i}`, { required: true })}
                 className="mt-0.5 h-5 w-5 rounded border-gray-300 text-blue-600"
+                aria-describedby={`attestation-${question.id}-text`}
               />
-              <span className="text-sm text-gray-700 leading-relaxed">{question}</span>
+              <span
+                id={`attestation-${question.id}-text`}
+                className="text-sm text-gray-700 leading-relaxed"
+              >
+                <span className="font-semibold text-gray-900 mr-1.5">{question.id}.</span>
+                {question.text}
+              </span>
             </label>
           ))}
+          {errors.attestations ? (
+            <p className="text-red-600 text-sm">
+              You must acknowledge every statement above to submit your application.
+            </p>
+          ) : null}
         </div>
+
+        <EsignDisclosurePanel />
 
         <div className="bg-white rounded-lg border p-6 space-y-4">
           <h3 className="font-semibold text-gray-900">Electronic Signature</h3>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="electronicSignature"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Full Legal Name (as electronic signature)
             </label>
             <input
+              id="electronicSignature"
               type="text"
               {...register("electronicSignature", { required: "Signature is required" })}
               placeholder="Type your full legal name"
-              className="w-full border rounded-lg px-3 py-2 text-gray-900 font-cursive text-lg"
+              className="w-full border rounded-lg px-3 py-2 text-gray-900 text-lg"
               style={{ fontFamily: "cursive" }}
+              autoComplete="name"
             />
             {errors.electronicSignature && (
               <p className="text-red-500 text-sm mt-1">{errors.electronicSignature.message}</p>
             )}
           </div>
+          <p className="text-xs text-gray-500 leading-relaxed">
+            {ATTESTATION_SIGNATURE_DISCLAIMER}
+          </p>
           <p className="text-xs text-gray-400">
-            By typing your name above, you are electronically signing this attestation.
-            Date and time will be recorded automatically: <span suppressHydrationWarning>{signedAt || "—"}</span>
+            Date and time will be recorded automatically:{" "}
+            <span suppressHydrationWarning>{signedAt || "—"}</span>
+            <br />
+            Legal copy version signed: <span className="font-mono">{LEGAL_COPY_VERSION}</span>
           </p>
         </div>
+
+        <p className="text-xs text-gray-500 text-center">
+          By submitting, you agree to the{" "}
+          <Link href="/legal/terms" className="text-blue-700 underline hover:text-blue-900" target="_blank">
+            Terms of Service
+          </Link>
+          ,{" "}
+          <Link href="/legal/privacy" className="text-blue-700 underline hover:text-blue-900" target="_blank">
+            Privacy Notice
+          </Link>
+          , and the Electronic Signature Disclosure shown above.
+        </p>
 
         <div className="flex justify-end">
           {error && <p className="text-red-500 text-sm mr-4 self-center">{error}</p>}
@@ -146,5 +186,30 @@ function AttestationContent() {
         </div>
       </form>
     </div>
+  );
+}
+
+function EsignDisclosurePanel() {
+  return (
+    <details className="bg-white rounded-lg border p-6 group">
+      <summary className="cursor-pointer list-none flex justify-between items-center gap-4">
+        <span className="font-semibold text-gray-900">{ESIGN_DISCLOSURE.heading}</span>
+        <span className="text-xs text-gray-500 group-open:hidden">Show details</span>
+        <span className="text-xs text-gray-500 hidden group-open:inline">Hide details</span>
+      </summary>
+      <div className="mt-4 space-y-4 text-sm text-gray-700 leading-relaxed">
+        <p>{ESIGN_DISCLOSURE.intro}</p>
+        <ol className="list-decimal ml-6 space-y-3">
+          {ESIGN_DISCLOSURE.sections.map((section) => (
+            <li key={section.title}>
+              <span className="font-semibold text-gray-900">{section.title}</span>{" "}
+              {section.body.map((paragraph, pi) => (
+                <span key={pi}>{paragraph}{pi < section.body.length - 1 ? " " : ""}</span>
+              ))}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </details>
   );
 }

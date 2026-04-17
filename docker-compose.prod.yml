@@ -42,6 +42,12 @@ services:
       # Email
       SENDGRID_API_KEY: ${SENDGRID_API_KEY}
       SENDGRID_FROM_EMAIL: cred_onboarding@essenmed.com
+      SENDGRID_WEBHOOK_PUBLIC_KEY: ${SENDGRID_WEBHOOK_PUBLIC_KEY}
+      SENDGRID_WEBHOOK_ENFORCE: ${SENDGRID_WEBHOOK_ENFORCE:-true}
+      # Observability
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_HTTP: ${LOG_HTTP:-true}
+      METRICS_BEARER_TOKEN: ${METRICS_BEARER_TOKEN}
       # PHI Encryption
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       # App URLs

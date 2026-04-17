@@ -39,6 +39,13 @@ const PHI_REDACT_PATHS = [
 
 const isDev = process.env.NODE_ENV !== "production";
 
+// We deliberately do NOT use pino's transport worker (`{ transport: { target:
+// "pino-pretty" } }`) here. Next.js's webpack runtime cannot reliably resolve
+// the pino-pretty worker thread, which produced
+//   "uncaughtException: Error: the worker thread exited"
+// every time the logger module loaded inside the dev server. JSON output in
+// every environment is the right answer for log-aggregator pipelines anyway —
+// devs who want pretty output can pipe `docker logs ... | npx pino-pretty`.
 export const logger = pino({
   level: process.env.LOG_LEVEL ?? (isDev ? "debug" : "info"),
   redact: {
@@ -46,12 +53,6 @@ export const logger = pino({
     remove: false,
     censor: "[REDACTED]",
   },
-  transport: isDev
-    ? {
-        target: "pino-pretty",
-        options: { colorize: true, translateTime: "HH:MM:ss.l" },
-      }
-    : undefined,
   base: {
     service: "ecred",
     env: process.env.NODE_ENV ?? "development",

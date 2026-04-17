@@ -1,0 +1,39 @@
+# CODEOWNERS — review gates for the HDPulseAI QA Standard
+#
+# Until specific GitHub usernames are confirmed by the team, the QA Standard
+# Owner placeholder is `@hdpulseai/qa-standard-owners`. Replace with real
+# usernames or team handles before enabling branch protection.
+#
+# The QA Standard documents themselves require approval from the QA Standard
+# Owner. The standard is binding (docs/qa/STANDARD.md §9) and cannot be
+# weakened by drive-by edits.
+
+# QA Standard documents — owner-only edits
+/docs/qa/STANDARD.md                @hdpulseai/qa-standard-owners
+/docs/qa/definition-of-done.md      @hdpulseai/qa-standard-owners
+/AGENTS.md                          @hdpulseai/qa-standard-owners
+/CLAUDE.md                          @hdpulseai/qa-standard-owners
+/.cursor/rules/qa-standard.mdc      @hdpulseai/qa-standard-owners
+/docs/system-prompt.md              @hdpulseai/qa-standard-owners
+/.github/pull_request_template.md   @hdpulseai/qa-standard-owners
+/.github/CODEOWNERS                 @hdpulseai/qa-standard-owners
+
+# Test layer — QA maintainers
+/tests/                             @hdpulseai/qa-maintainers
+/scripts/qa/                        @hdpulseai/qa-maintainers
+/docs/qa/                           @hdpulseai/qa-maintainers
+/docs/qa/per-screen/                @hdpulseai/qa-maintainers
+/docs/qa/per-flow/                  @hdpulseai/qa-maintainers
+/docs/qa/inventories/               @hdpulseai/qa-maintainers
+/docs/qa/results/                   @hdpulseai/qa-maintainers
+/docs/qa/defects/                   @hdpulseai/qa-maintainers
+
+# Compliance-tagged specs need compliance lead
+/tests/e2e/compliance/              @hdpulseai/qa-maintainers @hdpulseai/compliance-lead
+/docs/compliance/                   @hdpulseai/compliance-lead
+
+# Security pillar
+/tests/security/                    @hdpulseai/qa-maintainers @hdpulseai/security-lead
+
+# Default fallback
+*                                   @hdpulseai/maintainers
