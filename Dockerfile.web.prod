@@ -10,6 +10,13 @@ WORKDIR /app
 RUN apk add --no-cache libc6-compat openssl
 
 COPY package*.json ./
+# Copy prisma schema BEFORE npm ci so the `postinstall: prisma generate`
+# hook in package.json can find prisma/schema.prisma. Without this, the
+# postinstall fails with "Could not find Prisma Schema". Stage 2 still
+# re-runs prisma generate against the full source tree (line below the
+# COPY . . in the builder stage), so this stage-1 generation is just
+# enough to satisfy the postinstall.
+COPY prisma ./prisma
 RUN npm ci --legacy-peer-deps
 
 # =============================================================================

@@ -8,6 +8,12 @@ WORKDIR /app
 
 # Copy package files and install ALL dependencies (need devDeps for build)
 COPY package*.json ./
+# Copy prisma schema BEFORE npm ci so the `postinstall: prisma generate`
+# hook in package.json can find prisma/schema.prisma. The explicit
+# `npx prisma generate` below still runs against the full source tree
+# after `COPY . .`; this stage-1 copy is just enough to satisfy the
+# postinstall hook.
+COPY prisma ./prisma
 RUN npm ci --legacy-peer-deps
 
 # Install Playwright Chromium browser
