@@ -20,13 +20,20 @@ the fix lands.
 Reserved numbers (placeholder records — the actual cards will be authored
 when the issues are picked up):
 
-| ID       | Status | Title                                                              | Pillar | Opened     |
-|----------|--------|--------------------------------------------------------------------|--------|------------|
-| DEF-0001 | Open   | (reserved)                                                         | —      | —          |
-| DEF-0002 | Open   | (reserved)                                                         | —      | —          |
-| DEF-0003 | Open   | Sidebar `<a>`-inside-`<Link>` hydration mismatch (`src/components/layout/sidebar.tsx`) | A | 2026-04-17 |
-| DEF-0004 | Open   | Webpack factory `Cannot read properties of undefined (reading 'call')` after sidebar mount | A | 2026-04-17 |
+| ID             | Status              | Title                                                                          | Pillar | Opened     | Closed     |
+|----------------|---------------------|--------------------------------------------------------------------------------|--------|------------|------------|
+| DEF-0001       | Reserved            | (reserved)                                                                     | —      | —          | —          |
+| DEF-0002       | Reserved            | (reserved)                                                                     | —      | —          | —          |
+| DEF-0003       | **Closed (fixed)**  | Sidebar hydration mismatch — `<a>` mismatch on `/dashboard`                    | A      | 2026-04-17 | 2026-04-17 |
+| DEF-0004       | **Closed (fixed)**  | Webpack factory `Cannot read properties of undefined (reading 'call')`         | A      | 2026-04-17 | 2026-04-17 |
+| DEF-0005       | Open — Escalated    | Systemic WCAG 2.1 AA color-contrast failure on stat tiles (palette)            | E      | 2026-04-17 | —          |
+| DEF-0006       | **Closed (fixed)**  | `<select>` on `/dashboard` missing accessible name (WCAG 4.1.2)                | E      | 2026-04-17 | 2026-04-17 |
+| DEF-INFRA-0001 | Open — Roadmap      | Pillar runs against `next dev` are unstable for E2E (production-build mode)   | All    | 2026-04-17 | —          |
 
-DEF-0003 and DEF-0004 are the original failures named in `STANDARD.md` §10
-that this entire QA Standard exists to prevent from recurring silently.
-They will be closed under Phase 0 of the QA plan.
+DEF-0003 and DEF-0004 were the original failures named in `STANDARD.md`
+§10 that this entire QA Standard exists to prevent from recurring
+silently. They were closed in Phase 0 by clearing the stale Next.js dev
+cache (full diagnosis in DEF-0003.md).
+
+DEF-0005, DEF-0006 and DEF-INFRA-0001 were surfaced by the first full
+Pillar E run (2026-04-17).

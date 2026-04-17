@@ -57,3 +57,15 @@ tmp/
 temp/
 uploads/
 tsconfig.tsbuildinfo
+
+# QA / Playwright — auth state files contain real session cookies for
+# seeded test users. They must NEVER be committed.
+tests/e2e/.auth/
+
+# QA / Playwright — raw run artefacts (videos, screenshots, HTML report)
+# can balloon to GBs across runs. The SUMMARY.md and the JSON results
+# (small, machine-readable, append-only per STANDARD §6) are tracked.
+docs/qa/results/*/test-output/
+docs/qa/results/*/playwright/
+playwright-report/
+test-results/

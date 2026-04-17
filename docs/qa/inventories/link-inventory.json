@@ -1,0 +1,492 @@
+[
+  {
+    "href": "?tab=${t.id}",
+    "file": "src/app/(staff)/admin/users/[id]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "?tab=${t.id}",
+    "file": "src/app/(staff)/providers/[id]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/",
+    "file": "src/app/auth/register/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/",
+    "file": "src/app/auth/signin/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/",
+    "file": "src/app/legal/layout.tsx",
+    "external": false
+  },
+  {
+    "href": "/",
+    "file": "src/components/layout/sidebar.tsx",
+    "external": false
+  },
+  {
+    "href": "/admin/ai-governance",
+    "file": "src/app/(staff)/admin/ai-governance/[id]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/admin/ai-governance/${c.id}",
+    "file": "src/app/(staff)/admin/ai-governance/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/admin/privileging/${cat.id}",
+    "file": "src/app/(staff)/admin/privileging/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/admin/settings#continuous-monitoring",
+    "file": "src/app/(staff)/monitoring/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/admin/users",
+    "file": "src/app/(staff)/admin/users/[id]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/admin/users/${user.id}",
+    "file": "src/app/(staff)/admin/users/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/api/documents/${item.document.id}/download",
+    "file": "src/components/checklist/ChecklistPanel.tsx",
+    "external": false
+  },
+  {
+    "href": "/api/providers/${provider.id}/audit-packet",
+    "file": "src/app/(staff)/providers/[id]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/auth/register",
+    "file": "src/app/auth/signin/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/auth/register",
+    "file": "src/app/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/auth/signin",
+    "file": "src/app/auth/register/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/auth/signin",
+    "file": "src/app/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/bots/exceptions",
+    "file": "src/app/(staff)/bots/exceptions/[id]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/bots/exceptions/${v.id}",
+    "file": "src/app/(staff)/bots/exceptions/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/cme",
+    "file": "src/app/(staff)/cme/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/committee",
+    "file": "src/app/(staff)/committee/sessions/new/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/committee/sessions/${s.id}",
+    "file": "src/app/(staff)/committee/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/committee/sessions/new",
+    "file": "src/app/(staff)/committee/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/compliance",
+    "file": "src/app/(staff)/compliance/[framework]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/compliance/${slug}",
+    "file": "src/app/(staff)/compliance/[framework]/[id]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/compliance/${slug}/${c.id}",
+    "file": "src/app/(staff)/compliance/[framework]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/compliance/hitrust",
+    "file": "src/app/(staff)/compliance/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/compliance/soc2",
+    "file": "src/app/(staff)/compliance/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/dashboard",
+    "file": "src/app/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/enrollments",
+    "file": "src/app/(staff)/enrollments/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/enrollments?status=overdue",
+    "file": "src/app/(staff)/dashboard/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/enrollments/${e.id}",
+    "file": "src/app/(staff)/admin/users/[id]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/enrollments/${e.id}",
+    "file": "src/app/(staff)/enrollments/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/enrollments/${e.id}",
+    "file": "src/app/(staff)/providers/[id]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/evaluations",
+    "file": "src/app/(staff)/dashboard/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/evaluations",
+    "file": "src/app/(staff)/evaluations/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/evaluations",
+    "file": "src/app/(staff)/peer-review/[id]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/expirables",
+    "file": "src/app/(staff)/dashboard/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/expirables",
+    "file": "src/app/(staff)/expirables/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/legal/privacy",
+    "file": "src/app/(provider)/application/attestation/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/legal/privacy",
+    "file": "src/app/legal/hipaa/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/legal/terms",
+    "file": "src/app/(provider)/application/attestation/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/medicaid",
+    "file": "src/components/medicaid/MedicaidEnrollmentDetail.tsx",
+    "external": false
+  },
+  {
+    "href": "/medicaid/${enrollmentId}",
+    "file": "src/components/medicaid/MedicaidRowActions.tsx",
+    "external": false
+  },
+  {
+    "href": "/medicaid/${item.id}",
+    "file": "src/app/(staff)/medicaid/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/medicaid/new",
+    "file": "src/app/(staff)/medicaid/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/monitoring",
+    "file": "src/app/(staff)/dashboard/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/monitoring?status=OPEN&severity=CRITICAL",
+    "file": "src/app/(staff)/dashboard/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/monitoring?status=OPEN&severity=WARNING",
+    "file": "src/app/(staff)/dashboard/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/peer-review",
+    "file": "src/app/(staff)/peer-review/[id]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/peer-review/${m.id}",
+    "file": "src/app/(staff)/peer-review/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers",
+    "file": "src/app/(staff)/providers/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers?slaBreach=initial",
+    "file": "src/app/(staff)/dashboard/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers?slaBreach=initial-at-risk",
+    "file": "src/app/(staff)/dashboard/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${alert.provider.id}",
+    "file": "src/app/(staff)/monitoring/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${c.provider.id}",
+    "file": "src/app/(staff)/recredentialing/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${d.provider.id}",
+    "file": "src/app/(staff)/admin/ai-governance/[id]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${d.provider.id}",
+    "file": "src/app/(staff)/admin/ai-governance/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${e.provider.id}",
+    "file": "src/app/(staff)/enrollments/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${e.provider.id}",
+    "file": "src/app/(staff)/expirables/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${e.provider.id}",
+    "file": "src/app/(staff)/fsmb-pdc/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${ev.provider.id}",
+    "file": "src/app/(staff)/evaluations/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${ev.provider.id}?tab=evaluations",
+    "file": "src/app/(staff)/evaluations/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${m.provider.id}",
+    "file": "src/app/(staff)/peer-review/[id]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${p.id}",
+    "file": "src/app/(staff)/admin/users/[id]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${p.id}",
+    "file": "src/app/(staff)/committee/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${p.id}",
+    "file": "src/app/(staff)/providers/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${p.id}",
+    "file": "src/app/(staff)/telehealth/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${p.id}",
+    "file": "src/components/dashboard/PipelineTable.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${p.provider.id}",
+    "file": "src/app/(staff)/behavioral-health/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${provider.id}",
+    "file": "src/app/(staff)/providers/[id]/bots/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${provider.id}",
+    "file": "src/components/providers/ProviderCard.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${r.id}",
+    "file": "src/app/(staff)/cme/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${r.id}?tab=cme",
+    "file": "src/app/(staff)/cme/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${r.provider.id}",
+    "file": "src/app/(staff)/verifications/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${r.provider.id}?tab=references",
+    "file": "src/app/(staff)/verifications/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${s.id}",
+    "file": "src/app/(staff)/scorecards/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${s.provider.id}",
+    "file": "src/app/(staff)/fsmb-pdc/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${task.provider.id}",
+    "file": "src/components/dashboard/TaskList.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${v.provider.id}",
+    "file": "src/app/(staff)/bots/exceptions/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${v.provider.id}",
+    "file": "src/app/(staff)/verifications/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${v.provider.id}?tab=work-history",
+    "file": "src/app/(staff)/verifications/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/providers/${verdict.provider.id}",
+    "file": "src/app/(staff)/bots/exceptions/[id]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/recredentialing",
+    "file": "src/app/(staff)/recredentialing/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/recredentialing?slaBreach=at-risk",
+    "file": "src/app/(staff)/dashboard/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/recredentialing?slaBreach=overdue",
+    "file": "src/app/(staff)/dashboard/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/recredentialing?status=OVERDUE",
+    "file": "src/app/(staff)/dashboard/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/reports",
+    "file": "src/components/reports/ExportHandler.tsx",
+    "external": false
+  },
+  {
+    "href": "/reports/export?type=${exp.type}",
+    "file": "src/app/(staff)/reports/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/reports/export?type=${key}",
+    "file": "src/components/reports/ExportHandler.tsx",
+    "external": false
+  },
+  {
+    "href": "/roster/${r.id}",
+    "file": "src/app/(staff)/roster/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/roster/${r.id}/generate",
+    "file": "src/app/(staff)/roster/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/scorecards",
+    "file": "src/app/(staff)/scorecards/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/verifications",
+    "file": "src/app/(staff)/dashboard/page.tsx",
+    "external": false
+  },
+  {
+    "href": "https://www.npdb.hrsa.gov/",
+    "file": "src/components/bots/BotStatusPanel.tsx",
+    "external": true
+  },
+  {
+    "href": "mailto:${HIPAA_NOTICE_POINTER.contact}",
+    "file": "src/app/legal/hipaa/page.tsx",
+    "external": true
+  },
+  {
+    "href": "mailto:cred_onboarding@essenmed.com",
+    "file": "src/app/(provider)/layout.tsx",
+    "external": true
+  }
+]

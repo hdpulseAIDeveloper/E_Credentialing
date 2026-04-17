@@ -1,0 +1,1310 @@
+[
+  {
+    "router": "admin",
+    "procedure": "createProviderType",
+    "kind": "query",
+    "file": "src/server/api/routers/admin.ts"
+  },
+  {
+    "router": "admin",
+    "procedure": "createUser",
+    "kind": "query",
+    "file": "src/server/api/routers/admin.ts"
+  },
+  {
+    "router": "admin",
+    "procedure": "createWorkflow",
+    "kind": "query",
+    "file": "src/server/api/routers/admin.ts"
+  },
+  {
+    "router": "admin",
+    "procedure": "deactivateUser",
+    "kind": "mutation",
+    "file": "src/server/api/routers/admin.ts"
+  },
+  {
+    "router": "admin",
+    "procedure": "deleteSetting",
+    "kind": "mutation",
+    "file": "src/server/api/routers/admin.ts"
+  },
+  {
+    "router": "admin",
+    "procedure": "deleteUser",
+    "kind": "mutation",
+    "file": "src/server/api/routers/admin.ts"
+  },
+  {
+    "router": "admin",
+    "procedure": "deleteWorkflow",
+    "kind": "mutation",
+    "file": "src/server/api/routers/admin.ts"
+  },
+  {
+    "router": "admin",
+    "procedure": "saveWorkflow",
+    "kind": "query",
+    "file": "src/server/api/routers/admin.ts"
+  },
+  {
+    "router": "admin",
+    "procedure": "setDocumentRequirement",
+    "kind": "query",
+    "file": "src/server/api/routers/admin.ts"
+  },
+  {
+    "router": "admin",
+    "procedure": "updateProviderType",
+    "kind": "query",
+    "file": "src/server/api/routers/admin.ts"
+  },
+  {
+    "router": "admin",
+    "procedure": "updateUser",
+    "kind": "query",
+    "file": "src/server/api/routers/admin.ts"
+  },
+  {
+    "router": "admin",
+    "procedure": "upsertSetting",
+    "kind": "query",
+    "file": "src/server/api/routers/admin.ts"
+  },
+  {
+    "router": "aiGovernance",
+    "procedure": "attestModelCardReview",
+    "kind": "mutation",
+    "file": "src/server/api/routers/aiGovernance.ts"
+  },
+  {
+    "router": "aiGovernance",
+    "procedure": "deleteModelCard",
+    "kind": "mutation",
+    "file": "src/server/api/routers/aiGovernance.ts"
+  },
+  {
+    "router": "aiGovernance",
+    "procedure": "getModelCard",
+    "kind": "query",
+    "file": "src/server/api/routers/aiGovernance.ts"
+  },
+  {
+    "router": "aiGovernance",
+    "procedure": "listDecisionLogs",
+    "kind": "query",
+    "file": "src/server/api/routers/aiGovernance.ts"
+  },
+  {
+    "router": "aiGovernance",
+    "procedure": "listModelCards",
+    "kind": "query",
+    "file": "src/server/api/routers/aiGovernance.ts"
+  },
+  {
+    "router": "aiGovernance",
+    "procedure": "recordDecision",
+    "kind": "query",
+    "file": "src/server/api/routers/aiGovernance.ts"
+  },
+  {
+    "router": "aiGovernance",
+    "procedure": "summary",
+    "kind": "query",
+    "file": "src/server/api/routers/aiGovernance.ts"
+  },
+  {
+    "router": "aiGovernance",
+    "procedure": "upsertModelCard",
+    "kind": "query",
+    "file": "src/server/api/routers/aiGovernance.ts"
+  },
+  {
+    "router": "apiKey",
+    "procedure": "availableScopes",
+    "kind": "query",
+    "file": "src/server/api/routers/apiKey.ts"
+  },
+  {
+    "router": "apiKey",
+    "procedure": "create",
+    "kind": "query",
+    "file": "src/server/api/routers/apiKey.ts"
+  },
+  {
+    "router": "apiKey",
+    "procedure": "delete",
+    "kind": "mutation",
+    "file": "src/server/api/routers/apiKey.ts"
+  },
+  {
+    "router": "apiKey",
+    "procedure": "revoke",
+    "kind": "mutation",
+    "file": "src/server/api/routers/apiKey.ts"
+  },
+  {
+    "router": "behavioralHealth",
+    "procedure": "classifyTaxonomy",
+    "kind": "query",
+    "file": "src/server/api/routers/behavioralHealth.ts"
+  },
+  {
+    "router": "behavioralHealth",
+    "procedure": "createAttestation",
+    "kind": "query",
+    "file": "src/server/api/routers/behavioralHealth.ts"
+  },
+  {
+    "router": "behavioralHealth",
+    "procedure": "evaluateBcbs",
+    "kind": "query",
+    "file": "src/server/api/routers/behavioralHealth.ts"
+  },
+  {
+    "router": "behavioralHealth",
+    "procedure": "listAttestations",
+    "kind": "query",
+    "file": "src/server/api/routers/behavioralHealth.ts"
+  },
+  {
+    "router": "behavioralHealth",
+    "procedure": "rosterCounts",
+    "kind": "query",
+    "file": "src/server/api/routers/behavioralHealth.ts"
+  },
+  {
+    "router": "behavioralHealth",
+    "procedure": "updateAttestation",
+    "kind": "query",
+    "file": "src/server/api/routers/behavioralHealth.ts"
+  },
+  {
+    "router": "behavioralHealth",
+    "procedure": "updateTaxonomy",
+    "kind": "query",
+    "file": "src/server/api/routers/behavioralHealth.ts"
+  },
+  {
+    "router": "bot",
+    "procedure": "getById",
+    "kind": "query",
+    "file": "src/server/api/routers/bot.ts"
+  },
+  {
+    "router": "bot",
+    "procedure": "getLatestByProvider",
+    "kind": "query",
+    "file": "src/server/api/routers/bot.ts"
+  },
+  {
+    "router": "bot",
+    "procedure": "listByProvider",
+    "kind": "query",
+    "file": "src/server/api/routers/bot.ts"
+  },
+  {
+    "router": "bot",
+    "procedure": "triggerBot",
+    "kind": "query",
+    "file": "src/server/api/routers/bot.ts"
+  },
+  {
+    "router": "botOrchestrator",
+    "procedure": "counts",
+    "kind": "query",
+    "file": "src/server/api/routers/botOrchestrator.ts"
+  },
+  {
+    "router": "botOrchestrator",
+    "procedure": "get",
+    "kind": "query",
+    "file": "src/server/api/routers/botOrchestrator.ts"
+  },
+  {
+    "router": "botOrchestrator",
+    "procedure": "list",
+    "kind": "query",
+    "file": "src/server/api/routers/botOrchestrator.ts"
+  },
+  {
+    "router": "botOrchestrator",
+    "procedure": "resolve",
+    "kind": "query",
+    "file": "src/server/api/routers/botOrchestrator.ts"
+  },
+  {
+    "router": "cme",
+    "procedure": "create",
+    "kind": "query",
+    "file": "src/server/api/routers/cme.ts"
+  },
+  {
+    "router": "cme",
+    "procedure": "delete",
+    "kind": "mutation",
+    "file": "src/server/api/routers/cme.ts"
+  },
+  {
+    "router": "cme",
+    "procedure": "generateCv",
+    "kind": "query",
+    "file": "src/server/api/routers/cme.ts"
+  },
+  {
+    "router": "cme",
+    "procedure": "getSummary",
+    "kind": "query",
+    "file": "src/server/api/routers/cme.ts"
+  },
+  {
+    "router": "cme",
+    "procedure": "listByProvider",
+    "kind": "query",
+    "file": "src/server/api/routers/cme.ts"
+  },
+  {
+    "router": "cme",
+    "procedure": "update",
+    "kind": "query",
+    "file": "src/server/api/routers/cme.ts"
+  },
+  {
+    "router": "committee",
+    "procedure": "addProvider",
+    "kind": "query",
+    "file": "src/server/api/routers/committee.ts"
+  },
+  {
+    "router": "committee",
+    "procedure": "generateAgenda",
+    "kind": "mutation",
+    "file": "src/server/api/routers/committee.ts"
+  },
+  {
+    "router": "committee",
+    "procedure": "generateSummary",
+    "kind": "query",
+    "file": "src/server/api/routers/committee.ts"
+  },
+  {
+    "router": "committee",
+    "procedure": "getQueue",
+    "kind": "query",
+    "file": "src/server/api/routers/committee.ts"
+  },
+  {
+    "router": "committee",
+    "procedure": "getSession",
+    "kind": "query",
+    "file": "src/server/api/routers/committee.ts"
+  },
+  {
+    "router": "committee",
+    "procedure": "listSessions",
+    "kind": "query",
+    "file": "src/server/api/routers/committee.ts"
+  },
+  {
+    "router": "committee",
+    "procedure": "removeProvider",
+    "kind": "mutation",
+    "file": "src/server/api/routers/committee.ts"
+  },
+  {
+    "router": "committee",
+    "procedure": "sendAgenda",
+    "kind": "mutation",
+    "file": "src/server/api/routers/committee.ts"
+  },
+  {
+    "router": "committee",
+    "procedure": "updateAgendaOrder",
+    "kind": "query",
+    "file": "src/server/api/routers/committee.ts"
+  },
+  {
+    "router": "communication",
+    "procedure": "addInternalNote",
+    "kind": "query",
+    "file": "src/server/api/routers/communication.ts"
+  },
+  {
+    "router": "communication",
+    "procedure": "listByProvider",
+    "kind": "query",
+    "file": "src/server/api/routers/communication.ts"
+  },
+  {
+    "router": "communication",
+    "procedure": "logPhoneCall",
+    "kind": "query",
+    "file": "src/server/api/routers/communication.ts"
+  },
+  {
+    "router": "communication",
+    "procedure": "sendFollowUpEmail",
+    "kind": "query",
+    "file": "src/server/api/routers/communication.ts"
+  },
+  {
+    "router": "communication",
+    "procedure": "sendSms",
+    "kind": "query",
+    "file": "src/server/api/routers/communication.ts"
+  },
+  {
+    "router": "compliance",
+    "procedure": "addEvidence",
+    "kind": "query",
+    "file": "src/server/api/routers/compliance.ts"
+  },
+  {
+    "router": "compliance",
+    "procedure": "createGap",
+    "kind": "query",
+    "file": "src/server/api/routers/compliance.ts"
+  },
+  {
+    "router": "compliance",
+    "procedure": "getControl",
+    "kind": "query",
+    "file": "src/server/api/routers/compliance.ts"
+  },
+  {
+    "router": "compliance",
+    "procedure": "listAuditPeriods",
+    "kind": "query",
+    "file": "src/server/api/routers/compliance.ts"
+  },
+  {
+    "router": "compliance",
+    "procedure": "readiness",
+    "kind": "query",
+    "file": "src/server/api/routers/compliance.ts"
+  },
+  {
+    "router": "compliance",
+    "procedure": "updateGap",
+    "kind": "query",
+    "file": "src/server/api/routers/compliance.ts"
+  },
+  {
+    "router": "directory",
+    "procedure": "deleteRole",
+    "kind": "mutation",
+    "file": "src/server/api/routers/directory.ts"
+  },
+  {
+    "router": "directory",
+    "procedure": "listEndpoints",
+    "kind": "query",
+    "file": "src/server/api/routers/directory.ts"
+  },
+  {
+    "router": "directory",
+    "procedure": "listLocations",
+    "kind": "query",
+    "file": "src/server/api/routers/directory.ts"
+  },
+  {
+    "router": "directory",
+    "procedure": "listOrganizations",
+    "kind": "query",
+    "file": "src/server/api/routers/directory.ts"
+  },
+  {
+    "router": "directory",
+    "procedure": "listRolesByProvider",
+    "kind": "query",
+    "file": "src/server/api/routers/directory.ts"
+  },
+  {
+    "router": "directory",
+    "procedure": "upsertRole",
+    "kind": "mutation",
+    "file": "src/server/api/routers/directory.ts"
+  },
+  {
+    "router": "document",
+    "procedure": "createRecord",
+    "kind": "query",
+    "file": "src/server/api/routers/document.ts"
+  },
+  {
+    "router": "document",
+    "procedure": "delete",
+    "kind": "query",
+    "file": "src/server/api/routers/document.ts"
+  },
+  {
+    "router": "document",
+    "procedure": "getById",
+    "kind": "query",
+    "file": "src/server/api/routers/document.ts"
+  },
+  {
+    "router": "document",
+    "procedure": "getChecklist",
+    "kind": "query",
+    "file": "src/server/api/routers/document.ts"
+  },
+  {
+    "router": "document",
+    "procedure": "listByProvider",
+    "kind": "query",
+    "file": "src/server/api/routers/document.ts"
+  },
+  {
+    "router": "document",
+    "procedure": "triggerOcr",
+    "kind": "mutation",
+    "file": "src/server/api/routers/document.ts"
+  },
+  {
+    "router": "document",
+    "procedure": "updateChecklistItem",
+    "kind": "query",
+    "file": "src/server/api/routers/document.ts"
+  },
+  {
+    "router": "enrollment",
+    "procedure": "addFollowUp",
+    "kind": "query",
+    "file": "src/server/api/routers/enrollment.ts"
+  },
+  {
+    "router": "enrollment",
+    "procedure": "create",
+    "kind": "query",
+    "file": "src/server/api/routers/enrollment.ts"
+  },
+  {
+    "router": "enrollment",
+    "procedure": "delete",
+    "kind": "mutation",
+    "file": "src/server/api/routers/enrollment.ts"
+  },
+  {
+    "router": "enrollment",
+    "procedure": "generateRoster",
+    "kind": "query",
+    "file": "src/server/api/routers/enrollment.ts"
+  },
+  {
+    "router": "enrollment",
+    "procedure": "getById",
+    "kind": "query",
+    "file": "src/server/api/routers/enrollment.ts"
+  },
+  {
+    "router": "enrollment",
+    "procedure": "list",
+    "kind": "query",
+    "file": "src/server/api/routers/enrollment.ts"
+  },
+  {
+    "router": "enrollment",
+    "procedure": "pushToEcw",
+    "kind": "mutation",
+    "file": "src/server/api/routers/enrollment.ts"
+  },
+  {
+    "router": "enrollment",
+    "procedure": "submitViaPortal",
+    "kind": "mutation",
+    "file": "src/server/api/routers/enrollment.ts"
+  },
+  {
+    "router": "enrollment",
+    "procedure": "updateStatus",
+    "kind": "query",
+    "file": "src/server/api/routers/enrollment.ts"
+  },
+  {
+    "router": "enrollment",
+    "procedure": "uploadRosterSftp",
+    "kind": "query",
+    "file": "src/server/api/routers/enrollment.ts"
+  },
+  {
+    "router": "evaluation",
+    "procedure": "getById",
+    "kind": "query",
+    "file": "src/server/api/routers/evaluation.ts"
+  },
+  {
+    "router": "evaluation",
+    "procedure": "getDashboard",
+    "kind": "query",
+    "file": "src/server/api/routers/evaluation.ts"
+  },
+  {
+    "router": "evaluation",
+    "procedure": "list",
+    "kind": "query",
+    "file": "src/server/api/routers/evaluation.ts"
+  },
+  {
+    "router": "evaluation",
+    "procedure": "listByProvider",
+    "kind": "query",
+    "file": "src/server/api/routers/evaluation.ts"
+  },
+  {
+    "router": "evaluation",
+    "procedure": "update",
+    "kind": "query",
+    "file": "src/server/api/routers/evaluation.ts"
+  },
+  {
+    "router": "expirable",
+    "procedure": "create",
+    "kind": "query",
+    "file": "src/server/api/routers/expirable.ts"
+  },
+  {
+    "router": "expirable",
+    "procedure": "delete",
+    "kind": "mutation",
+    "file": "src/server/api/routers/expirable.ts"
+  },
+  {
+    "router": "expirable",
+    "procedure": "getSummary",
+    "kind": "query",
+    "file": "src/server/api/routers/expirable.ts"
+  },
+  {
+    "router": "expirable",
+    "procedure": "list",
+    "kind": "query",
+    "file": "src/server/api/routers/expirable.ts"
+  },
+  {
+    "router": "expirable",
+    "procedure": "listByProvider",
+    "kind": "query",
+    "file": "src/server/api/routers/expirable.ts"
+  },
+  {
+    "router": "expirable",
+    "procedure": "update",
+    "kind": "query",
+    "file": "src/server/api/routers/expirable.ts"
+  },
+  {
+    "router": "fsmbPdc",
+    "procedure": "counts",
+    "kind": "query",
+    "file": "src/server/api/routers/fsmbPdc.ts"
+  },
+  {
+    "router": "fsmbPdc",
+    "procedure": "getEvent",
+    "kind": "query",
+    "file": "src/server/api/routers/fsmbPdc.ts"
+  },
+  {
+    "router": "fsmbPdc",
+    "procedure": "getSubscription",
+    "kind": "query",
+    "file": "src/server/api/routers/fsmbPdc.ts"
+  },
+  {
+    "router": "fsmbPdc",
+    "procedure": "listEvents",
+    "kind": "query",
+    "file": "src/server/api/routers/fsmbPdc.ts"
+  },
+  {
+    "router": "fsmbPdc",
+    "procedure": "listSubscriptions",
+    "kind": "query",
+    "file": "src/server/api/routers/fsmbPdc.ts"
+  },
+  {
+    "router": "malpractice",
+    "procedure": "create",
+    "kind": "query",
+    "file": "src/server/api/routers/malpractice.ts"
+  },
+  {
+    "router": "malpractice",
+    "procedure": "delete",
+    "kind": "mutation",
+    "file": "src/server/api/routers/malpractice.ts"
+  },
+  {
+    "router": "malpractice",
+    "procedure": "getByToken",
+    "kind": "query",
+    "file": "src/server/api/routers/malpractice.ts"
+  },
+  {
+    "router": "malpractice",
+    "procedure": "listByProvider",
+    "kind": "query",
+    "file": "src/server/api/routers/malpractice.ts"
+  },
+  {
+    "router": "malpractice",
+    "procedure": "listFacilityMinimums",
+    "kind": "query",
+    "file": "src/server/api/routers/malpractice.ts"
+  },
+  {
+    "router": "malpractice",
+    "procedure": "sendReminder",
+    "kind": "mutation",
+    "file": "src/server/api/routers/malpractice.ts"
+  },
+  {
+    "router": "malpractice",
+    "procedure": "sendRequest",
+    "kind": "mutation",
+    "file": "src/server/api/routers/malpractice.ts"
+  },
+  {
+    "router": "malpractice",
+    "procedure": "submitResponse",
+    "kind": "query",
+    "file": "src/server/api/routers/malpractice.ts"
+  },
+  {
+    "router": "medicaid",
+    "procedure": "addFollowUp",
+    "kind": "query",
+    "file": "src/server/api/routers/medicaid.ts"
+  },
+  {
+    "router": "medicaid",
+    "procedure": "confirmEtin",
+    "kind": "query",
+    "file": "src/server/api/routers/medicaid.ts"
+  },
+  {
+    "router": "medicaid",
+    "procedure": "create",
+    "kind": "query",
+    "file": "src/server/api/routers/medicaid.ts"
+  },
+  {
+    "router": "medicaid",
+    "procedure": "getById",
+    "kind": "query",
+    "file": "src/server/api/routers/medicaid.ts"
+  },
+  {
+    "router": "medicaid",
+    "procedure": "getSummary",
+    "kind": "query",
+    "file": "src/server/api/routers/medicaid.ts"
+  },
+  {
+    "router": "medicaid",
+    "procedure": "list",
+    "kind": "query",
+    "file": "src/server/api/routers/medicaid.ts"
+  },
+  {
+    "router": "medicaid",
+    "procedure": "recordSignature",
+    "kind": "query",
+    "file": "src/server/api/routers/medicaid.ts"
+  },
+  {
+    "router": "medicaid",
+    "procedure": "recordSubmission",
+    "kind": "query",
+    "file": "src/server/api/routers/medicaid.ts"
+  },
+  {
+    "router": "medicaid",
+    "procedure": "updateGroupAffiliation",
+    "kind": "query",
+    "file": "src/server/api/routers/medicaid.ts"
+  },
+  {
+    "router": "medicaid",
+    "procedure": "updatePsp",
+    "kind": "query",
+    "file": "src/server/api/routers/medicaid.ts"
+  },
+  {
+    "router": "medicaid",
+    "procedure": "updateStatus",
+    "kind": "query",
+    "file": "src/server/api/routers/medicaid.ts"
+  },
+  {
+    "router": "monitoring",
+    "procedure": "acknowledge",
+    "kind": "mutation",
+    "file": "src/server/api/routers/monitoring.ts"
+  },
+  {
+    "router": "monitoring",
+    "procedure": "counts",
+    "kind": "query",
+    "file": "src/server/api/routers/monitoring.ts"
+  },
+  {
+    "router": "monitoring",
+    "procedure": "getById",
+    "kind": "query",
+    "file": "src/server/api/routers/monitoring.ts"
+  },
+  {
+    "router": "monitoring",
+    "procedure": "list",
+    "kind": "query",
+    "file": "src/server/api/routers/monitoring.ts"
+  },
+  {
+    "router": "ncqa",
+    "procedure": "listAssessments",
+    "kind": "query",
+    "file": "src/server/api/routers/ncqa.ts"
+  },
+  {
+    "router": "ncqa",
+    "procedure": "listCriteria",
+    "kind": "query",
+    "file": "src/server/api/routers/ncqa.ts"
+  },
+  {
+    "router": "ncqa",
+    "procedure": "listSnapshots",
+    "kind": "query",
+    "file": "src/server/api/routers/ncqa.ts"
+  },
+  {
+    "router": "npdb",
+    "procedure": "getAdverse",
+    "kind": "query",
+    "file": "src/server/api/routers/npdb.ts"
+  },
+  {
+    "router": "npdb",
+    "procedure": "listByProvider",
+    "kind": "query",
+    "file": "src/server/api/routers/npdb.ts"
+  },
+  {
+    "router": "npdb",
+    "procedure": "triggerQuery",
+    "kind": "query",
+    "file": "src/server/api/routers/npdb.ts"
+  },
+  {
+    "router": "peerReview",
+    "procedure": "addMinute",
+    "kind": "query",
+    "file": "src/server/api/routers/peerReview.ts"
+  },
+  {
+    "router": "peerReview",
+    "procedure": "getMeeting",
+    "kind": "query",
+    "file": "src/server/api/routers/peerReview.ts"
+  },
+  {
+    "router": "peerReview",
+    "procedure": "listMeetings",
+    "kind": "query",
+    "file": "src/server/api/routers/peerReview.ts"
+  },
+  {
+    "router": "peerReview",
+    "procedure": "listMinutesByProvider",
+    "kind": "query",
+    "file": "src/server/api/routers/peerReview.ts"
+  },
+  {
+    "router": "privileging",
+    "procedure": "createCategory",
+    "kind": "query",
+    "file": "src/server/api/routers/privileging.ts"
+  },
+  {
+    "router": "privileging",
+    "procedure": "createItem",
+    "kind": "query",
+    "file": "src/server/api/routers/privileging.ts"
+  },
+  {
+    "router": "privileging",
+    "procedure": "deleteCategory",
+    "kind": "mutation",
+    "file": "src/server/api/routers/privileging.ts"
+  },
+  {
+    "router": "privileging",
+    "procedure": "deleteItem",
+    "kind": "mutation",
+    "file": "src/server/api/routers/privileging.ts"
+  },
+  {
+    "router": "privileging",
+    "procedure": "getCategory",
+    "kind": "query",
+    "file": "src/server/api/routers/privileging.ts"
+  },
+  {
+    "router": "privileging",
+    "procedure": "listCategories",
+    "kind": "query",
+    "file": "src/server/api/routers/privileging.ts"
+  },
+  {
+    "router": "privileging",
+    "procedure": "search",
+    "kind": "query",
+    "file": "src/server/api/routers/privileging.ts"
+  },
+  {
+    "router": "privileging",
+    "procedure": "updateCategory",
+    "kind": "query",
+    "file": "src/server/api/routers/privileging.ts"
+  },
+  {
+    "router": "privileging",
+    "procedure": "updateItem",
+    "kind": "query",
+    "file": "src/server/api/routers/privileging.ts"
+  },
+  {
+    "router": "provider",
+    "procedure": "create",
+    "kind": "query",
+    "file": "src/server/api/routers/provider.ts"
+  },
+  {
+    "router": "provider",
+    "procedure": "createHospitalPrivilege",
+    "kind": "query",
+    "file": "src/server/api/routers/provider.ts"
+  },
+  {
+    "router": "provider",
+    "procedure": "deleteHospitalPrivilege",
+    "kind": "mutation",
+    "file": "src/server/api/routers/provider.ts"
+  },
+  {
+    "router": "provider",
+    "procedure": "getAuditTrail",
+    "kind": "query",
+    "file": "src/server/api/routers/provider.ts"
+  },
+  {
+    "router": "provider",
+    "procedure": "getById",
+    "kind": "query",
+    "file": "src/server/api/routers/provider.ts"
+  },
+  {
+    "router": "provider",
+    "procedure": "importFromIcims",
+    "kind": "mutation",
+    "file": "src/server/api/routers/provider.ts"
+  },
+  {
+    "router": "provider",
+    "procedure": "list",
+    "kind": "query",
+    "file": "src/server/api/routers/provider.ts"
+  },
+  {
+    "router": "provider",
+    "procedure": "pullCaqhData",
+    "kind": "mutation",
+    "file": "src/server/api/routers/provider.ts"
+  },
+  {
+    "router": "provider",
+    "procedure": "sendInvite",
+    "kind": "mutation",
+    "file": "src/server/api/routers/provider.ts"
+  },
+  {
+    "router": "provider",
+    "procedure": "transitionStatus",
+    "kind": "query",
+    "file": "src/server/api/routers/provider.ts"
+  },
+  {
+    "router": "provider",
+    "procedure": "update",
+    "kind": "query",
+    "file": "src/server/api/routers/provider.ts"
+  },
+  {
+    "router": "provider",
+    "procedure": "updateCoi",
+    "kind": "query",
+    "file": "src/server/api/routers/provider.ts"
+  },
+  {
+    "router": "provider",
+    "procedure": "updateHospitalPrivilege",
+    "kind": "query",
+    "file": "src/server/api/routers/provider.ts"
+  },
+  {
+    "router": "provider",
+    "procedure": "updateOnsiteMeeting",
+    "kind": "query",
+    "file": "src/server/api/routers/provider.ts"
+  },
+  {
+    "router": "recredentialing",
+    "procedure": "getById",
+    "kind": "query",
+    "file": "src/server/api/routers/recredentialing.ts"
+  },
+  {
+    "router": "recredentialing",
+    "procedure": "getByProvider",
+    "kind": "query",
+    "file": "src/server/api/routers/recredentialing.ts"
+  },
+  {
+    "router": "recredentialing",
+    "procedure": "getDashboard",
+    "kind": "query",
+    "file": "src/server/api/routers/recredentialing.ts"
+  },
+  {
+    "router": "recredentialing",
+    "procedure": "list",
+    "kind": "query",
+    "file": "src/server/api/routers/recredentialing.ts"
+  },
+  {
+    "router": "recredentialing",
+    "procedure": "updateStatus",
+    "kind": "query",
+    "file": "src/server/api/routers/recredentialing.ts"
+  },
+  {
+    "router": "reference",
+    "procedure": "create",
+    "kind": "query",
+    "file": "src/server/api/routers/reference.ts"
+  },
+  {
+    "router": "reference",
+    "procedure": "delete",
+    "kind": "mutation",
+    "file": "src/server/api/routers/reference.ts"
+  },
+  {
+    "router": "reference",
+    "procedure": "listByProvider",
+    "kind": "query",
+    "file": "src/server/api/routers/reference.ts"
+  },
+  {
+    "router": "reference",
+    "procedure": "sendReminder",
+    "kind": "mutation",
+    "file": "src/server/api/routers/reference.ts"
+  },
+  {
+    "router": "reference",
+    "procedure": "sendRequest",
+    "kind": "mutation",
+    "file": "src/server/api/routers/reference.ts"
+  },
+  {
+    "router": "reference",
+    "procedure": "submitResponse",
+    "kind": "query",
+    "file": "src/server/api/routers/reference.ts"
+  },
+  {
+    "router": "report",
+    "procedure": "complianceSummary",
+    "kind": "query",
+    "file": "src/server/api/routers/report.ts"
+  },
+  {
+    "router": "report",
+    "procedure": "exportEnrollments",
+    "kind": "query",
+    "file": "src/server/api/routers/report.ts"
+  },
+  {
+    "router": "report",
+    "procedure": "exportExpirables",
+    "kind": "query",
+    "file": "src/server/api/routers/report.ts"
+  },
+  {
+    "router": "report",
+    "procedure": "exportProviders",
+    "kind": "query",
+    "file": "src/server/api/routers/report.ts"
+  },
+  {
+    "router": "report",
+    "procedure": "exportRecredentialing",
+    "kind": "query",
+    "file": "src/server/api/routers/report.ts"
+  },
+  {
+    "router": "report",
+    "procedure": "listSavedReports",
+    "kind": "query",
+    "file": "src/server/api/routers/report.ts"
+  },
+  {
+    "router": "roster",
+    "procedure": "acknowledgeRoster",
+    "kind": "mutation",
+    "file": "src/server/api/routers/roster.ts"
+  },
+  {
+    "router": "roster",
+    "procedure": "generateSubmission",
+    "kind": "mutation",
+    "file": "src/server/api/routers/roster.ts"
+  },
+  {
+    "router": "roster",
+    "procedure": "getRoster",
+    "kind": "query",
+    "file": "src/server/api/routers/roster.ts"
+  },
+  {
+    "router": "roster",
+    "procedure": "listRosters",
+    "kind": "query",
+    "file": "src/server/api/routers/roster.ts"
+  },
+  {
+    "router": "roster",
+    "procedure": "submitRoster",
+    "kind": "query",
+    "file": "src/server/api/routers/roster.ts"
+  },
+  {
+    "router": "roster",
+    "procedure": "validateSubmission",
+    "kind": "mutation",
+    "file": "src/server/api/routers/roster.ts"
+  },
+  {
+    "router": "sanctions",
+    "procedure": "getFlagged",
+    "kind": "query",
+    "file": "src/server/api/routers/sanctions.ts"
+  },
+  {
+    "router": "sanctions",
+    "procedure": "listByProvider",
+    "kind": "query",
+    "file": "src/server/api/routers/sanctions.ts"
+  },
+  {
+    "router": "sanctions",
+    "procedure": "triggerCheck",
+    "kind": "query",
+    "file": "src/server/api/routers/sanctions.ts"
+  },
+  {
+    "router": "task",
+    "procedure": "addComment",
+    "kind": "query",
+    "file": "src/server/api/routers/task.ts"
+  },
+  {
+    "router": "task",
+    "procedure": "create",
+    "kind": "query",
+    "file": "src/server/api/routers/task.ts"
+  },
+  {
+    "router": "task",
+    "procedure": "getById",
+    "kind": "query",
+    "file": "src/server/api/routers/task.ts"
+  },
+  {
+    "router": "task",
+    "procedure": "list",
+    "kind": "query",
+    "file": "src/server/api/routers/task.ts"
+  },
+  {
+    "router": "task",
+    "procedure": "update",
+    "kind": "query",
+    "file": "src/server/api/routers/task.ts"
+  },
+  {
+    "router": "telehealth",
+    "procedure": "coverage",
+    "kind": "query",
+    "file": "src/server/api/routers/telehealth.ts"
+  },
+  {
+    "router": "telehealth",
+    "procedure": "deleteCert",
+    "kind": "mutation",
+    "file": "src/server/api/routers/telehealth.ts"
+  },
+  {
+    "router": "telehealth",
+    "procedure": "evaluateImlc",
+    "kind": "query",
+    "file": "src/server/api/routers/telehealth.ts"
+  },
+  {
+    "router": "telehealth",
+    "procedure": "listCerts",
+    "kind": "query",
+    "file": "src/server/api/routers/telehealth.ts"
+  },
+  {
+    "router": "telehealth",
+    "procedure": "updateImlcRecord",
+    "kind": "query",
+    "file": "src/server/api/routers/telehealth.ts"
+  },
+  {
+    "router": "telehealth",
+    "procedure": "upsertCert",
+    "kind": "query",
+    "file": "src/server/api/routers/telehealth.ts"
+  },
+  {
+    "router": "training",
+    "procedure": "create",
+    "kind": "query",
+    "file": "src/server/api/routers/training.ts"
+  },
+  {
+    "router": "training",
+    "procedure": "delete",
+    "kind": "mutation",
+    "file": "src/server/api/routers/training.ts"
+  },
+  {
+    "router": "training",
+    "procedure": "deleteCourse",
+    "kind": "mutation",
+    "file": "src/server/api/routers/training.ts"
+  },
+  {
+    "router": "training",
+    "procedure": "getComplianceSummary",
+    "kind": "query",
+    "file": "src/server/api/routers/training.ts"
+  },
+  {
+    "router": "training",
+    "procedure": "listAll",
+    "kind": "query",
+    "file": "src/server/api/routers/training.ts"
+  },
+  {
+    "router": "training",
+    "procedure": "listAssignments",
+    "kind": "query",
+    "file": "src/server/api/routers/training.ts"
+  },
+  {
+    "router": "training",
+    "procedure": "listByUser",
+    "kind": "query",
+    "file": "src/server/api/routers/training.ts"
+  },
+  {
+    "router": "training",
+    "procedure": "listCourses",
+    "kind": "query",
+    "file": "src/server/api/routers/training.ts"
+  },
+  {
+    "router": "training",
+    "procedure": "myAssignments",
+    "kind": "query",
+    "file": "src/server/api/routers/training.ts"
+  },
+  {
+    "router": "training",
+    "procedure": "recordCompletion",
+    "kind": "query",
+    "file": "src/server/api/routers/training.ts"
+  },
+  {
+    "router": "training",
+    "procedure": "resyncAll",
+    "kind": "mutation",
+    "file": "src/server/api/routers/training.ts"
+  },
+  {
+    "router": "training",
+    "procedure": "resyncMyAssignments",
+    "kind": "mutation",
+    "file": "src/server/api/routers/training.ts"
+  },
+  {
+    "router": "training",
+    "procedure": "update",
+    "kind": "query",
+    "file": "src/server/api/routers/training.ts"
+  },
+  {
+    "router": "training",
+    "procedure": "upsertCourse",
+    "kind": "query",
+    "file": "src/server/api/routers/training.ts"
+  },
+  {
+    "router": "training",
+    "procedure": "waiveAssignment",
+    "kind": "query",
+    "file": "src/server/api/routers/training.ts"
+  },
+  {
+    "router": "workHistory",
+    "procedure": "create",
+    "kind": "query",
+    "file": "src/server/api/routers/workHistory.ts"
+  },
+  {
+    "router": "workHistory",
+    "procedure": "delete",
+    "kind": "mutation",
+    "file": "src/server/api/routers/workHistory.ts"
+  },
+  {
+    "router": "workHistory",
+    "procedure": "listByProvider",
+    "kind": "query",
+    "file": "src/server/api/routers/workHistory.ts"
+  },
+  {
+    "router": "workHistory",
+    "procedure": "sendReminder",
+    "kind": "mutation",
+    "file": "src/server/api/routers/workHistory.ts"
+  },
+  {
+    "router": "workHistory",
+    "procedure": "sendRequest",
+    "kind": "mutation",
+    "file": "src/server/api/routers/workHistory.ts"
+  },
+  {
+    "router": "workHistory",
+    "procedure": "submitResponse",
+    "kind": "query",
+    "file": "src/server/api/routers/workHistory.ts"
+  }
+]

@@ -301,7 +301,7 @@ export default async function DashboardPage() {
             className={`${card.bg} rounded-lg border ${card.border} px-3 py-2.5`}
           >
             <div className={`text-xl font-bold ${card.color}`}>{card.value}</div>
-            <div className="text-xs text-gray-500 mt-0.5">{card.label}</div>
+            <div className="text-xs text-gray-700 mt-0.5">{card.label}</div>
           </div>
         ))}
       </div>

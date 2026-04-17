@@ -1,0 +1,362 @@
+[
+  {
+    "route": "/",
+    "file": "src/app/page.tsx",
+    "dynamic": false,
+    "group": "public"
+  },
+  {
+    "route": "/admin",
+    "file": "src/app/(staff)/admin/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/admin/ai-governance",
+    "file": "src/app/(staff)/admin/ai-governance/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/admin/ai-governance/[id]",
+    "file": "src/app/(staff)/admin/ai-governance/[id]/page.tsx",
+    "dynamic": true,
+    "group": "staff"
+  },
+  {
+    "route": "/admin/api-keys",
+    "file": "src/app/(staff)/admin/api-keys/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/admin/privileging",
+    "file": "src/app/(staff)/admin/privileging/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/admin/provider-types",
+    "file": "src/app/(staff)/admin/provider-types/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/admin/roles",
+    "file": "src/app/(staff)/admin/roles/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/admin/settings",
+    "file": "src/app/(staff)/admin/settings/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/admin/training",
+    "file": "src/app/(staff)/admin/training/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/admin/users",
+    "file": "src/app/(staff)/admin/users/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/admin/users/[id]",
+    "file": "src/app/(staff)/admin/users/[id]/page.tsx",
+    "dynamic": true,
+    "group": "staff"
+  },
+  {
+    "route": "/admin/workflows",
+    "file": "src/app/(staff)/admin/workflows/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/admin/workflows/[id]",
+    "file": "src/app/(staff)/admin/workflows/[id]/page.tsx",
+    "dynamic": true,
+    "group": "staff"
+  },
+  {
+    "route": "/analytics",
+    "file": "src/app/(staff)/analytics/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/application",
+    "file": "src/app/(provider)/application/page.tsx",
+    "dynamic": false,
+    "group": "provider"
+  },
+  {
+    "route": "/application/attestation",
+    "file": "src/app/(provider)/application/attestation/page.tsx",
+    "dynamic": false,
+    "group": "provider"
+  },
+  {
+    "route": "/application/documents",
+    "file": "src/app/(provider)/application/documents/page.tsx",
+    "dynamic": false,
+    "group": "provider"
+  },
+  {
+    "route": "/auth/register",
+    "file": "src/app/auth/register/page.tsx",
+    "dynamic": false,
+    "group": "public"
+  },
+  {
+    "route": "/auth/signin",
+    "file": "src/app/auth/signin/page.tsx",
+    "dynamic": false,
+    "group": "public"
+  },
+  {
+    "route": "/behavioral-health",
+    "file": "src/app/(staff)/behavioral-health/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/bots/exceptions",
+    "file": "src/app/(staff)/bots/exceptions/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/bots/exceptions/[id]",
+    "file": "src/app/(staff)/bots/exceptions/[id]/page.tsx",
+    "dynamic": true,
+    "group": "staff"
+  },
+  {
+    "route": "/cme",
+    "file": "src/app/(staff)/cme/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/committee",
+    "file": "src/app/(staff)/committee/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/committee/sessions/[id]",
+    "file": "src/app/(staff)/committee/sessions/[id]/page.tsx",
+    "dynamic": true,
+    "group": "staff"
+  },
+  {
+    "route": "/committee/sessions/new",
+    "file": "src/app/(staff)/committee/sessions/new/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/compliance",
+    "file": "src/app/(staff)/compliance/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/compliance/[framework]",
+    "file": "src/app/(staff)/compliance/[framework]/page.tsx",
+    "dynamic": true,
+    "group": "staff"
+  },
+  {
+    "route": "/compliance/[framework]/[id]",
+    "file": "src/app/(staff)/compliance/[framework]/[id]/page.tsx",
+    "dynamic": true,
+    "group": "staff"
+  },
+  {
+    "route": "/dashboard",
+    "file": "src/app/(staff)/dashboard/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/enrollments",
+    "file": "src/app/(staff)/enrollments/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/enrollments/[id]",
+    "file": "src/app/(staff)/enrollments/[id]/page.tsx",
+    "dynamic": true,
+    "group": "staff"
+  },
+  {
+    "route": "/evaluations",
+    "file": "src/app/(staff)/evaluations/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/expirables",
+    "file": "src/app/(staff)/expirables/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/fsmb-pdc",
+    "file": "src/app/(staff)/fsmb-pdc/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/legal/cookies",
+    "file": "src/app/legal/cookies/page.tsx",
+    "dynamic": false,
+    "group": "public"
+  },
+  {
+    "route": "/legal/hipaa",
+    "file": "src/app/legal/hipaa/page.tsx",
+    "dynamic": false,
+    "group": "public"
+  },
+  {
+    "route": "/legal/privacy",
+    "file": "src/app/legal/privacy/page.tsx",
+    "dynamic": false,
+    "group": "public"
+  },
+  {
+    "route": "/legal/terms",
+    "file": "src/app/legal/terms/page.tsx",
+    "dynamic": false,
+    "group": "public"
+  },
+  {
+    "route": "/medicaid",
+    "file": "src/app/(staff)/medicaid/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/medicaid/[id]",
+    "file": "src/app/(staff)/medicaid/[id]/page.tsx",
+    "dynamic": true,
+    "group": "staff"
+  },
+  {
+    "route": "/medicaid/new",
+    "file": "src/app/(staff)/medicaid/new/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/monitoring",
+    "file": "src/app/(staff)/monitoring/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/peer-review",
+    "file": "src/app/(staff)/peer-review/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/peer-review/[id]",
+    "file": "src/app/(staff)/peer-review/[id]/page.tsx",
+    "dynamic": true,
+    "group": "staff"
+  },
+  {
+    "route": "/providers",
+    "file": "src/app/(staff)/providers/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/providers/[id]",
+    "file": "src/app/(staff)/providers/[id]/page.tsx",
+    "dynamic": true,
+    "group": "staff"
+  },
+  {
+    "route": "/providers/[id]/bots",
+    "file": "src/app/(staff)/providers/[id]/bots/page.tsx",
+    "dynamic": true,
+    "group": "staff"
+  },
+  {
+    "route": "/recredentialing",
+    "file": "src/app/(staff)/recredentialing/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/reports",
+    "file": "src/app/(staff)/reports/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/reports/export",
+    "file": "src/app/(staff)/reports/export/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/roster",
+    "file": "src/app/(staff)/roster/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/scorecards",
+    "file": "src/app/(staff)/scorecards/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/telehealth",
+    "file": "src/app/(staff)/telehealth/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/training",
+    "file": "src/app/(staff)/training/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/verifications",
+    "file": "src/app/(staff)/verifications/page.tsx",
+    "dynamic": false,
+    "group": "staff"
+  },
+  {
+    "route": "/verify/carrier/[token]",
+    "file": "src/app/verify/carrier/[token]/page.tsx",
+    "dynamic": true,
+    "group": "public"
+  },
+  {
+    "route": "/verify/reference/[token]",
+    "file": "src/app/verify/reference/[token]/page.tsx",
+    "dynamic": true,
+    "group": "public"
+  },
+  {
+    "route": "/verify/work-history/[token]",
+    "file": "src/app/verify/work-history/[token]/page.tsx",
+    "dynamic": true,
+    "group": "public"
+  }
+]

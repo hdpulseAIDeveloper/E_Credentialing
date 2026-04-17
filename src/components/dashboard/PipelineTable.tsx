@@ -34,6 +34,7 @@ export function PipelineTable({ providers }: Props) {
         <input
           type="text"
           placeholder="Search providers..."
+          aria-label="Search providers by name"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           className="border rounded-md px-2.5 py-1.5 text-sm flex-1"
@@ -41,6 +42,7 @@ export function PipelineTable({ providers }: Props) {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
+          aria-label="Filter providers by status"
           className="border rounded-md px-2.5 py-1.5 text-sm"
         >
           <option value="">All Statuses</option>

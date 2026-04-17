@@ -20,7 +20,16 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "qa:inventory": "tsx scripts/qa/build-all-inventories.ts",
+    "qa:coverage": "tsx scripts/qa/check-coverage.ts",
+    "qa:coverage:report": "tsx scripts/qa/check-coverage.ts --report",
+    "qa:smoke": "playwright test tests/e2e/pillar-a-smoke",
+    "qa:rbac": "playwright test tests/e2e/pillar-b-rbac",
+    "qa:phi": "playwright test tests/e2e/pillar-c-phi",
+    "qa:flows": "playwright test tests/e2e/pillar-d-flows",
+    "qa:a11y": "playwright test tests/e2e/pillar-e-a11y",
+    "qa:all": "tsx scripts/qa/run-all-pillars.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.2",
@@ -103,6 +112,7 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.0",
     "eslint-config-next": "^14.2.14",
+    "fast-glob": "^3.3.2",
     "jsdom": "^29.0.2",
     "msw": "^2.13.4",
     "postcss": "^8.4.47",

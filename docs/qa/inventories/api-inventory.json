@@ -1,0 +1,260 @@
+[
+  {
+    "route": "/api/ai/chat",
+    "file": "src/app/api/ai/chat/route.ts",
+    "methods": [
+      "POST"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/application/save-section",
+    "file": "src/app/api/application/save-section/route.ts",
+    "methods": [
+      "POST"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/attestation",
+    "file": "src/app/api/attestation/route.ts",
+    "methods": [
+      "POST"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/auth/[...nextauth]",
+    "file": "src/app/api/auth/[...nextauth]/route.ts",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "dynamic": true
+  },
+  {
+    "route": "/api/auth/register",
+    "file": "src/app/api/auth/register/route.ts",
+    "methods": [
+      "POST"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/documents/[id]/download",
+    "file": "src/app/api/documents/[id]/download/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": true
+  },
+  {
+    "route": "/api/fhir/Endpoint",
+    "file": "src/app/api/fhir/Endpoint/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/fhir/Endpoint/[id]",
+    "file": "src/app/api/fhir/Endpoint/[id]/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": true
+  },
+  {
+    "route": "/api/fhir/Location",
+    "file": "src/app/api/fhir/Location/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/fhir/Location/[id]",
+    "file": "src/app/api/fhir/Location/[id]/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": true
+  },
+  {
+    "route": "/api/fhir/metadata",
+    "file": "src/app/api/fhir/metadata/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/fhir/Organization",
+    "file": "src/app/api/fhir/Organization/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/fhir/Organization/[id]",
+    "file": "src/app/api/fhir/Organization/[id]/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": true
+  },
+  {
+    "route": "/api/fhir/Practitioner",
+    "file": "src/app/api/fhir/Practitioner/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/fhir/Practitioner/[id]",
+    "file": "src/app/api/fhir/Practitioner/[id]/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": true
+  },
+  {
+    "route": "/api/fhir/PractitionerRole",
+    "file": "src/app/api/fhir/PractitionerRole/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/fhir/PractitionerRole/[id]",
+    "file": "src/app/api/fhir/PractitionerRole/[id]/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": true
+  },
+  {
+    "route": "/api/health",
+    "file": "src/app/api/health/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/live",
+    "file": "src/app/api/live/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/metrics",
+    "file": "src/app/api/metrics/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/providers/[id]/audit-packet",
+    "file": "src/app/api/providers/[id]/audit-packet/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": true
+  },
+  {
+    "route": "/api/ready",
+    "file": "src/app/api/ready/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/socket",
+    "file": "src/app/api/socket/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/trpc/[trpc]",
+    "file": "src/app/api/trpc/[trpc]/route.ts",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "dynamic": true
+  },
+  {
+    "route": "/api/upload",
+    "file": "src/app/api/upload/route.ts",
+    "methods": [
+      "POST"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/v1/enrollments",
+    "file": "src/app/api/v1/enrollments/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/v1/providers",
+    "file": "src/app/api/v1/providers/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/v1/providers/[id]",
+    "file": "src/app/api/v1/providers/[id]/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": true
+  },
+  {
+    "route": "/api/v1/sanctions",
+    "file": "src/app/api/v1/sanctions/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/webhooks/exclusions",
+    "file": "src/app/api/webhooks/exclusions/route.ts",
+    "methods": [
+      "POST"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/webhooks/fsmb-pdc",
+    "file": "src/app/api/webhooks/fsmb-pdc/route.ts",
+    "methods": [
+      "POST"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/webhooks/sendgrid",
+    "file": "src/app/api/webhooks/sendgrid/route.ts",
+    "methods": [
+      "POST"
+    ],
+    "dynamic": false
+  }
+]
