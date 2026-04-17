@@ -48,7 +48,7 @@ const BENIGN_CONSOLE_RE = [
   // when we're tempted to silence something.
 ] as RegExp[];
 
-const FIRST_PARTY_HOSTS = [
+const FIRST_PARTY_HOSTS: string[] = [
   // Anything served by the app under test. baseURL is added at runtime in
   // attachListeners().
 ];
