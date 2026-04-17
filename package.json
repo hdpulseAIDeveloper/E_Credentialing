@@ -32,6 +32,7 @@
     "qa:phi": "playwright test tests/e2e/pillar-c-phi",
     "qa:flows": "playwright test tests/e2e/pillar-d-flows",
     "qa:a11y": "playwright test tests/e2e/pillar-e-a11y",
+    "qa:a11y:palette": "node scripts/qa/verify-palette-contrast.mjs",
     "qa:all": "tsx scripts/qa/run-all-pillars.ts"
   },
   "dependencies": {
