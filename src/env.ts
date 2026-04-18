@@ -22,9 +22,23 @@ export const env = createEnv({
     ENCRYPTION_KEY: z.string().min(1),
     BULL_BOARD_PORT: z.coerce.number().default(6025),
     SAM_GOV_API_KEY: z.string().optional(),
+    BILLING_ENABLED: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((v) => v === "true"),
+    STRIPE_SECRET_KEY: z.string().optional(),
+    STRIPE_WEBHOOK_SECRET: z.string().optional(),
+    STRIPE_PRICE_STARTER: z.string().optional(),
+    STRIPE_PRICE_GROWTH: z.string().optional(),
+    STRIPE_PRICE_ENTERPRISE: z.string().optional(),
+    STRIPE_BILLING_PORTAL_RETURN_URL: z.string().url().optional(),
   },
   client: {
     NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:6015"),
+    NEXT_PUBLIC_BILLING_ENABLED: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((v) => v === "true"),
   },
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,
@@ -46,7 +60,15 @@ export const env = createEnv({
     ENCRYPTION_KEY: process.env.ENCRYPTION_KEY,
     BULL_BOARD_PORT: process.env.BULL_BOARD_PORT,
     SAM_GOV_API_KEY: process.env.SAM_GOV_API_KEY,
+    BILLING_ENABLED: process.env.BILLING_ENABLED,
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+    STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+    STRIPE_PRICE_STARTER: process.env.STRIPE_PRICE_STARTER,
+    STRIPE_PRICE_GROWTH: process.env.STRIPE_PRICE_GROWTH,
+    STRIPE_PRICE_ENTERPRISE: process.env.STRIPE_PRICE_ENTERPRISE,
+    STRIPE_BILLING_PORTAL_RETURN_URL: process.env.STRIPE_BILLING_PORTAL_RETURN_URL,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    NEXT_PUBLIC_BILLING_ENABLED: process.env.NEXT_PUBLIC_BILLING_ENABLED,
   },
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
   emptyStringAsUndefined: true,

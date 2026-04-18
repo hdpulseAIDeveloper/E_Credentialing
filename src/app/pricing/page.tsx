@@ -96,7 +96,9 @@ export default function PricingPage() {
 
       <footer className="border-t border-gray-200 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-sm text-gray-500 text-center">
-          &copy; {new Date().getFullYear()} HDPulseAI · pricing tiers are scaffolding. Stripe Billing wires in Wave 5.3.
+          &copy; {new Date().getFullYear()} HDPulseAI · pricing tiers are
+          indicative; live values come from Stripe at checkout when
+          BILLING_ENABLED is on.
         </div>
       </footer>
     </div>

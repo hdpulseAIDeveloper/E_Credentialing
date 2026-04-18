@@ -410,11 +410,20 @@ model Organization {
   id          String   @id
   name        String
   slug        String   @unique
-  // Free-form plan label ("starter" | "growth" | "enterprise"). Stripe
-  // wiring lands in Wave 5.3.
+  // Free-form plan label ("starter" | "growth" | "enterprise"). Wave
+  // 5.3 keeps this denormalized from the Stripe subscription so we can
+  // read the active plan without a Stripe round-trip on every request.
   plan        String   @default("starter")
   // Stripe customer id when billing is enabled.
-  billingCustomerId String? @map("billing_customer_id")
+  billingCustomerId    String? @map("billing_customer_id")
+  // Wave 5.3 — Stripe Subscription id + status mirror. Updated by the
+  // /api/billing/webhook handler. Status values mirror Stripe:
+  // active | trialing | past_due | canceled | incomplete | incomplete_expired | unpaid | paused.
+  billingSubscriptionId String? @map("billing_subscription_id")
+  billingStatus        String?  @map("billing_status")
+  // ISO-8601 timestamp at which the current period ends; used by the
+  // dunning checks and the billing UI ("renews on …").
+  billingCurrentPeriodEnd DateTime? @map("billing_current_period_end")
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
