@@ -46,7 +46,10 @@
     "perf:k6:fhir": "k6 run tests/perf/k6/fhir-public.js",
     "perf:k6:metrics": "k6 run tests/perf/k6/metrics.js",
     "perf:k6:api": "k6 run tests/perf/k6/api-public.js",
-    "db:index-audit": "tsx scripts/db/index-audit.ts"
+    "db:index-audit": "tsx scripts/db/index-audit.ts",
+    "qa:visual": "playwright test --config=playwright.visual.config.ts",
+    "qa:visual:update": "playwright test --config=playwright.visual.config.ts --update-snapshots",
+    "qa:visual:install": "playwright install --with-deps chromium firefox webkit"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.2",
