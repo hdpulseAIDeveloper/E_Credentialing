@@ -1,8 +1,22 @@
-# ESSEN Credentialing Platform
+# ESSEN Credentialing — CVO Platform
 
-NCQA-aligned, HIPAA-compliant, AI-augmented provider credentialing and
-enrollment platform. Built on Next.js 14, TypeScript, tRPC, Prisma, and
-PostgreSQL. Runs on Docker on Azure VPS.
+NCQA-aligned, HIPAA-compliant, AI-augmented **Credentialing Verification
+Organization (CVO) platform**. Automates primary-source verification,
+OPPE / FPPE cycles, payer enrollment, recredentialing, sanctions
+monitoring, and a public FHIR R4 provider directory (DaVinci PDex
+Plan-Net IG, CMS-0057-F). Audit-ready out of the box.
+
+Built on Next.js 14 (App Router), TypeScript, tRPC, Prisma, and
+PostgreSQL. Worker on BullMQ + Redis. Runs in Docker on Azure VPS;
+Azure Container Apps via `azd up` for production.
+
+Public surfaces:
+
+- `/` — marketing landing
+- `/cvo` — what a CVO actually does, and how this platform covers it
+- `/pricing` — Starter / Growth / Enterprise tiers
+- `/sandbox` — public read-only API on synthetic data (no auth)
+- `/changelog` + `/changelog.rss` — customer release notes
 
 ## Documentation
 

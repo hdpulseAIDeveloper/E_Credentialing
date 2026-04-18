@@ -1,8 +1,15 @@
-# ESSEN Credentialing Platform — Documentation
+# ESSEN Credentialing — CVO Platform Documentation
 
-This `docs/` folder is the single home for **all** documentation about the ESSEN
-Credentialing Platform. Documents are organized **by audience** so each reader
+This `docs/` folder is the single home for **all** documentation about the
+ESSEN Credentialing **CVO platform** (Credentialing Verification
+Organization). Documents are organized **by audience** so each reader
 can go straight to material written for them.
+
+> **Positioning.** Throughout these docs the product is referred to as the
+> "E-Credentialing CVO Platform" or simply "the CVO platform". Public
+> surfaces (`/`, `/cvo`, `/pricing`, `/sandbox`, `/changelog`) lead with
+> the same wording so prospects, auditors, and customers see one
+> consistent story.
 
 > **Documentation policy** — no documentation lives in the project root. The
 > only top-level files retained at the root are operational concerns

@@ -1,8 +1,12 @@
 # Product Overview
 
-**ESSEN Credentialing Platform** is a HIPAA-aligned, NCQA-aligned, AI-augmented
-SaaS platform that runs the entire provider credentialing and enrollment
-lifecycle for ESSEN Health Care and similarly-shaped delegated CVOs.
+**The E-Credentialing CVO Platform** is a HIPAA-aligned, NCQA-aligned,
+AI-augmented SaaS platform that runs the entire provider credentialing,
+verification, monitoring, and enrollment lifecycle. It is positioned and
+sold as a **Credentialing Verification Organization (CVO) platform**:
+the same product that runs ESSEN Health Care's internal credentialing
+operation is offered to medical groups, ACOs, and similarly-shaped
+delegated CVOs.
 
 ## Why it exists
 

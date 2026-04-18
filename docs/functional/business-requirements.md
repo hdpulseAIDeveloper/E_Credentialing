@@ -1,7 +1,7 @@
-# Business Requirements Document (BRD)
+# Business Requirements Document (BRD) — E-Credentialing CVO Platform
 
-**Version:** 2.0
-**Last Updated:** 2026-04-17
+**Version:** 2.1
+**Last Updated:** 2026-04-18
 **Status:** Active
 **Audience:** Sponsors, Steering Committee, Business Analysts, Product, QA
 **Owner:** Credentialing Manager + Tech Lead
@@ -10,12 +10,14 @@
 
 ## 1. Purpose
 
-The ESSEN Credentialing Platform is Essen Medical's internally built
-healthcare provider credentialing and onboarding system. This BRD captures the
-business problems we are solving, the outcomes we expect, and the high-level
-business requirements that frame the [Functional Requirements
-Document](functional-requirements.md) and [Technical Requirements
-Document](../technical/technical-requirements.md).
+The **E-Credentialing CVO platform** (Credentialing Verification
+Organization platform) is Essen Medical's healthcare provider
+credentialing, verification, monitoring, and onboarding system,
+**also offered as a managed CVO service to external medical groups
+and ACOs**. This BRD captures the business problems we are solving,
+the outcomes we expect, and the high-level business requirements that
+frame the [Functional Requirements Document](functional-requirements.md)
+and [Technical Requirements Document](../technical/technical-requirements.md).
 
 ---
 

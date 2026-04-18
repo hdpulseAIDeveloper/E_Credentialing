@@ -1,7 +1,11 @@
-# ESSEN Credentialing Platform — User Guide
+# E-Credentialing CVO Platform — User Guide
 
-Welcome to the ESSEN Credentialing Platform — the system ESSEN Health Care
-uses to credential, verify, monitor, and enroll healthcare providers.
+Welcome to the **E-Credentialing CVO platform** — the Credentialing
+Verification Organization platform ESSEN Health Care uses to credential,
+verify, monitor, and enroll healthcare providers. The same product is
+offered to medical groups and ACOs as a managed CVO service; see
+`/cvo` and `/pricing` on the running app for the customer-facing
+positioning.
 
 This guide is for **staff users**: Credentialing Specialists, Managers,
 Committee members, Compliance, Enrollment, and Administrators. If you are a

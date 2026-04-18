@@ -1,10 +1,15 @@
-# Technical Requirements Document (TRD)
+# Technical Requirements Document (TRD) — E-Credentialing CVO Platform
 
-**Version:** 2.0
-**Last Updated:** 2026-04-17
+**Version:** 2.1
+**Last Updated:** 2026-04-18
 **Status:** Active — kept current with the codebase
 **Audience:** Developers, architects, DevOps, security engineers
 **Owner:** Tech Lead
+
+> Covers the full stack of the **E-Credentialing CVO platform** — web,
+> worker, public marketing surfaces, public sandbox API, FHIR R4
+> directory (CMS-0057-F / DaVinci PDex Plan-Net IG), Stripe billing
+> scaffolding, multi-tenancy shim, and the auditor-package export.
 
 ---
 

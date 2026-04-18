@@ -1,10 +1,16 @@
-# Functional Requirements Document (FRD)
+# Functional Requirements Document (FRD) — E-Credentialing CVO Platform
 
-**Version:** 2.0
-**Last Updated:** 2026-04-17
+**Version:** 2.1
+**Last Updated:** 2026-04-18
 **Status:** Active — kept in sync with the shipped UI
 **Audience:** Business Analysts, QA, Product, end users
 **Owner:** Credentialing Manager + Product Lead
+
+> **Positioning.** This FRD covers the full **Credentialing Verification
+> Organization (CVO) platform** — internal Essen credentialing
+> operations as well as the public CVO surfaces (`/`, `/cvo`,
+> `/pricing`, `/sandbox`, `/changelog`, `/settings/billing`,
+> `/settings/compliance`) used by external customers and partners.
 
 ---
 

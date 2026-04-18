@@ -1,9 +1,11 @@
-# Value Proposition
+# Value Proposition — E-Credentialing CVO Platform
 
 ## Headline
 
-> Credential a provider in **days**, not weeks. Stay continuously NCQA-ready.
-> Replace PARCS and a stack of one-off tools with **one** auditable platform.
+> Credential a provider in **days**, not weeks. Stay continuously
+> NCQA-ready. Replace your in-house spreadsheets, your legacy CVO, and a
+> stack of one-off tools with **one** auditable, FHIR-native CVO
+> platform.
 
 ## Outcome metrics
 

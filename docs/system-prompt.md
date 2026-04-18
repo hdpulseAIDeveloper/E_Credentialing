@@ -1,4 +1,4 @@
-# System Prompt — Regenerate the ESSEN Credentialing Platform
+# System Prompt — Regenerate the E-Credentialing CVO Platform
 
 **Status:** REQUIRED. Keep this document current with every architectural,
 scope, or stack change.
@@ -12,10 +12,23 @@ be either in this document or referenced explicitly by relative path inside
 
 ## 0. Operating instructions for the agent / team
 
-You are building **the ESSEN Credentialing Platform**, an internally hosted
-healthcare provider credentialing and onboarding web application for **Essen
-Medical**. It is the system of record for all provider credentialing activity
-and replaces the legacy PARCS system and the K: drive PCD folders.
+You are building **the E-Credentialing CVO platform** (Credentialing
+Verification Organization platform) — an internally hosted healthcare
+provider credentialing, verification, monitoring, and onboarding web
+application for **Essen Medical**, also offered as a managed CVO service to
+external medical groups and ACOs. It is the system of record for all
+provider credentialing activity and replaces the legacy PARCS system and the
+K: drive PCD folders.
+
+Public surfaces that prospects, partners, and auditors see directly:
+
+- `/` marketing landing — leads with the CVO positioning.
+- `/cvo` explainer — what a CVO does and how this platform covers
+  the NCQA element catalog, TJC NPG-12, and CMS-0057-F.
+- `/pricing` — Starter / Growth / Enterprise tiers (live values come
+  from Stripe at checkout when `BILLING_ENABLED=true`).
+- `/sandbox` — public read-only API on synthetic data for evaluators.
+- `/changelog` + `/changelog.rss` — customer-facing release notes.
 
 Follow this prompt top to bottom. When in doubt:
 

@@ -1,18 +1,21 @@
-# Development Plan — ESSEN Credentialing Platform
+# Development Plan — E-Credentialing CVO Platform
 
 **Status:** REQUIRED. Keep current with every scope or schedule change.
 **Audience:** Project Manager, Tech Lead, Sponsors, Steering Committee.
-**Last Updated:** 2026-04-17
+**Last Updated:** 2026-04-18
 
 ---
 
 ## 1. Executive summary
 
-The ESSEN Credentialing Platform is in production at
-`credentialing.hdpulseai.com`. All 20 functional modules have implemented at
-least their P0 surface; the focus has shifted from build to **integration
-activation**, **operational hardening**, **organizational rollout**, and
-**continuous compliance**.
+The **E-Credentialing CVO platform** (Credentialing Verification
+Organization platform) is in production at
+`credentialing.hdpulseai.com`. All 20 functional modules have
+implemented at least their P0 surface; the focus has shifted from build
+to **integration activation**, **operational hardening**, **organizational
+rollout**, **commercial readiness** (multi-tenancy shim, public marketing,
+pricing, billing scaffolding, public sandbox API, auditor-package export,
+and a public changelog), and **continuous compliance**.
 
 | Phase | Name | Window | Status |
 |---|---|---|---|
