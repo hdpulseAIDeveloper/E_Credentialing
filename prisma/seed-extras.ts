@@ -580,7 +580,7 @@ async function main() {
           policyNumber: `POL-${Math.floor(Math.random() * 9000000) + 1000000}`,
           expectedExpDate: daysFromNow(180),
           status: m.status,
-          requestSentAt: m.status === MalpracticeVerificationStatus.PENDING ? null : daysAgo(15),
+          requestSentAt: daysAgo(15),
           receivedAt: m.status === MalpracticeVerificationStatus.RECEIVED ? daysAgo(3) : null,
           reportedPerOccurrenceCents: m.perOcc,
           reportedAggregateCents: m.agg,
