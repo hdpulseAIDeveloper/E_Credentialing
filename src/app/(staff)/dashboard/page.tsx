@@ -7,17 +7,20 @@ import {
   PSV_SLA_RECRED_DAYS,
 } from "@/lib/psv-sla";
 
+// Status palette resolves through CSS custom properties defined in
+// src/app/globals.css so the chips follow light/dark mode automatically.
+// See ADR 0015 (no-raw-color rule + design-token discipline).
 const STATUS_COLORS: Record<string, string> = {
-  INVITED: "#94a3b8",
-  ONBOARDING_IN_PROGRESS: "#60a5fa",
-  DOCUMENTS_PENDING: "#f59e0b",
-  VERIFICATION_IN_PROGRESS: "#a78bfa",
-  COMMITTEE_READY: "#fbbf24",
-  COMMITTEE_IN_REVIEW: "#fb923c",
-  APPROVED: "#34d399",
-  DENIED: "#f87171",
-  DEFERRED: "#d1d5db",
-  INACTIVE: "#9ca3af",
+  INVITED: "hsl(var(--status-invited))",
+  ONBOARDING_IN_PROGRESS: "hsl(var(--status-onboarding))",
+  DOCUMENTS_PENDING: "hsl(var(--status-docs-pending))",
+  VERIFICATION_IN_PROGRESS: "hsl(var(--status-verification))",
+  COMMITTEE_READY: "hsl(var(--status-committee-ready))",
+  COMMITTEE_IN_REVIEW: "hsl(var(--status-committee-review))",
+  APPROVED: "hsl(var(--status-approved))",
+  DENIED: "hsl(var(--status-denied))",
+  DEFERRED: "hsl(var(--status-deferred))",
+  INACTIVE: "hsl(var(--status-inactive))",
 };
 
 const STATUS_LABELS: Record<string, string> = {

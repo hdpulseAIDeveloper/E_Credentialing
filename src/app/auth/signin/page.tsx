@@ -235,10 +235,19 @@ function SignInForm() {
                   title="SSO login coming soon"
                   className="w-full flex items-center justify-center gap-3 py-2 px-4 border border-gray-200 rounded-md shadow-sm text-sm font-medium text-gray-400 bg-gray-50 cursor-not-allowed"
                 >
+                  {/* Microsoft logo. The four colors are Microsoft's
+                      mandated brand asset values per the Microsoft brand
+                      guidelines and may not be substituted. ADR 0015 §D3
+                      explicitly carves out brand SVGs as legitimate raw-color
+                      sites; opted out per-line below. */}
                   <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                    {/* eslint-disable-next-line ecred-local/no-raw-color */}
                     <rect x="1" y="1" width="8.5" height="8.5" fill="#F25022" opacity="0.4" />
+                    {/* eslint-disable-next-line ecred-local/no-raw-color */}
                     <rect x="10.5" y="1" width="8.5" height="8.5" fill="#7FBA00" opacity="0.4" />
+                    {/* eslint-disable-next-line ecred-local/no-raw-color */}
                     <rect x="1" y="10.5" width="8.5" height="8.5" fill="#00A4EF" opacity="0.4" />
+                    {/* eslint-disable-next-line ecred-local/no-raw-color */}
                     <rect x="10.5" y="10.5" width="8.5" height="8.5" fill="#FFB900" opacity="0.4" />
                   </svg>
                   Sign in with Microsoft (coming soon)

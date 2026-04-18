@@ -1,6 +1,6 @@
 {
   "extends": "next/core-web-vitals",
-  "plugins": ["@typescript-eslint"],
+  "plugins": ["@typescript-eslint", "ecred-local"],
   "rules": {
     "@next/next/no-html-link-for-pages": "off",
     "@next/next/no-before-interactive-script-outside-document": "off",
@@ -8,13 +8,33 @@
     "react-hooks/exhaustive-deps": "warn",
     "@typescript-eslint/no-explicit-any": "off"
   },
+  "overrides": [
+    {
+      "files": [
+        "src/app/**/*.{ts,tsx}",
+        "src/components/**/*.{ts,tsx}"
+      ],
+      "excludedFiles": [
+        "src/lib/email/**",
+        "src/workers/**",
+        "src/server/**",
+        "**/*.email.ts",
+        "**/*.email.tsx"
+      ],
+      "rules": {
+        "ecred-local/no-raw-color": "error"
+      }
+    }
+  ],
   "ignorePatterns": [
     "node_modules/",
     ".next/",
     "tests/**",
     "prisma/migrations/**",
     "src/app/api/trpc/**",
-    "scripts/**"
+    "scripts/**",
+    "eslint-rules/**",
+    "stories/**"
   ]
 }
 

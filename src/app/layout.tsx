@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { TRPCReactProvider } from "@/trpc/react";
 import { Toaster } from "@/components/ui/toaster";
+import { ThemeProvider, themeFoucScript } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
   title: "ESSEN Credentialing Platform",
@@ -21,12 +22,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Inline FOUC-killer: applies the persisted theme before paint
+            so users never see a light-to-dark flash on first navigation. */}
+        <script dangerouslySetInnerHTML={{ __html: themeFoucScript }} />
+      </head>
       <body style={{ fontFamily: SYSTEM_FONT_STACK }}>
-        <TRPCReactProvider>
-          {children}
-          <Toaster />
-        </TRPCReactProvider>
+        <ThemeProvider defaultTheme="system">
+          <TRPCReactProvider>
+            {children}
+            <Toaster />
+          </TRPCReactProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

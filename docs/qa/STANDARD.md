@@ -325,9 +325,27 @@ inventoried entity has no spec. The generators are run by `npm run qa:inventory`
 | Container restart resilience         | Docker Compose `restart: always` drills   |
 | Documentation integrity              | `markdown-link-check` + `forbidden-terms` |
 | Observability                        | `/api/metrics` scrape + log shape tests   |
+| Design-system discipline             | `ecred-local/no-raw-color` ESLint rule + lite-Storybook render harness ([ADR 0015](../dev/adr/0015-design-system.md)) |
 
 A new tool may be added; an existing tool may be replaced only via an ADR under
 `docs/dev/adr/`.
+
+### 7.1 Design-system contract (Pillar F adjunct)
+
+Pillar F (visual regression) is preceded by a design-system gate enforced
+on every commit:
+
+- All UI components under `src/app/**` and `src/components/**` MUST use
+  the design tokens declared in `src/app/globals.css` (or the
+  `hsl(var(--token))` indirection). Raw color literals are rejected by
+  the `ecred-local/no-raw-color` ESLint rule.
+- Every primitive in `src/components/ui/` MUST ship at least one
+  `*.stories.tsx` file under `stories/`. The auto-discovery harness at
+  `tests/unit/stories/render-stories.test.tsx` mounts every named export
+  on every CI run; a story that throws or emits a `console.error`
+  fails the build.
+- See [`docs/dev/design-system.md`](../dev/design-system.md) for
+  contributor guidance.
 
 ---
 
