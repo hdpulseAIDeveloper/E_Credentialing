@@ -1,171 +1,69 @@
 /**
- * Document router — upload, list, delete, OCR trigger, checklist management.
+ * Document router — thin pass-through to DocumentService.
+ *
+ * Wave 2.1 service-layer extraction: every business rule, audit-log write,
+ * and Prisma call lives in `src/server/services/document.ts`. This file
+ * exists to (a) define zod input schemas and (b) wire role-gated
+ * procedures.
+ *
+ * Anti-weakening rule: do NOT inline Prisma calls back into this file.
+ * If you need new behavior, add a method to DocumentService.
  */
-
 import { z } from "zod";
 import { createTRPCRouter, staffProcedure, protectedProcedure } from "@/server/api/trpc";
-import { TRPCError } from "@trpc/server";
 import { writeAuditLog } from "@/lib/audit";
-import type { DocumentType } from "@prisma/client";
+import { DocumentService } from "@/server/services/document";
+
+/**
+ * Build a per-request DocumentService bound to the calling actor. We
+ * construct it inside each procedure rather than once at module load so
+ * the actor identity is tied to this specific request.
+ */
+function svc(ctx: { db: import("@prisma/client").PrismaClient; session: { user: { id: string; role: string } } | null }): DocumentService {
+  return new DocumentService({
+    db: ctx.db,
+    audit: writeAuditLog,
+    actor: { id: ctx.session!.user.id, role: ctx.session!.user.role },
+  });
+}
 
 export const documentRouter = createTRPCRouter({
-  // ─── List documents for a provider ────────────────────────────────────
   listByProvider: staffProcedure
     .input(
       z.object({
         providerId: z.string().uuid(),
         documentType: z.string().optional(),
         includeDeleted: z.boolean().default(false),
-      })
+      }),
     )
-    .query(async ({ ctx, input }) => {
-      return ctx.db.document.findMany({
-        where: {
-          providerId: input.providerId,
-          ...(input.documentType && { documentType: input.documentType as DocumentType }),
-          ...(input.includeDeleted ? {} : { isDeleted: false }),
-        },
-        include: {
-          uploadedBy: { select: { id: true, displayName: true, role: true } },
-          verificationRecord: true,
-        },
-        orderBy: { createdAt: "desc" },
-      });
-    }),
+    .query(({ ctx, input }) => svc(ctx).listByProvider(input)),
 
-  // ─── Get document by ID ────────────────────────────────────────────────
   getById: staffProcedure
     .input(z.object({ id: z.string().uuid() }))
-    .query(async ({ ctx, input }) => {
-      const doc = await ctx.db.document.findUnique({
-        where: { id: input.id },
-        include: {
-          uploadedBy: { select: { id: true, displayName: true } },
-          verificationRecord: true,
-        },
-      });
+    .query(({ ctx, input }) => svc(ctx).getById(input.id)),
 
-      if (!doc) throw new TRPCError({ code: "NOT_FOUND" });
-      return doc;
-    }),
-
-  // ─── Soft delete document ──────────────────────────────────────────────
   delete: staffProcedure
     .input(z.object({ id: z.string().uuid(), reason: z.string().optional() }))
-    .mutation(async ({ ctx, input }) => {
-      const doc = await ctx.db.document.findUnique({ where: { id: input.id } });
-      if (!doc) throw new TRPCError({ code: "NOT_FOUND" });
+    .mutation(({ ctx, input }) => svc(ctx).softDelete(input.id, input.reason)),
 
-      await ctx.db.document.update({
-        where: { id: input.id },
-        data: { isDeleted: true, updatedAt: new Date() },
-      });
-
-      await writeAuditLog({
-        actorId: ctx.session!.user.id,
-        actorRole: ctx.session!.user.role,
-        action: "document.deleted",
-        entityType: "Document",
-        entityId: input.id,
-        providerId: doc.providerId,
-        metadata: { reason: input.reason },
-      });
-
-      return { success: true };
-    }),
-
-  // ─── Trigger OCR ───────────────────────────────────────────────────────
   triggerOcr: staffProcedure
     .input(z.object({ id: z.string().uuid() }))
-    .mutation(async ({ ctx, input }) => {
-      const doc = await ctx.db.document.findUnique({ where: { id: input.id } });
-      if (!doc) throw new TRPCError({ code: "NOT_FOUND" });
-      if (doc.ocrStatus === "PROCESSING") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "OCR already in progress" });
-      }
+    .mutation(({ ctx, input }) => svc(ctx).triggerOcr(input.id)),
 
-      await ctx.db.document.update({
-        where: { id: input.id },
-        data: { ocrStatus: "PENDING" },
-      });
-
-      // In a real implementation, this would enqueue an OCR job
-      // For now, mark as pending (worker will pick it up)
-      await writeAuditLog({
-        actorId: ctx.session!.user.id,
-        actorRole: ctx.session!.user.role,
-        action: "document.ocr.triggered",
-        entityType: "Document",
-        entityId: input.id,
-        providerId: doc.providerId,
-      });
-
-      return { success: true };
-    }),
-
-  // ─── Get checklist for a provider ─────────────────────────────────────
   getChecklist: protectedProcedure
     .input(z.object({ providerId: z.string().uuid() }))
-    .query(async ({ ctx, input }) => {
-      const provider = await ctx.db.provider.findUnique({
-        where: { id: input.providerId },
-        include: {
-          providerType: {
-            include: { documentRequirements: true },
-          },
-          checklistItems: {
-            include: { document: true },
-          },
-        },
-      });
+    .query(({ ctx, input }) => svc(ctx).getChecklist(input.providerId)),
 
-      if (!provider) throw new TRPCError({ code: "NOT_FOUND" });
-
-      return {
-        requirements: provider.providerType.documentRequirements,
-        items: provider.checklistItems,
-      };
-    }),
-
-  // ─── Update checklist item ─────────────────────────────────────────────
   updateChecklistItem: staffProcedure
     .input(
       z.object({
         id: z.string().uuid(),
         status: z.enum(["RECEIVED", "PENDING", "NEEDS_ATTENTION"]),
         flagReason: z.string().optional(),
-      })
+      }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const item = await ctx.db.checklistItem.findUnique({ where: { id: input.id } });
-      if (!item) throw new TRPCError({ code: "NOT_FOUND" });
+    .mutation(({ ctx, input }) => svc(ctx).updateChecklistItem(input)),
 
-      const updated = await ctx.db.checklistItem.update({
-        where: { id: input.id },
-        data: {
-          status: input.status,
-          manuallyFlagged: input.status === "NEEDS_ATTENTION",
-          flagReason: input.flagReason ?? null,
-          flaggedById: input.status === "NEEDS_ATTENTION" ? ctx.session!.user.id : null,
-          receivedAt: input.status === "RECEIVED" ? new Date() : undefined,
-        },
-      });
-
-      await writeAuditLog({
-        actorId: ctx.session!.user.id,
-        actorRole: ctx.session!.user.role,
-        action: "checklist.item.updated",
-        entityType: "ChecklistItem",
-        entityId: input.id,
-        providerId: item.providerId,
-        beforeState: { status: item.status },
-        afterState: { status: input.status },
-      });
-
-      return updated;
-    }),
-
-  // ─── Create document record (after upload via /api/upload) ───────────
   createRecord: protectedProcedure
     .input(
       z.object({
@@ -178,58 +76,7 @@ export const documentRouter = createTRPCRouter({
         fileSizeBytes: z.number(),
         mimeType: z.string(),
         source: z.enum(["PROVIDER_UPLOAD", "HR_INGESTION", "EMAIL_INGESTION", "BOT_OUTPUT"]),
-      })
+      }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const doc = await ctx.db.document.create({
-        data: {
-          providerId: input.providerId,
-          documentType: input.documentType as DocumentType,
-          originalFilename: input.originalFilename,
-          blobUrl: input.blobUrl,
-          blobContainer: input.blobContainer,
-          blobPath: input.blobPath,
-          fileSizeBytes: input.fileSizeBytes,
-          mimeType: input.mimeType,
-          uploadedById: ctx.session!.user.id,
-          source: input.source,
-          ocrStatus: "PENDING",
-        },
-      });
-
-      // Update checklist item if exists
-      const checklistItem = await ctx.db.checklistItem.findFirst({
-        where: {
-          providerId: input.providerId,
-          documentType: input.documentType as DocumentType,
-        },
-      });
-
-      if (checklistItem) {
-        await ctx.db.checklistItem.update({
-          where: { id: checklistItem.id },
-          data: {
-            status: "RECEIVED",
-            documentId: doc.id,
-            receivedAt: new Date(),
-          },
-        });
-      }
-
-      await writeAuditLog({
-        actorId: ctx.session!.user.id,
-        actorRole: ctx.session!.user.role,
-        action: "document.uploaded",
-        entityType: "Document",
-        entityId: doc.id,
-        providerId: input.providerId,
-        afterState: {
-          documentType: input.documentType,
-          filename: input.originalFilename,
-          source: input.source,
-        },
-      });
-
-      return doc;
-    }),
+    .mutation(({ ctx, input }) => svc(ctx).createRecord(input)),
 });
