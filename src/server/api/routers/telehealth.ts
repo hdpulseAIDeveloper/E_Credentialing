@@ -18,6 +18,7 @@ import {
   evaluateTelehealthCoverage,
   IMLC_MEMBER_STATES,
 } from "@/lib/telehealth";
+import { TelehealthExpirablesService } from "@/server/services/telehealth-expirables";
 
 const TWO_LETTER_STATE = z
   .string()
@@ -194,6 +195,32 @@ export const telehealthRouter = createTRPCRouter({
       });
 
       return { success: true };
+    }),
+
+  // ─── Expirables sync (Wave 3.4) ─────────────────────────────────────────
+  /**
+   * Reconcile this provider's telehealth platform certs and IMLC LoQ
+   * onto the central /expirables board. Idempotent — safe to call from
+   * the staff UI after the LoQ form is updated. The nightly worker
+   * runs the same logic across all providers.
+   */
+  syncExpirables: staffProcedure
+    .input(z.object({ providerId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const svc = new TelehealthExpirablesService(ctx.db);
+      const result = await svc.syncProvider(input.providerId);
+
+      await writeAuditLog({
+        actorId: ctx.session!.user.id,
+        actorRole: ctx.session!.user.role,
+        action: "telehealth.expirables.synced",
+        entityType: "Provider",
+        entityId: input.providerId,
+        providerId: input.providerId,
+        afterState: result,
+      });
+
+      return result;
     }),
 
   // ─── Coverage gap analysis ──────────────────────────────────────────────

@@ -1,35 +1,42 @@
 # Per-screen card: `/telehealth`
 
-> **STANDARD.md §5 stub.** Hand-augment the *Linked specs*,
-> *Known defects*, and *Last verified* fields when you cover this
-> route. The scaffold script will not overwrite this file once it
-> exists.
-
 | Field | Value |
 | --- | --- |
 | Route(s) | `/telehealth` |
 | Source file | `src/app/(staff)/telehealth/page.tsx` |
-| Dynamic | no |
+| Dynamic | no (server component) |
 | Group | staff |
-| Roles allowed | every authenticated staff role |
+| Roles allowed | every authenticated staff role (CREDENTIALER, MANAGER, ADMIN, MEDICAL_DIRECTOR, COMPLIANCE_OFFICER, BILLING_SPECIALIST, PRIVILEGES_MANAGER, AUDITOR_READONLY) |
 | Roles denied (must redirect/403) | PROVIDER (redirect to signin) |
-| PHI fields rendered | Verify: enumerate every column the page renders and confirm role gating on each. |
+| PHI fields rendered | Provider legal first/last name, provider type abbreviation, declared telehealth states, license states, telehealth-platform name, training completion date, IMLC LoQ status |
 
 ## Key actions / mutations
 
-_TODO: enumerate the buttons, forms, and tRPC mutations this screen triggers._
+- **List view** — summary cards (total telehealth providers, certified, pending training, multi-state) + per-provider table with covered/uncovered state badges.
+- **Per-provider deep dive** (via `TelehealthPanel`, opened on `/providers/[id]?tab=telehealth`):
+  - **State coverage analysis** — declared vs. licensed vs. IMLC member-state grants.
+  - **IMLC eligibility** — pure rule evaluation (`evaluateImlcEligibility`).
+  - **Letter of Qualification record** — Wave 3.4. Form captures SPL, granted member states (CSV), issued date, expiry, and document blob URL. Persists via `telehealth.updateImlcRecord` and triggers `telehealth.syncExpirables` so the LoQ shows up on the central `/expirables` board.
+  - **Platform certifications** — add / edit / delete per-platform certs (`telehealth.upsertCert`, `telehealth.deleteCert`). Each save also fires the Expirables sync so certs surface on `/expirables`.
 
 ## Linked specs
 
-- `tests/e2e/all-roles/pillar-a-smoke.spec.ts` (Pillar A, every static route)
-- `tests/e2e/all-roles/pillar-b-rbac.spec.ts` (Pillar B, every role)
-- `tests/e2e/all-roles/pillar-e-a11y.spec.ts` (Pillar E, axe scan)
-_TODO: add per-screen specs as they're written (e.g. `tests/e2e/staff/telehealth.spec.ts`)._
+- `tests/e2e/all-roles/pillar-a-smoke.spec.ts` — Pillar A static route smoke
+- `tests/e2e/all-roles/pillar-b-rbac.spec.ts` — Pillar B role gating
+- `tests/e2e/all-roles/pillar-e-a11y.spec.ts` — Pillar E axe scan
+- `tests/unit/server/services/telehealth-expirables.test.ts` — Wave 3.4 reconciliation helpers (10 cases)
+- `tests/unit/lib/telehealth.test.ts` — IMLC eligibility + coverage gap helpers (existing)
 
 ## Linked OpenAPI / tRPC procedures
 
-_TODO: list every `<router>.<procedure>` this screen calls (see
-`docs/qa/inventories/trpc-inventory.json`)._
+- `telehealth.listCerts`, `telehealth.upsertCert`, `telehealth.deleteCert`
+- `telehealth.evaluateImlc`, `telehealth.updateImlcRecord`
+- `telehealth.coverage`
+- `telehealth.syncExpirables` *(Wave 3.4)*
+
+## Linked workers / jobs
+
+- `src/workers/jobs/telehealth-compliance.ts` — nightly sweep raises monitoring alerts AND calls `TelehealthExpirablesService.syncAll()` so platform certs and IMLC LoQs are mirrored onto `/expirables`.
 
 ## Known defects
 
@@ -37,4 +44,4 @@ _None recorded. Reference `docs/qa/defects/index.md` if a card opens._
 
 ## Last verified
 
-2026-04-18 by scaffold-cards.ts (stub only -- mark with your initials when you cover the screen).
+2026-04-18 by Wave 3.4 buildout — IMLC LoQ form added, Expirables board integration wired, 10 reconciler unit tests added.

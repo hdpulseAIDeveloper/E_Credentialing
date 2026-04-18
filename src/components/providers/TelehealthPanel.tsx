@@ -46,6 +46,20 @@ export function TelehealthPanel({ providerId }: Props) {
     expiresAt: "",
   });
 
+  // Wave 3.4 — IMLC Letter-of-Qualification form. The mutation has
+  // existed since P1; we surface it in the staff UI now so SPL boards
+  // can be tracked end-to-end.
+  const [showLoqForm, setShowLoqForm] = useState(false);
+  const [loqForm, setLoqForm] = useState({
+    imlcSpl: "",
+    imlcLoqIssuedDate: "",
+    imlcLoqExpiresAt: "",
+    imlcMemberStatesGranted: "",
+    imlcLoqDocumentBlobUrl: "",
+  });
+
+  const syncExpirables = api.telehealth.syncExpirables.useMutation();
+
   const upsertCert = api.telehealth.upsertCert.useMutation({
     onSuccess: () => {
       setShowCertForm(false);
@@ -57,11 +71,24 @@ export function TelehealthPanel({ providerId }: Props) {
         expiresAt: "",
       });
       void utils.telehealth.listCerts.invalidate({ providerId });
+      void syncExpirables.mutateAsync({ providerId });
     },
   });
 
   const deleteCert = api.telehealth.deleteCert.useMutation({
-    onSuccess: () => utils.telehealth.listCerts.invalidate({ providerId }),
+    onSuccess: () => {
+      void utils.telehealth.listCerts.invalidate({ providerId });
+      void syncExpirables.mutateAsync({ providerId });
+    },
+  });
+
+  const updateImlc = api.telehealth.updateImlcRecord.useMutation({
+    onSuccess: () => {
+      setShowLoqForm(false);
+      void utils.telehealth.evaluateImlc.invalidate({ providerId });
+      void utils.telehealth.coverage.invalidate({ providerId });
+      void syncExpirables.mutateAsync({ providerId });
+    },
   });
 
   return (
@@ -127,11 +154,22 @@ export function TelehealthPanel({ providerId }: Props) {
         )}
       </section>
 
-      {/* IMLC Eligibility */}
+      {/* IMLC Eligibility + Letter of Qualification */}
       <section className="space-y-2 border-t pt-3">
-        <h4 className="text-sm font-semibold text-gray-800">
-          IMLC (Interstate Medical Licensure Compact)
-        </h4>
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-semibold text-gray-800">
+            IMLC (Interstate Medical Licensure Compact)
+          </h4>
+          {!showLoqForm && (
+            <button
+              type="button"
+              onClick={() => setShowLoqForm(true)}
+              className="text-xs bg-blue-600 text-white px-2.5 py-1 rounded hover:bg-blue-700"
+            >
+              Record LoQ
+            </button>
+          )}
+        </div>
         {imlc.isLoading && <div className="text-xs text-gray-400">Evaluating…</div>}
         {imlc.data && (
           <div className="text-sm space-y-1.5">
@@ -152,6 +190,104 @@ export function TelehealthPanel({ providerId }: Props) {
               </div>
             )}
           </div>
+        )}
+
+        {showLoqForm && (
+          <form
+            data-testid="loq-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const grantedStates = loqForm.imlcMemberStatesGranted
+                .split(",")
+                .map((s) => s.trim().toUpperCase())
+                .filter((s) => s.length === 2);
+              updateImlc.mutate({
+                providerId,
+                imlcEligible: imlc.data?.eligible ?? null,
+                imlcSpl: loqForm.imlcSpl
+                  ? loqForm.imlcSpl.toUpperCase()
+                  : null,
+                imlcLoqIssuedDate: loqForm.imlcLoqIssuedDate
+                  ? new Date(loqForm.imlcLoqIssuedDate).toISOString()
+                  : null,
+                imlcLoqExpiresAt: loqForm.imlcLoqExpiresAt
+                  ? new Date(loqForm.imlcLoqExpiresAt).toISOString()
+                  : null,
+                imlcLoqDocumentBlobUrl:
+                  loqForm.imlcLoqDocumentBlobUrl || null,
+                imlcMemberStatesGranted: grantedStates,
+              });
+            }}
+            className="border rounded p-3 bg-gray-50 space-y-2 text-xs"
+          >
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                placeholder="SPL (e.g. AL)"
+                maxLength={2}
+                value={loqForm.imlcSpl}
+                onChange={(e) =>
+                  setLoqForm({ ...loqForm, imlcSpl: e.target.value })
+                }
+                className="border rounded px-2 py-1"
+              />
+              <input
+                placeholder="Granted member states (CSV: AZ,CO,IA)"
+                value={loqForm.imlcMemberStatesGranted}
+                onChange={(e) =>
+                  setLoqForm({
+                    ...loqForm,
+                    imlcMemberStatesGranted: e.target.value,
+                  })
+                }
+                className="border rounded px-2 py-1"
+              />
+              <input
+                type="date"
+                placeholder="LoQ issued"
+                value={loqForm.imlcLoqIssuedDate}
+                onChange={(e) =>
+                  setLoqForm({ ...loqForm, imlcLoqIssuedDate: e.target.value })
+                }
+                className="border rounded px-2 py-1"
+              />
+              <input
+                type="date"
+                placeholder="LoQ expires"
+                value={loqForm.imlcLoqExpiresAt}
+                onChange={(e) =>
+                  setLoqForm({ ...loqForm, imlcLoqExpiresAt: e.target.value })
+                }
+                className="border rounded px-2 py-1"
+              />
+              <input
+                placeholder="Document blob URL (optional)"
+                value={loqForm.imlcLoqDocumentBlobUrl}
+                onChange={(e) =>
+                  setLoqForm({
+                    ...loqForm,
+                    imlcLoqDocumentBlobUrl: e.target.value,
+                  })
+                }
+                className="border rounded px-2 py-1 col-span-2"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowLoqForm(false)}
+                className="px-2.5 py-1 rounded border"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={updateImlc.isPending}
+                className="px-2.5 py-1 rounded bg-blue-600 text-white disabled:opacity-50"
+              >
+                {updateImlc.isPending ? "Saving…" : "Save LoQ"}
+              </button>
+            </div>
+          </form>
         )}
       </section>
 

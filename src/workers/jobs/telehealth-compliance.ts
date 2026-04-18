@@ -14,6 +14,7 @@
 import { PrismaClient } from "@prisma/client";
 import { evaluateTelehealthCoverage } from "../../lib/telehealth";
 import { createMonitoringAlert } from "../../lib/monitoring-alerts";
+import { TelehealthExpirablesService } from "../../server/services/telehealth-expirables";
 
 const db = new PrismaClient();
 
@@ -26,6 +27,10 @@ interface RunSummary {
   certExpiringRaised: number;
   loqExpiringRaised: number;
   errors: number;
+  // Wave 3.4 — Expirables board synchronization counters.
+  expirablesCreated: number;
+  expirablesUpdated: number;
+  expirablesDeleted: number;
 }
 
 export async function runTelehealthComplianceCheck(): Promise<RunSummary> {
@@ -35,6 +40,9 @@ export async function runTelehealthComplianceCheck(): Promise<RunSummary> {
     certExpiringRaised: 0,
     loqExpiringRaised: 0,
     errors: 0,
+    expirablesCreated: 0,
+    expirablesUpdated: 0,
+    expirablesDeleted: 0,
   };
 
   const providers = await db.provider.findMany({
@@ -150,9 +158,23 @@ export async function runTelehealthComplianceCheck(): Promise<RunSummary> {
     }
   }
 
+  // Wave 3.4 — after raising monitoring alerts, mirror platform certs &
+  // IMLC LoQs onto the central /expirables board so staff have a single
+  // deadline radar for everything that ages.
+  try {
+    const sync = await new TelehealthExpirablesService(db).syncAll();
+    summary.expirablesCreated = sync.created;
+    summary.expirablesUpdated = sync.updated;
+    summary.expirablesDeleted = sync.deleted;
+  } catch (error) {
+    summary.errors += 1;
+    console.error("[TelehealthCompliance] expirables sync failed:", error);
+  }
+
   console.log(
     `[TelehealthCompliance] scanned=${summary.scanned} coverageGaps=${summary.coverageGapsRaised} ` +
       `certExpiring=${summary.certExpiringRaised} loqExpiring=${summary.loqExpiringRaised} ` +
+      `expirables(c=${summary.expirablesCreated} u=${summary.expirablesUpdated} d=${summary.expirablesDeleted}) ` +
       `errors=${summary.errors}`
   );
 

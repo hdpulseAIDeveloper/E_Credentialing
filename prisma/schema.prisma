@@ -276,6 +276,11 @@ enum ExpirableType {
   DEA
   BOARD_CERTIFICATION
   MALPRACTICE_INSURANCE
+  // Wave 3.4 — telehealth deepening. Both values are set/cleared by the
+  // nightly TelehealthExpirablesSync service (see
+  // src/server/services/telehealth-expirables.ts).
+  TELEHEALTH_PLATFORM_CERT
+  IMLC_LOQ
 }
 
 enum ExpirableStatus {
