@@ -35,7 +35,9 @@
     "qa:flows": "playwright test tests/e2e/pillar-d-flows",
     "qa:a11y": "playwright test tests/e2e/pillar-e-a11y",
     "qa:a11y:palette": "node scripts/qa/verify-palette-contrast.mjs",
-    "qa:all": "tsx scripts/qa/run-all-pillars.ts"
+    "qa:azure-privacy": "tsx scripts/azure/verify-blob-private.ts",
+    "qa:all": "tsx scripts/qa/run-all-pillars.ts",
+    "legal:packet": "tsx scripts/legal/build-review-packet.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.2",
