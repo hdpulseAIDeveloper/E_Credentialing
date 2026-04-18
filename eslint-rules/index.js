@@ -9,5 +9,6 @@
 module.exports = {
   rules: {
     "no-raw-color": require("./no-raw-color.js"),
+    "no-tenant-bypass": require("./no-tenant-bypass.js"),
   },
 };

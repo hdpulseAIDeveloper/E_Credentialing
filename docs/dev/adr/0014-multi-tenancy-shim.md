@@ -1,10 +1,23 @@
 # ADR 0014 — Multi-tenancy shim (single-DB, organization-scoped, opt-in middleware)
 
-**Status:** Accepted
+**Status:** Accepted — partially implemented (W5.1.a slice landed 2026-04-18)
 **Date:** 2026-04-18
 **Deciders:** Engineering (autonomous lock-in per user directive 2026-04-18)
 **Related:** Wave 5.1 in the local Cursor plan
 `unblock_+_commercialize_ecred` (multi-tenancy shim implementation).
+
+## Implementation status (2026-04-18)
+
+| Step | Status | Where |
+| --- | --- | --- |
+| W5.1.a — schema migration (Organization + organization_id on User/Provider/Document/AuditLog/BotRun) | ✅ landed | `prisma/migrations/20260418100000_multitenancy_shim/` |
+| W5.1.b — backfill (`org_essen` for legacy rows) | ✅ landed | same migration |
+| W5.1.c — tenant Prisma extension | ✅ landed | `src/server/db/tenant-extension.ts` |
+| W5.1.d — AsyncLocalStorage tenant context | ✅ landed | `src/server/db/tenant-context.ts` |
+| W5.1.e — Pillar Q tests (unit) | ✅ landed | `tests/unit/server/db/tenant-extension.test.ts` |
+| W5.1.e — Pillar Q tests (E2E cross-org) | ⏳ planned | next sub-wave once a second seeded tenant lands |
+| W5.1.f — ESLint rule blocking `dangerouslyBypass…` | ✅ landed | `eslint-rules/no-tenant-bypass.js` |
+| W5.1.g — admin UI for tenant CRUD | ⏳ planned | Wave 5.2 marketing landing depends on this
 
 ## Context
 

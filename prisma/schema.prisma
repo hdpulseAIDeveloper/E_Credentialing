@@ -401,8 +401,31 @@ enum MedicaidAffiliationStatus {
 
 // ─── Models ──────────────────────────────────────────────────────────────────
 
+// Wave 5.1 — multi-tenancy shim (per ADR 0014). The Organization table
+// is the root of the tenant boundary. Single-tenant deploys ship one
+// row (`org_essen`) backfilled by the migration in this same wave; the
+// row-level `organizationId` column on each PHI-bearing model below is
+// what the tenant Prisma extension auto-injects on every query.
+model Organization {
+  id          String   @id
+  name        String
+  slug        String   @unique
+  // Free-form plan label ("starter" | "growth" | "enterprise"). Stripe
+  // wiring lands in Wave 5.3.
+  plan        String   @default("starter")
+  // Stripe customer id when billing is enabled.
+  billingCustomerId String? @map("billing_customer_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("organizations")
+}
+
 model User {
   id                      String    @id @default(uuid())
+  // Wave 5.1 multi-tenancy shim — see ADR 0014.
+  organizationId          String    @default("org_essen") @map("organization_id")
   email                   String    @unique
   displayName             String    @map("display_name")
   role                    UserRole
@@ -459,6 +482,7 @@ model User {
   @@index([role])
   @@index([isActive])
   @@index([providerId])
+  @@index([organizationId])
   @@map("users")
 }
 
@@ -482,6 +506,8 @@ model ProviderType {
 
 model Provider {
   id                   String         @id @default(uuid())
+  // Wave 5.1 multi-tenancy shim — see ADR 0014.
+  organizationId       String         @default("org_essen") @map("organization_id")
   status               ProviderStatus @default(INVITED)
   providerTypeId       String         @map("provider_type_id")
   assignedSpecialistId String?        @map("assigned_specialist_id")
@@ -579,6 +605,7 @@ model Provider {
   @@index([icimsId])
   @@index([approvedAt])
   @@index([createdAt])
+  @@index([organizationId])
   @@map("providers")
 }
 
@@ -725,6 +752,8 @@ model License {
 
 model Document {
   id                   String         @id @default(uuid())
+  // Wave 5.1 multi-tenancy shim — see ADR 0014.
+  organizationId       String         @default("org_essen") @map("organization_id")
   providerId           String         @map("provider_id")
   documentType         DocumentType   @map("document_type")
   originalFilename     String         @map("original_filename")
@@ -770,6 +799,7 @@ model Document {
   @@index([isDeleted])
   @@index([providerId, documentType])
   @@index([expirationDate])
+  @@index([organizationId])
   @@map("documents")
 }
 
@@ -797,6 +827,8 @@ model ChecklistItem {
 
 model BotRun {
   id                String         @id @default(uuid())
+  // Wave 5.1 multi-tenancy shim — see ADR 0014.
+  organizationId    String         @default("org_essen") @map("organization_id")
   providerId        String         @map("provider_id")
   botType           BotType        @map("bot_type")
   triggeredBy       BotTriggeredBy @map("triggered_by")
@@ -826,6 +858,7 @@ model BotRun {
   @@index([botType])
   @@index([providerId, botType, createdAt])
   @@index([queuedAt])
+  @@index([organizationId])
   @@map("bot_runs")
 }
 
@@ -1202,6 +1235,8 @@ model MedicaidEnrollment {
 
 model AuditLog {
   id           String   @id @default(uuid())
+  // Wave 5.1 multi-tenancy shim — see ADR 0014.
+  organizationId String  @default("org_essen") @map("organization_id")
   timestamp    DateTime @default(now())
   actorId      String?  @map("actor_id")
   actorRole    String?  @map("actor_role")
@@ -1229,6 +1264,7 @@ model AuditLog {
   @@index([sequence])
   @@index([action])
   @@index([entityType, entityId])
+  @@index([organizationId])
   @@map("audit_logs")
 }
 
