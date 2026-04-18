@@ -2,7 +2,7 @@
 
 | Field      | Value                                                |
 | ---------- | ---------------------------------------------------- |
-| Status     | **Open — Roadmap**                                   |
+| Status     | **Resolved — Wave 1 (2026-04-18)**                   |
 | Pillar     | All (infra)                                          |
 | Severity   | Process (not an app defect; QA infrastructure gap)   |
 | Opened     | 2026-04-17                                           |
@@ -133,3 +133,29 @@ the source of truth for future apps.
 - [x] No `.skip` / `test.fixme` was added on the timing-out routes.
 - [x] The 60s timeout in `playwright.config.ts` is unchanged from the
       QA Standard default.
+
+## Resolution (Wave 1, 2026-04-18)
+
+The roadmap fix is in: `npm run qa:e2e:prod`.
+
+- **`scripts/qa/e2e-prod-bundle.mjs`** orchestrates `npm run build` →
+  `npm start` → wait-for-`/api/health` → `playwright test --config=playwright.prod.config.ts`
+  → kill the process tree on exit. Cross-platform (uses `taskkill /T
+  /F` on Windows, `kill -SIGTERM <-pid>` on POSIX). Forwards any extra
+  args to Playwright so `npm run qa:e2e:prod -- tests/e2e/smoke` works.
+- **`playwright.prod.config.ts`** is identical in shape to
+  `playwright.config.ts` but cranks workers from 2 → 4 (production
+  bundle is multi-threaded so we can saturate cores), keeps the 60s
+  per-test budget unchanged (no §4.2 weakening), and writes its
+  artifacts to a sibling `playwright-prod/` folder so dev-mode runs
+  and prod-bundle runs do not stomp each other.
+- **`SKIP_BUILD=1 npm run qa:e2e:prod`** lets contributors iterate
+  after a single build.
+- **CI nightly** wires this in by replacing the existing nightly
+  pillar matrix with `npm run qa:e2e:prod -- tests/e2e/<bucket>`. PR
+  smoke (Pillar A) keeps using the dev-mode config so the warm-up
+  remains the working contract.
+
+The DEF-INFRA-0001 timeout class — first-hit compile latency stacking
+under axe analysis — is now structurally impossible: every route is
+already compiled before Playwright sends the first request.

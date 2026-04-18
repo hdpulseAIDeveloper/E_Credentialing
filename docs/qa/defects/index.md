@@ -28,7 +28,7 @@ when the issues are picked up):
 | DEF-0004       | **Closed (fixed)**  | Webpack factory `Cannot read properties of undefined (reading 'call')`         | A      | 2026-04-17 | 2026-04-17 |
 | DEF-0005       | **Closed (fixed)**  | Systemic WCAG 2.1 AA color-contrast failure on stat tiles (palette)            | E      | 2026-04-17 | 2026-04-17 |
 | DEF-0006       | **Closed (fixed)**  | `<select>` on `/dashboard` missing accessible name (WCAG 4.1.2)                | E      | 2026-04-17 | 2026-04-17 |
-| DEF-INFRA-0001 | Open — Roadmap (dev half shipped) | Pillar runs against `next dev` are unstable for E2E (production-build mode)   | All    | 2026-04-17 | —          |
+| DEF-INFRA-0001 | **Closed (fixed)**  | Pillar runs against `next dev` are unstable for E2E (production-build mode)   | All    | 2026-04-17 | 2026-04-18 |
 
 DEF-0003 and DEF-0004 were the original failures named in `STANDARD.md`
 §10 that this entire QA Standard exists to prevent from recurring
@@ -43,13 +43,17 @@ DEF-0005 was closed the same day by a palette-level Tailwind override
 every foreground/background pair the app renders. See the card for
 the full ratio table and the `npm run qa:a11y:palette` verifier.
 
-DEF-INFRA-0001 has the developer-experience half shipped (lazy-compile
-fix in `next.config.mjs` + `scripts/dev/dev-with-warmup.mjs`,
-documented in `docs/standards/dev-loop-warmup.md` and rolled out to
-the entire Next.js portfolio). The defect remains open for the E2E
-test-runner "build-once, test against `next start`" roadmap item,
-which is what actually closes the Pillar E timeout class.
+DEF-INFRA-0001 was fully closed on 2026-04-18 by Wave 1.1 of the
+[unblock + commercialize plan](../../../.cursor/plans/unblock_+_commercialize_ecred_9d024374.plan.md).
+The fix is `npm run qa:e2e:prod` — `scripts/qa/e2e-prod-bundle.mjs`
+orchestrates `npm run build` → `npm start` → wait-for-`/api/health` →
+`playwright test --config=playwright.prod.config.ts` → kill server,
+forwarding Playwright's exit code as its own. The Pillar E timeout
+class is now structurally impossible because every route is
+pre-compiled before Playwright sends the first request. Per-test
+budgets in `playwright.prod.config.ts` are unchanged from the dev
+config (no STANDARD.md §4.2 weakening); workers are cranked from 2 →
+4 because production bundles serve concurrent requests cleanly.
 
-With DEF-0005 closed, the QA Standard's open-defect ledger has zero
-serious-severity items; the only remaining card is a process /
-infrastructure roadmap item.
+With DEF-INFRA-0001 closed, the QA Standard's open-defect ledger is
+empty.

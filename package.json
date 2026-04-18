@@ -26,6 +26,7 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "qa:e2e:prod": "node scripts/qa/e2e-prod-bundle.mjs",
     "qa:inventory": "tsx scripts/qa/build-all-inventories.ts",
     "qa:coverage": "tsx scripts/qa/check-coverage.ts",
     "qa:coverage:report": "tsx scripts/qa/check-coverage.ts --report",
