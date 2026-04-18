@@ -305,6 +305,23 @@ These four inventories are auto-generated and committed:
 `tests/contract/**` for spec-tagged ownership, and fails the build if any
 inventoried entity has no spec. The generators are run by `npm run qa:inventory`.
 
+### 6.1 Iterator-aware coverage (Wave 6, 2026-04-18 — see ADR 0019)
+
+A spec is credited as covering every entry in an inventory when, in
+strict order, it (a) imports the inventory JSON via a relative path
+ending in `inventories/<name>-inventory.json`, AND (b) contains an
+iteration construct (`for (`, `.map(`, `.forEach(`, `.filter(`,
+`describe.each`, `test.each`, `it.each`) below the import. This rule
+is implemented by `scripts/qa/iterator-coverage.ts` and pinned by
+`tests/unit/scripts/iterator-coverage.test.ts`. It exists because
+matrix specs (Pillars A / B / E and the Pillar J iterators) genuinely
+visit every inventoried surface at runtime — string-literal coverage
+alone could never reach PASS while routes lived only as JSON data.
+
+Anti-weakening: the rule MUST require BOTH halves (import + iteration),
+MUST be inventory-name specific, and MUST never be loosened to
+"presence of import is enough". The unit tests enforce all three.
+
 ---
 
 ## 7. Required tooling

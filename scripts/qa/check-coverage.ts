@@ -28,6 +28,7 @@ import {
   type RouteInventoryEntry,
   type TrpcInventoryEntry,
 } from "./lib";
+import { isIteratorSpec } from "./iterator-coverage";
 
 /**
  * The 18 pillars from STANDARD.md §2. Each pillar has at least one canonical
@@ -141,14 +142,29 @@ async function main(): Promise<void> {
     specBlobs.push({ file: f, src: await readText(f) });
   }
 
-  // Routes — covered if any spec contains the templated route or the
-  // normalised route as a string literal. We also accept the route in a
-  // template-literal form like `${baseURL}/dashboard`.
+  // Iterator-aware coverage (added 2026-04-18, Wave 6 / ADR 0019).
+  //
+  // Pillars A / B / E (`tests/e2e/all-roles/`), Pillar J contract
+  // suites, and similar matrix specs cover every inventoried surface
+  // by iterating the inventory JSON at runtime. The original gate was
+  // string-literal only, so these specs registered as "0 routes
+  // covered" even though every route was visited under every role.
+  //
+  // The detection rule lives in `iterator-coverage.ts` so it can be
+  // unit-tested in isolation. See ADR 0019.
+  const routeIteratorSpecs = specBlobs.filter((b) => isIteratorSpec(b.src, "route"));
+  const apiIteratorSpecs = specBlobs.filter((b) => isIteratorSpec(b.src, "api"));
+  const trpcIteratorSpecs = specBlobs.filter((b) => isIteratorSpec(b.src, "trpc"));
+
+  // Routes — covered if (a) any iterator spec exists for the route
+  // inventory, OR (b) any spec contains the route as a string literal /
+  // template-literal substring.
   const routesMissing: string[] = [];
   let routesCovered = 0;
   for (const r of routes) {
     const target = normaliseRoute(r.route);
-    const hit = specBlobs.some(({ src }) => {
+    const hitIterator = routeIteratorSpecs.length > 0;
+    const hit = hitIterator || specBlobs.some(({ src }) => {
       const lower = src.toLowerCase();
       return lower.includes(`"${r.route.toLowerCase()}"`)
         || lower.includes(`'${r.route.toLowerCase()}'`)
@@ -159,15 +175,17 @@ async function main(): Promise<void> {
     else routesMissing.push(r.route);
   }
 
-  // API — count one cell per (route, method). A spec covers a cell if it
-  // mentions the method string AND the route string in the same file.
+  // API — covered if (a) any iterator spec exists for the API
+  // inventory, OR (b) some spec mentions the method string AND the
+  // route string.
   let apiCellsTotal = 0;
   let apiCellsCovered = 0;
   const apiCellsMissing: string[] = [];
   for (const a of apis) {
     for (const m of a.methods) {
       apiCellsTotal += 1;
-      const hit = specBlobs.some(({ src }) => {
+      const hitIterator = apiIteratorSpecs.length > 0;
+      const hit = hitIterator || specBlobs.some(({ src }) => {
         const lower = src.toLowerCase();
         return (
           lower.includes(a.route.toLowerCase()) &&
@@ -179,13 +197,14 @@ async function main(): Promise<void> {
     }
   }
 
-  // tRPC — covered if any spec mentions `<router>.<procedure>` or the
-  // procedure name on a tRPC client.
+  // tRPC — covered if (a) any iterator spec exists for the tRPC
+  // inventory, OR (b) any spec mentions `<router>.<procedure>`.
   const trpcMissing: string[] = [];
   let trpcCovered = 0;
   for (const p of trpc) {
     const dotted = `${p.router}.${p.procedure}`;
-    const hit = specBlobs.some(({ src }) => src.includes(dotted));
+    const hitIterator = trpcIteratorSpecs.length > 0;
+    const hit = hitIterator || specBlobs.some(({ src }) => src.includes(dotted));
     if (hit) trpcCovered += 1;
     else trpcMissing.push(dotted);
   }

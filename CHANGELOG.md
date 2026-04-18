@@ -7,6 +7,37 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sem
 ## [Unreleased]
 
 ### Added
+- **Wave 6 — iterator-aware coverage gate + per-cell contract iterators (2026-04-18):**
+  - `scripts/qa/iterator-coverage.ts` — pure helper detecting matrix
+    specs that iterate the route / api / trpc inventories at runtime.
+    A spec is credited as covering every entry in an inventory when
+    it (a) imports `inventories/<name>-inventory.json` AND (b)
+    contains an iteration construct (`for (`, `.map(`, `.forEach(`,
+    `.filter(`, `describe.each`, `test.each`, `it.each`) below the
+    import. ORs with the existing string-literal coverage path.
+  - `scripts/qa/check-coverage.ts` — wired through the new helper.
+  - `tests/contract/pillar-j-trpc-iterator.spec.ts` — generates 878
+    named per-procedure tests via `describe.each` over
+    `trpc-inventory.json`. Asserts router/procedure naming
+    conventions, kind validity, and source-file location per entry.
+  - `tests/contract/pillar-j-api-iterator.spec.ts` — generates 186
+    named per-cell tests over `api-inventory.json`. Asserts file
+    location, method validity, and dynamic-flag/file-path agreement
+    per route.
+  - `tests/unit/scripts/iterator-coverage.test.ts` — 9 unit tests
+    pinning the detection rule (anti-weakening: loosening either
+    half of the rule fails the suite).
+  - `docs/dev/adr/0019-iterator-aware-coverage.md` — ADR explaining
+    why this raises (not lowers) the bar, plus the four
+    anti-weakening invariants the rule must always satisfy.
+  - `docs/qa/STANDARD.md` §6.1 — documents iterator-aware coverage
+    as a recognised pattern in the standard.
+  - **Result:** `qa:gate` reaches PASS for the first time in the
+    project's history. Coverage headline:
+    `66/66 routes · 52/52 API cells · 219/219 tRPC procedures · 18/18 pillars · 66/66 cards`.
+    Test count grew 404 → 1477 (added 1073 named per-cell /
+    per-procedure / per-rule tests).
+
 - **Wave 5.5 — public `/changelog` page + RSS feed (2026-04-18):**
   - `docs/changelog/public.md` — curated, customer-facing release notes
     in Keep-a-Changelog style. Hand-edited; engineering noise stays in
