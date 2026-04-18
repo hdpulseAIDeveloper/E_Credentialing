@@ -48,12 +48,26 @@ As the evaluator reviews cases, they record findings. When the plan is complete:
 
 ## The OPPE/FPPE dashboard
 
-Under **Reports → Practice evaluation**:
+Under **Evaluations** (sidebar → `Practice evaluations`):
 
-- OPPE due in the next 30 / 60 / 90 days
-- Overdue OPPE count (target is zero)
-- Active FPPEs with status and evaluator
-- Historical summary of FPPE outcomes
+- Scheduled, In Progress, Overdue, and Completed-this-month counts as
+  summary cards across the top
+- A filterable list of every evaluation (by provider name, type, status)
+- One-click navigation to the provider record for context
+
+The platform also auto-schedules the JC-required cadence so staff never
+have to remember to create the next OPPE:
+
+- Every approved provider with active hospital privileges gets an
+  initial OPPE seeded as soon as they become eligible.
+- The next-cycle OPPE is pre-created automatically once the current
+  cycle is within 30 days of ending.
+- A new FPPE is auto-created as soon as a hospital privilege is
+  approved (Joint Commission MS.08.01.01) — staff just have to record
+  the findings.
+
+See [`docs/compliance/jc-npg-12.md`](../compliance/jc-npg-12.md) for
+the full mapping to TJC standards.
 
 ## FAQ
 

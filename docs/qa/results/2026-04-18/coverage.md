@@ -1,7 +1,7 @@
 ## Coverage headline (per STANDARD.md §3)
 
 ```
-Routes covered:    9 of 60
+Routes covered:    11 of 60
 API cells covered: 5 of 34
 tRPC covered:      0 of 218
 Per-screen cards:  60 of 60
@@ -28,7 +28,7 @@ Pillars not run:   (none)
 | M | Data integrity, migrations, backup & DR | 1 |
 | N | Concurrency, idempotency & resilience | 1 |
 | O | File / email / SMS / print / PDF | 1 |
-| P | Compliance controls | 1 |
+| P | Compliance controls | 2 |
 | Q | Documentation integrity | 1 |
 | R | Observability | 1 |
 
@@ -58,12 +58,10 @@ Pillars not run:   (none)
 - `/committee`
 - `/committee/sessions/[id]`
 - `/committee/sessions/new`
-- `/compliance`
 - `/compliance/[framework]`
 - `/compliance/[framework]/[id]`
 - `/enrollments`
 - `/enrollments/[id]`
-- `/evaluations`
 - `/fsmb-pdc`
 - `/legal/cookies`
 - `/legal/hipaa`

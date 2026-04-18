@@ -1,78 +1,50 @@
 /**
- * P2 Gap #17 — Joint Commission NPG 12 helpers.
+ * src/lib/fppe.ts — backwards-compatible shim around EvaluationService.
  *
- * The Joint Commission (MS.08.01.01) requires Focused Professional Practice
- * Evaluation (FPPE) for every newly granted clinical privilege so that
- * competence is demonstrably evaluated within a defined period after the
- * grant. This helper auto-creates that FPPE evaluation row when staff mark
- * a hospital privilege as APPROVED, with the appropriate trigger metadata
- * so the chain of custody is auditable.
+ * P2 Gap #17 — Joint Commission MS.08.01.01 helper. Historically this file
+ * owned the auto-FPPE creation logic directly. After Wave 3.1 the canonical
+ * implementation lives in `src/server/services/evaluation.ts` so that:
+ *
+ *   - the same audit-write contract is used regardless of who initiates the
+ *     FPPE (router, worker, privilege-grant hook),
+ *   - the logic is unit-testable without spinning up Prisma, and
+ *   - there is exactly one chain-of-custody source for JC NPG-12 evidence.
+ *
+ * This shim is preserved so any pre-Wave-3.1 callers continue to work. New
+ * code should construct `EvaluationService` directly and call
+ * `createAutoFppeForPrivilege`.
  */
 
 import type { PrismaClient } from "@prisma/client";
+import { writeAuditLog } from "@/lib/audit";
+import {
+  EvaluationService,
+  type CreateAutoFppeOptions,
+} from "@/server/services/evaluation";
 
-const FPPE_DEFAULT_PERIOD_DAYS = 90; // standard JC FPPE window after grant
+/**
+ * Re-export so existing callers can keep importing the option type from the
+ * historical lib path.
+ */
+export type { CreateAutoFppeOptions } from "@/server/services/evaluation";
 
-export interface CreateAutoFppeOptions {
-  /** Override default 90-day window. */
-  periodDays?: number;
-  /** Override the stored trigger label. */
-  trigger?: string;
-}
+/**
+ * Default actor used when the auto-FPPE is triggered by a system event
+ * (e.g. a privilege-approval hook running outside an HTTP request). Audit
+ * rows still need a non-null actor; we use the dedicated `system` sentinel
+ * so reviewers can distinguish auto-creates from human-initiated FPPEs.
+ */
+const SYSTEM_ACTOR = { id: "system", role: "SYSTEM" } as const;
 
 export async function createAutoFppeForPrivilege(
   db: PrismaClient,
   privilegeId: string,
-  options: CreateAutoFppeOptions = {}
+  options: CreateAutoFppeOptions = {},
 ): Promise<string | null> {
-  const privilege = await db.hospitalPrivilege.findUnique({
-    where: { id: privilegeId },
-    select: {
-      id: true,
-      providerId: true,
-      facilityName: true,
-      privilegeType: true,
-      effectiveDate: true,
-      approvedDate: true,
-      status: true,
-    },
+  const svc = new EvaluationService({
+    db,
+    audit: writeAuditLog,
+    actor: SYSTEM_ACTOR,
   });
-  if (!privilege) return null;
-
-  // Avoid double-creation: skip if any FPPE for this privilege already exists.
-  const existing = await db.practiceEvaluation.findFirst({
-    where: {
-      providerId: privilege.providerId,
-      privilegeId,
-      evaluationType: "FPPE",
-    },
-    select: { id: true },
-  });
-  if (existing) return existing.id;
-
-  const grantDate =
-    privilege.effectiveDate ?? privilege.approvedDate ?? new Date();
-  const periodDays = options.periodDays ?? FPPE_DEFAULT_PERIOD_DAYS;
-  const periodEnd = new Date(grantDate);
-  periodEnd.setDate(periodEnd.getDate() + periodDays);
-
-  const trigger =
-    options.trigger ??
-    `Auto-FPPE for newly granted privilege "${privilege.privilegeType}" at ${privilege.facilityName}`;
-
-  const created = await db.practiceEvaluation.create({
-    data: {
-      providerId: privilege.providerId,
-      evaluationType: "FPPE",
-      privilegeId,
-      periodStart: grantDate,
-      periodEnd,
-      dueDate: periodEnd,
-      trigger,
-      triggerRefId: privilegeId,
-    },
-    select: { id: true },
-  });
-
-  return created.id;
+  return svc.createAutoFppeForPrivilege(privilegeId, options);
 }
