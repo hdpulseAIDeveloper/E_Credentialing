@@ -22,6 +22,10 @@ dist/
 # Ignore only migration-generated ephemeral files.
 prisma/migrations/**/*.tmp
 
+# Local commit message scratch files (PowerShell heredoc workaround)
+.git-commit-msg.tmp
+.git-commit-msg.*.tmp
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
