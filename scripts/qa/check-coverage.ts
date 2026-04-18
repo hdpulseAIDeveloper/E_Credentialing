@@ -16,7 +16,7 @@
  */
 
 import fg from "fast-glob";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   INVENTORY_DIR,
@@ -29,6 +29,43 @@ import {
   type TrpcInventoryEntry,
 } from "./lib";
 
+/**
+ * The 18 pillars from STANDARD.md §2. Each pillar has at least one canonical
+ * directory the gate scans for spec files. A pillar with zero discovered specs
+ * is a hard-fail per §4.10 (NOT-RUN ≠ PASS) and §3 (Pillars not run = fail).
+ *
+ * Anti-weakening (§4.2): do not delete a pillar from this list, do not change
+ * its directory to a directory you know is non-empty, and do not relax the
+ * "no specs => fail" check below.
+ */
+const PILLARS: ReadonlyArray<{ id: string; name: string; dirs: string[] }> = [
+  { id: "A", name: "Functional smoke", dirs: ["tests/e2e/smoke", "tests/e2e/all-roles"] },
+  { id: "B", name: "RBAC matrix", dirs: ["tests/e2e/rbac", "tests/e2e/all-roles"] },
+  { id: "C", name: "PHI scope & encryption", dirs: ["tests/e2e/phi-scope"] },
+  { id: "D", name: "Deep end-to-end flows", dirs: ["tests/e2e/flows"] },
+  { id: "E", name: "Accessibility", dirs: ["tests/e2e/a11y", "tests/e2e/all-roles"] },
+  { id: "F", name: "Visual regression", dirs: ["tests/e2e/visual"] },
+  { id: "G", name: "Cross-browser & responsive", dirs: ["tests/e2e/responsive"] },
+  { id: "H", name: "Performance, load & soak", dirs: ["tests/perf"] },
+  { id: "I", name: "Security & DAST", dirs: ["tests/security"] },
+  { id: "J", name: "API contract", dirs: ["tests/contract"] },
+  { id: "K", name: "External integration", dirs: ["tests/external"] },
+  { id: "L", name: "Time-shifted scenarios", dirs: ["tests/e2e/time"] },
+  { id: "M", name: "Data integrity, migrations, backup & DR", dirs: ["tests/data"] },
+  { id: "N", name: "Concurrency, idempotency & resilience", dirs: ["tests/e2e/concurrency"] },
+  { id: "O", name: "File / email / SMS / print / PDF", dirs: ["tests/e2e/files"] },
+  { id: "P", name: "Compliance controls", dirs: ["tests/e2e/compliance"] },
+  { id: "Q", name: "Documentation integrity", dirs: ["tests/docs"] },
+  { id: "R", name: "Observability", dirs: ["tests/observability"] },
+];
+
+interface PillarStatus {
+  id: string;
+  name: string;
+  specCount: number;
+  searchedDirs: string[];
+}
+
 interface CoverageResult {
   routesTotal: number;
   routesCovered: number;
@@ -39,11 +76,40 @@ interface CoverageResult {
   trpcTotal: number;
   trpcCovered: number;
   trpcMissing: string[];
+  pillars: PillarStatus[];
+  pillarsMissing: string[];
+  cardsExpected: number;
+  cardsPresent: number;
+  cardsMissing: string[];
 }
 
 async function readJson<T>(file: string): Promise<T> {
   const raw = await readFile(file, "utf8");
   return JSON.parse(raw) as T;
+}
+
+async function exists(p: string): Promise<boolean> {
+  try {
+    await access(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Mirror of scripts/qa/scaffold-cards.ts slugFor — kept duplicated (instead of
+ * importing) so this gate has zero coupling to the scaffolder. If the slug
+ * convention changes, both files must be updated; the docs gate (Pillar Q) and
+ * a unit test will surface drift.
+ */
+function cardSlugFor(route: string): string {
+  if (route === "/") return "root";
+  const parts = route
+    .split("/")
+    .filter((p) => p.length > 0)
+    .map((p) => p.replace(/^\[(.+)\]$/, "$1"));
+  return parts.join("__").replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase();
 }
 
 async function main(): Promise<void> {
@@ -124,6 +190,36 @@ async function main(): Promise<void> {
     else trpcMissing.push(dotted);
   }
 
+  // Pillar coverage — STANDARD.md §2 + §3 + §4.10. Each pillar must have at
+  // least one spec on disk in one of its declared directories. Empty pillar =
+  // hard-fail.
+  const pillars: PillarStatus[] = [];
+  const pillarsMissing: string[] = [];
+  for (const p of PILLARS) {
+    let count = 0;
+    for (const d of p.dirs) {
+      const found = await fg(["**/*.spec.ts", "**/*.test.ts"], {
+        cwd: path.join(REPO_ROOT, d),
+        absolute: true,
+      });
+      count += found.length;
+    }
+    pillars.push({ id: p.id, name: p.name, specCount: count, searchedDirs: p.dirs });
+    if (count === 0) pillarsMissing.push(`${p.id} — ${p.name} (searched ${p.dirs.join(", ")})`);
+  }
+
+  // Per-screen card gate — STANDARD.md §5. Every inventoried route must have
+  // a card on disk at docs/qa/per-screen/<slug>.md.
+  const perScreenDir = path.join(REPO_ROOT, "docs", "qa", "per-screen");
+  let cardsPresent = 0;
+  const cardsMissing: string[] = [];
+  for (const r of routes) {
+    const slug = cardSlugFor(r.route);
+    const file = path.join(perScreenDir, `${slug}.md`);
+    if (await exists(file)) cardsPresent += 1;
+    else cardsMissing.push(`${r.route} (expected ${path.relative(REPO_ROOT, file)})`);
+  }
+
   const result: CoverageResult = {
     routesTotal: routes.length,
     routesCovered,
@@ -134,9 +230,16 @@ async function main(): Promise<void> {
     trpcTotal: trpc.length,
     trpcCovered,
     trpcMissing,
+    pillars,
+    pillarsMissing,
+    cardsExpected: routes.length,
+    cardsPresent,
+    cardsMissing,
   };
 
   // Headline block — exactly the §3 shape, coverage first.
+  const pillarsTouched = result.pillars.filter((p) => p.specCount > 0).map((p) => p.id);
+  const pillarsNotRun = result.pillars.filter((p) => p.specCount === 0).map((p) => p.id);
   const headline: string[] = [
     "## Coverage headline (per STANDARD.md §3)",
     "",
@@ -144,9 +247,26 @@ async function main(): Promise<void> {
     `Routes covered:    ${result.routesCovered} of ${result.routesTotal}`,
     `API cells covered: ${result.apiCellsCovered} of ${result.apiCellsTotal}`,
     `tRPC covered:      ${result.trpcCovered} of ${result.trpcTotal}`,
+    `Per-screen cards:  ${result.cardsPresent} of ${result.cardsExpected}`,
+    `Pillars touched:   ${pillarsTouched.join(", ") || "(none)"}`,
+    `Pillars not run:   ${pillarsNotRun.join(", ") || "(none)"}`,
     "```",
     "",
   ];
+  headline.push("### Pillar spec counts (STANDARD.md §2)");
+  headline.push("");
+  headline.push("| ID | Pillar | Spec files |");
+  headline.push("| --- | --- | --- |");
+  for (const p of result.pillars) {
+    headline.push(`| ${p.id} | ${p.name} | ${p.specCount} |`);
+  }
+  headline.push("");
+  if (result.pillarsMissing.length > 0) {
+    headline.push("### Pillars with ZERO spec files (hard fail per §4.10)");
+    headline.push("");
+    for (const p of result.pillarsMissing) headline.push(`- ${p}`);
+    headline.push("");
+  }
   if (result.routesMissing.length > 0) {
     headline.push("### Routes missing a spec");
     headline.push("");
@@ -165,6 +285,12 @@ async function main(): Promise<void> {
     for (const t of result.trpcMissing) headline.push(`- \`${t}\``);
     headline.push("");
   }
+  if (result.cardsMissing.length > 0) {
+    headline.push("### Per-screen cards missing (STANDARD.md §5)");
+    headline.push("");
+    for (const c of result.cardsMissing) headline.push(`- ${c}`);
+    headline.push("");
+  }
 
   const today = new Date().toISOString().slice(0, 10);
   const outDir = path.join(REPO_ROOT, "docs", "qa", "results", today);
@@ -177,20 +303,24 @@ async function main(): Promise<void> {
   const allCovered =
     result.routesMissing.length === 0 &&
     result.apiCellsMissing.length === 0 &&
-    result.trpcMissing.length === 0;
+    result.trpcMissing.length === 0 &&
+    result.pillarsMissing.length === 0 &&
+    result.cardsMissing.length === 0;
 
   if (!allCovered && !reportOnly) {
     console.error(
-      `\nCoverage gate FAILED: ${result.routesMissing.length} routes, ${result.apiCellsMissing.length} API cells, ${result.trpcMissing.length} tRPC procedures missing specs.`,
+      `\nCoverage gate FAILED: ${result.routesMissing.length} routes, ${result.apiCellsMissing.length} API cells, ${result.trpcMissing.length} tRPC procedures, ${result.pillarsMissing.length} pillars, ${result.cardsMissing.length} per-screen cards missing.`,
     );
     console.error(
-      "Per STANDARD.md §6 this is a hard gate. NOT-RUN ≠ PASS. Open DEF cards or add specs.",
+      "Per STANDARD.md §3, §4.10, §5, §6 this is a hard gate. NOT-RUN ≠ PASS. Open DEF cards, add specs, or run `npx tsx scripts/qa/scaffold-cards.ts`.",
     );
     process.exit(1);
   }
 
   if (allCovered) {
-    console.log("\nCoverage gate PASS — all inventoried surfaces have at least one spec.");
+    console.log(
+      "\nCoverage gate PASS — every inventoried surface has at least one spec, every pillar has at least one spec file, and every route has a per-screen card.",
+    );
   }
 }
 
