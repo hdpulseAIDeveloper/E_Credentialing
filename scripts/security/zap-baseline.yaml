@@ -1,0 +1,56 @@
+# Wave 4.3 — OWASP ZAP Automation Framework: BASELINE scan.
+#
+# Baseline = passive scan only (no active probes). Safe to run against
+# any environment. Issues that appear here have NO chance of mutating
+# data on the target.
+#
+# Run locally:
+#   docker run --rm -v $(pwd):/zap/wrk -t zaproxy/zap-stable \
+#     zap.sh -cmd -autorun /zap/wrk/scripts/security/zap-baseline.yaml
+#
+# CI: invoked from .github/workflows/security.yml (see the
+# `zap-baseline` job).
+#
+# References:
+#   https://www.zaproxy.org/docs/automate/automation-framework/
+#   https://www.zaproxy.org/docs/desktop/addons/automation-framework/
+
+env:
+  contexts:
+    - name: ecred-public
+      urls:
+        - https://${ZAP_TARGET_HOST:-staging.example.com}
+      includePaths:
+        - "https://${ZAP_TARGET_HOST:-staging.example.com}.*"
+      excludePaths:
+        # Auth-protected admin surface; baseline only sees public pages.
+        - ".*/api/v1/admin/.*"
+        - ".*/admin/.*"
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  - type: passiveScan-config
+    parameters:
+      maxAlertsPerRule: 25
+      scanOnlyInScope: true
+  - type: spider
+    parameters:
+      context: ecred-public
+      maxDuration: 5
+      maxDepth: 6
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 10
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: /zap/wrk/zap-reports
+      reportFile: zap-baseline-report.json
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: /zap/wrk/zap-reports
+      reportFile: zap-baseline-report.html

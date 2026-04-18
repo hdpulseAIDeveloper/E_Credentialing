@@ -46,7 +46,53 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: gitleaks
+      - name: gitleaks (with custom config)
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  # Wave 4.3 — OWASP ZAP baseline scan against staging on push to master
+  # and weekly. Active scan runs nightly against an ephemeral compose
+  # stack via a separate workflow (cd-prod.yml does NOT trigger this).
+  zap-baseline:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.13.0
+        with:
+          target: ${{ vars.ZAP_TARGET_URL || 'https://staging.example.com' }}
+          rules_file_name: scripts/security/zap-baseline-rules.tsv
+          cmd_options: "-a -j -m 5 -T 10"
+          fail_action: false
+          allow_issue_writing: false
+        continue-on-error: true
+      - name: Upload ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-baseline-report
+          path: |
+            report_html.html
+            report_json.json
+            report_md.md
+          retention-days: 30
+      - name: Consolidated security summary
+        if: always()
+        run: |
+          test -f report_json.json || echo '{"site":[]}' > report_json.json
+          npx tsx scripts/security/security-summary.ts \
+            --zap=report_json.json \
+            --out=security-summary.md \
+            --fail-on=high
+        continue-on-error: false
+      - name: Upload consolidated summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-summary
+          path: security-summary.md
+          retention-days: 90

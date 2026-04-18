@@ -1,0 +1,84 @@
+# Wave 4.3 — gitleaks configuration for the E-Credentialing CVO platform.
+#
+# Inherits the default gitleaks rule pack and layers project-specific
+# patterns + allowlists on top. CI invokes gitleaks via
+# `gitleaks/gitleaks-action@v2` (see .github/workflows/security.yml);
+# local runs:
+#
+#   gitleaks detect --config .gitleaks.toml --redact --verbose
+#   gitleaks protect --config .gitleaks.toml --staged    # pre-commit
+#
+# Reference: https://github.com/gitleaks/gitleaks#configuration
+#
+# DESIGN NOTES
+#
+#   - Custom regexes target our specific Azure / Stripe / SendGrid /
+#     Auth.js / encryption-key conventions.
+#   - Allowlists scope dotenv examples and known test fixtures so we
+#     don't drown in false positives.
+#   - Severity is left to the gitleaks default; the security workflow
+#     fails on ANY finding so the team can choose to fingerprint or
+#     fix.
+
+title = "ecred-gitleaks"
+useDefault = true
+
+# ─── Project-specific rules ─────────────────────────────────────────────────
+
+[[rules]]
+id = "ecred-encryption-key"
+description = "32-byte base64 PHI encryption key (AES-256-GCM)"
+regex = '''(?i)(?:ENCRYPTION_KEY|PHI_ENCRYPTION_KEY)\s*[:=]\s*['"]?[A-Za-z0-9+/]{43}=?['"]?'''
+tags = ["key", "phi"]
+
+[[rules]]
+id = "ecred-metrics-bearer"
+description = "Prometheus scrape bearer token"
+regex = '''(?i)METRICS_BEARER_TOKEN\s*[:=]\s*['"]?[A-Za-z0-9._-]{32,}['"]?'''
+tags = ["bearer"]
+
+[[rules]]
+id = "ecred-stripe-restricted"
+description = "Stripe restricted API key (rk_live_, rk_test_)"
+regex = '''rk_(?:live|test)_[A-Za-z0-9]{24,}'''
+tags = ["stripe"]
+
+[[rules]]
+id = "ecred-azure-storage-key"
+description = "Azure Storage account key (88-char base64)"
+regex = '''(?i)AccountKey=[A-Za-z0-9+/]{86,90}=='''
+tags = ["azure"]
+
+[[rules]]
+id = "ecred-azure-keyvault-conn"
+description = "Azure Key Vault DefaultAzureCredential client secret"
+regex = '''AZURE_CLIENT_SECRET\s*[:=]\s*['"]?[A-Za-z0-9._~-]{32,}['"]?'''
+tags = ["azure"]
+
+[[rules]]
+id = "ecred-jwt-private-key"
+description = "Auth.js / JOSE PEM private key"
+regex = '''-----BEGIN (?:RSA |EC )?PRIVATE KEY-----'''
+tags = ["jwt", "pem"]
+
+# ─── Allowlist ──────────────────────────────────────────────────────────────
+
+[allowlist]
+description = "Project-wide allowlist for safe / fixture-only matches."
+paths = [
+  '''(^|/)\.env\.example$''',
+  '''(^|/)docs/(.+\.md|.+\.mdx)$''',
+  '''(^|/)tests/fixtures/(.+)$''',
+  '''(^|/)scripts/seed/(.+)$''',
+  '''(^|/)public/locales/(.+)$''',
+  '''(^|/)\.gitleaks\.toml$''',
+]
+regexes = [
+  # Loopback Postgres / Redis URIs from devcontainers.
+  '''postgres(?:ql)?://[^:]*:[^@]*@(localhost|127\.0\.0\.1|postgres):\d+/[^\s'"]+''',
+  '''redis://[^@]*@(localhost|127\.0\.0\.1|redis):\d+''',
+  # Auth.js placeholder secrets used only in tests.
+  '''AUTH_SECRET=test-secret-do-not-use-in-prod''',
+  # Test-only encryption key used by tests/unit/lib/encryption.test.ts.
+  '''ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=''',
+]

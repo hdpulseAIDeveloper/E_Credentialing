@@ -1,0 +1,63 @@
+# Wave 4.3 — OWASP ZAP Automation Framework: ACTIVE scan.
+#
+# WARNING: Active scans submit malicious payloads. Run ONLY against a
+# disposable test environment seeded with synthetic data. NEVER point
+# this at staging or production.
+#
+# Run locally (assumes a fresh ephemeral environment is up):
+#   docker run --rm -v $(pwd):/zap/wrk -t zaproxy/zap-stable \
+#     zap.sh -cmd -autorun /zap/wrk/scripts/security/zap-active.yaml
+#
+# CI: invoked from .github/workflows/security.yml on the `nightly`
+# matrix branch only, against an ephemeral compose stack.
+
+env:
+  contexts:
+    - name: ecred-public-active
+      urls:
+        - http://${ZAP_TARGET_HOST:-app:6015}
+      includePaths:
+        - "http://${ZAP_TARGET_HOST:-app:6015}.*"
+      excludePaths:
+        - ".*/api/v1/admin/.*"
+        - ".*/admin/.*"
+        # Avoid logout / destructive endpoints during fuzzing.
+        - ".*/api/auth/signout.*"
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  - type: passiveScan-config
+    parameters:
+      maxAlertsPerRule: 50
+      scanOnlyInScope: true
+  - type: spider
+    parameters:
+      context: ecred-public-active
+      maxDuration: 10
+      maxDepth: 8
+  - type: spiderAjax
+    parameters:
+      context: ecred-public-active
+      maxDuration: 10
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 15
+  - type: activeScan
+    parameters:
+      context: ecred-public-active
+      policy: "Default Policy"
+      maxRuleDurationInMins: 5
+      maxScanDurationInMins: 60
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: /zap/wrk/zap-reports
+      reportFile: zap-active-report.json
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: /zap/wrk/zap-reports
+      reportFile: zap-active-report.html

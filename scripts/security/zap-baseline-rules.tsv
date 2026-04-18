@@ -1,0 +1,12 @@
+# Wave 4.3 — ZAP baseline rule overrides.
+# Format: <plugin_id>\t<action>\t<note>
+# Actions: IGNORE | WARN | FAIL
+# Reference: https://www.zaproxy.org/docs/desktop/addons/automation-framework/
+
+# Documented intentional behavior: framework banner is required for some
+# health-check probes; we do still set X-Powered-By to "" so this is
+# actually a no-op, but keep the rule visible as WARN.
+10037	WARN	X-Powered-By header is empty by design but ZAP still flags
+# Spider may discover Storybook routes that intentionally lack CSP — we
+# strip them at the staging reverse proxy in production.
+10038	WARN	CSP header on Storybook routes
