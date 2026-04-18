@@ -1,0 +1,46 @@
+# Wave 4.5 — Azure Developer CLI (azd) project manifest.
+#
+# `azd up` provisions the full E-Credentialing CVO platform stack in
+# Azure (resource group + Container Apps environment + Postgres
+# Flexible Server + Redis + Storage + Key Vault + Container Registry +
+# Log Analytics + Application Insights), builds & pushes the web and
+# worker container images to ACR, and deploys two revisions of the
+# Container App.
+#
+# Schema reference: https://aka.ms/azure-dev/yaml-schema
+name: ecred-cvo
+metadata:
+  template: ecred-cvo@1.0.0
+infra:
+  provider: bicep
+  path: infra
+  module: main
+services:
+  web:
+    project: .
+    language: ts
+    host: containerapp
+    docker:
+      path: ./Dockerfile
+      context: .
+      remoteBuild: true
+  worker:
+    project: .
+    language: ts
+    host: containerapp
+    docker:
+      path: ./Dockerfile.worker
+      context: .
+      remoteBuild: true
+hooks:
+  predeploy:
+    shell: pwsh
+    continueOnError: false
+    interactive: false
+    run: |
+      Write-Host "[azd] running database migrations against the provisioned Postgres..."
+      # Migrations are applied by the entrypoint of the web container at
+      # boot (npm run db:migrate:prod) so this hook is a no-op placeholder
+      # — keep it wired so future bootstrap (seed roles, NCQA baseline)
+      # can latch on.
+      Write-Host "[azd] predeploy hook: nothing to do (migrations applied at container boot)."

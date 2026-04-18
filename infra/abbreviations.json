@@ -1,0 +1,14 @@
+{
+  "resourcesResourceGroups": "rg-",
+  "containerAppsEnvironment": "cae-",
+  "containerApp": "ca-",
+  "containerRegistry": "cr",
+  "logAnalyticsWorkspace": "log-",
+  "applicationInsights": "appi-",
+  "userAssignedIdentity": "id-",
+  "keyVault": "kv-",
+  "storageAccount": "st",
+  "dbForPostgreSqlFlexible": "psql-",
+  "redisCache": "redis-",
+  "managedIdentity": "id-"
+}

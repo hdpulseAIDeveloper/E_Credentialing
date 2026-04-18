@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": {
+      "value": "${AZURE_ENV_NAME}"
+    },
+    "location": {
+      "value": "${AZURE_LOCATION}"
+    },
+    "principalId": {
+      "value": "${AZURE_PRINCIPAL_ID}"
+    },
+    "postgresAdminLogin": {
+      "value": "${POSTGRES_ADMIN_LOGIN=ecredadmin}"
+    },
+    "postgresAdminPassword": {
+      "value": "${POSTGRES_ADMIN_PASSWORD}"
+    },
+    "appAuthSecret": {
+      "value": "${AUTH_SECRET}"
+    },
+    "appPhiEncryptionKey": {
+      "value": "${ENCRYPTION_KEY}"
+    },
+    "appNextAuthUrl": {
+      "value": "${NEXTAUTH_URL=https://example.com}"
+    },
+    "containerImageWeb": {
+      "value": "${SERVICE_WEB_IMAGE_NAME=mcr.microsoft.com/k8se/quickstart:latest}"
+    },
+    "containerImageWorker": {
+      "value": "${SERVICE_WORKER_IMAGE_NAME=mcr.microsoft.com/k8se/quickstart:latest}"
+    }
+  }
+}
