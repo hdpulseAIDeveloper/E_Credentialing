@@ -1171,6 +1171,12 @@
   },
   {
     "router": "telehealth",
+    "procedure": "syncExpirables",
+    "kind": "mutation",
+    "file": "src/server/api/routers/telehealth.ts"
+  },
+  {
+    "router": "telehealth",
     "procedure": "updateImlcRecord",
     "kind": "query",
     "file": "src/server/api/routers/telehealth.ts"

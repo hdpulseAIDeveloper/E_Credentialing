@@ -1,0 +1,119 @@
+# E-Credentialing CVO Platform — public changelog
+
+Customer-facing release notes. Engineering-internal changes
+(refactors, internal tooling, dependency bumps) live in
+`/CHANGELOG.md`; this file is what we publish on `/changelog`.
+
+Each release is a `## ` heading shaped `## YYYY-MM-DD — vMAJOR.MINOR.PATCH`
+with grouped subsections:
+
+- `### Added` — net-new customer-visible capability
+- `### Improved` — meaningful enhancement to an existing surface
+- `### Fixed` — customer-visible defect resolution
+- `### Security` — security or compliance posture change
+- `### Breaking` — incompatible API or behavior change
+
+Anti-weakening: never delete a release. Strike-through a published
+note instead and add a follow-up release if the underlying claim
+turned out to be incorrect.
+
+## 2026-04-18 — v1.5.0
+
+### Added
+- **CVO platform positioning + public sandbox.** Marketing landing
+  page now leads with the "Credentialing Verification Organization"
+  story, with a dedicated `/cvo` explainer covering the NCQA element
+  catalog and a comparison against in-house builds and legacy CVOs.
+  A new public `/sandbox` exposes read-only synthetic data so
+  evaluators can wire a POC without onboarding.
+- **Auditor-package one-click export.** `/settings/compliance` now
+  ships a SOC 2 Type I evidence pack — chained audit log, NCQA
+  snapshots, and per-control evidence — as a single
+  byte-stable .zip with a SHA-256 the auditor can re-verify.
+- **Stripe Billing scaffolding.** Behind the new `BILLING_ENABLED`
+  feature flag: Checkout, Billing Portal, webhook ingestion, and an
+  in-app `/settings/billing` page with current plan, dunning banners,
+  and upgrade buttons. Three published plan tiers: Starter, Growth,
+  Enterprise.
+- **Public `/changelog` + RSS feed.** Customer-facing release notes
+  now ship at `/changelog` with anchor-stable release cards and an
+  RSS 2.0 feed at `/changelog.rss`. Subscribe with any reader to be
+  notified when a new release ships.
+
+### Improved
+- **Multi-tenancy shim.** All PHI-bearing tables now carry an
+  `organization_id` column; the Prisma client transparently injects
+  the request-scoped tenant id on every query. Single-tenant
+  customers see no behavior change.
+- **Visual regression coverage.** Playwright snapshots now run
+  per-browser (Chromium, Firefox, WebKit) for both anonymous and
+  staff routes — drift detection lands earlier.
+
+### Security
+- **OWASP ZAP baseline scan in CI.** Each pull request gets a
+  passive scan + consolidated security summary. High-or-above
+  findings fail the build.
+- **Tamper-evident audit log fully chained.** Every audit row now
+  carries an HMAC-SHA-256 hash of the previous row; integrity
+  verification ships in the auditor package.
+
+## 2026-04-15 — v1.4.0
+
+### Added
+- **FHIR R4 public directory.** `/api/fhir/Practitioner`,
+  `PractitionerRole`, `HealthcareService`, and `InsurancePlan`
+  endpoints conform to the DaVinci PDex Plan-Net IG. The
+  `$everything` operation returns the full provider envelope in one
+  call. CapabilityStatement is published at `/api/fhir/metadata`.
+- **CME & CV auto-generation.** `/api/v1/providers/:id/cv.pdf`
+  renders a deterministic, board-aligned CV from the provider's
+  current credentialing state.
+
+### Improved
+- **OPPE/FPPE workflow.** Quarterly scorecard build, peer review
+  routing, and Joint Commission NPG-12 evidence chain are now first-
+  class — no spreadsheets.
+
+## 2026-04-10 — v1.3.0
+
+### Added
+- **Telemetry stack.** Sentry + Application Insights + Prometheus +
+  Grafana dashboards now publish out of the box.
+- **k6 perf suites.** Public + authenticated baselines run in CI to
+  catch regressions before they reach customers.
+
+### Security
+- **Postgres index audit.** Nightly script verifies all PHI-touching
+  query paths are covered by an index; gaps page on-call.
+
+## 2026-04-01 — v1.2.0
+
+### Added
+- **NCQA CVO baseline catalog.** All thirteen NCQA primary-source
+  verification elements seeded with reference policies; `/dashboard`
+  shows live compliance percent against the catalog.
+- **Sanctions weekly check.** OIG, SAM, and state Medicaid pulls run
+  on a recurring schedule with structured alerts on hits.
+
+### Improved
+- **Document AI extraction.** Faster, more accurate parsing of
+  malpractice declarations and board certificates.
+
+## 2026-03-15 — v1.1.0
+
+### Added
+- **Provider self-service portal.** Token-gated invite flow, in-app
+  attestation history, and document upload with virus scan.
+
+### Security
+- **PHI column-level encryption.** Sensitive provider fields are
+  encrypted at rest with a deployment-managed key; key rotation
+  runbook published.
+
+## 2026-03-01 — v1.0.0
+
+### Added
+- **General availability.** First production release of the
+  E-Credentialing CVO Platform: NCQA-aligned PSV bot fleet,
+  tamper-evident audit log, FHIR R4 directory beta, and a
+  full credentialing-committee workflow.

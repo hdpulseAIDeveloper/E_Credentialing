@@ -71,6 +71,12 @@ export default async function HomePage() {
               >
                 API Sandbox
               </Link>
+              <Link
+                href="/changelog"
+                className="hidden sm:inline-block px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+              >
+                Changelog
+              </Link>
               {session?.user ? (
                 <>
                   <Link

@@ -138,6 +138,12 @@
     "group": "staff"
   },
   {
+    "route": "/changelog",
+    "file": "src/app/changelog/page.tsx",
+    "dynamic": false,
+    "group": "public"
+  },
+  {
     "route": "/cme",
     "file": "src/app/(staff)/cme/page.tsx",
     "dynamic": false,
@@ -178,6 +184,12 @@
     "file": "src/app/(staff)/compliance/[framework]/[id]/page.tsx",
     "dynamic": true,
     "group": "staff"
+  },
+  {
+    "route": "/cvo",
+    "file": "src/app/cvo/page.tsx",
+    "dynamic": false,
+    "group": "public"
   },
   {
     "route": "/dashboard",
@@ -276,6 +288,12 @@
     "group": "staff"
   },
   {
+    "route": "/pricing",
+    "file": "src/app/pricing/page.tsx",
+    "dynamic": false,
+    "group": "public"
+  },
+  {
     "route": "/providers",
     "file": "src/app/(staff)/providers/page.tsx",
     "dynamic": false,
@@ -318,10 +336,28 @@
     "group": "staff"
   },
   {
+    "route": "/sandbox",
+    "file": "src/app/sandbox/page.tsx",
+    "dynamic": false,
+    "group": "public"
+  },
+  {
     "route": "/scorecards",
     "file": "src/app/(staff)/scorecards/page.tsx",
     "dynamic": false,
     "group": "staff"
+  },
+  {
+    "route": "/settings/billing",
+    "file": "src/app/settings/billing/page.tsx",
+    "dynamic": false,
+    "group": "public"
+  },
+  {
+    "route": "/settings/compliance",
+    "file": "src/app/settings/compliance/page.tsx",
+    "dynamic": false,
+    "group": "public"
   },
   {
     "route": "/telehealth",

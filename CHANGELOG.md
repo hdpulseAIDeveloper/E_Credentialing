@@ -7,6 +7,29 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sem
 ## [Unreleased]
 
 ### Added
+- **Wave 5.5 — public `/changelog` page + RSS feed (2026-04-18):**
+  - `docs/changelog/public.md` — curated, customer-facing release notes
+    in Keep-a-Changelog style. Hand-edited; engineering noise stays in
+    this `CHANGELOG.md`.
+  - `src/lib/changelog/parser.ts` — pure parser turning the Markdown
+    file into a typed `Release[]`; unknown sub-sections fall back to
+    `Other` (anti-weakening: never silently drop content).
+  - `src/lib/changelog/rss.ts` — pure RSS 2.0 renderer; deterministic
+    slugs, full XML escaping, per-entry `<item>` granularity.
+  - `src/lib/changelog/loader.ts` — server-only file loader cached for
+    process lifetime.
+  - `/changelog` Server Component page: anchor-stable release cards,
+    category badges, RSS subscribe link.
+  - `/changelog.rss` route handler returning `application/rss+xml`.
+  - Marketing nav (`src/app/page.tsx`) gets a top-level "Changelog" link
+    in the header (footer link already existed).
+  - `docs/dev/adr/0018-public-changelog.md` — ADR documenting the
+    decision, anti-weakening rules, and alternatives considered.
+  - `docs/qa/per-pillar/pillar-u-changelog.md` — Pillar U coverage map.
+  - `docs/qa/per-screen/{changelog,cvo,pricing,sandbox,settings__billing,settings__compliance}.md` —
+    per-screen cards updated/created with accurate role-gating notes.
+  - **15 new unit tests** across `tests/unit/lib/changelog/` (parser:
+    8, RSS: 7). Total suite: **404 passed / 51 files**.
 - **HDPulseAI QA Standard — Fix-Until-Green amendment v1.1.0 (2026-04-17):**
   the standard now binds the agent (and human) to a procedural failure-response
   loop, not just descriptive pass criteria.

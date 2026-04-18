@@ -1,10 +1,10 @@
 ## Coverage headline (per STANDARD.md §3)
 
 ```
-Routes covered:    11 of 60
-API cells covered: 5 of 36
-tRPC covered:      0 of 218
-Per-screen cards:  60 of 60
+Routes covered:    18 of 66
+API cells covered: 5 of 52
+tRPC covered:      0 of 219
+Per-screen cards:  66 of 66
 Pillars touched:   A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R
 Pillars not run:   (none)
 ```
@@ -18,7 +18,7 @@ Pillars not run:   (none)
 | C | PHI scope & encryption | 1 |
 | D | Deep end-to-end flows | 1 |
 | E | Accessibility | 3 |
-| F | Visual regression | 1 |
+| F | Visual regression | 3 |
 | G | Cross-browser & responsive | 1 |
 | H | Performance, load & soak | 1 |
 | I | Security & DAST | 1 |
@@ -34,14 +34,12 @@ Pillars not run:   (none)
 
 ### Routes missing a spec
 
-- `/admin`
 - `/admin/ai-governance`
 - `/admin/ai-governance/[id]`
 - `/admin/api-keys`
 - `/admin/privileging`
 - `/admin/provider-types`
 - `/admin/roles`
-- `/admin/settings`
 - `/admin/training`
 - `/admin/users`
 - `/admin/users/[id]`
@@ -50,33 +48,34 @@ Pillars not run:   (none)
 - `/analytics`
 - `/application/attestation`
 - `/application/documents`
-- `/auth/register`
 - `/behavioral-health`
 - `/bots/exceptions`
 - `/bots/exceptions/[id]`
+- `/changelog`
 - `/cme`
-- `/committee`
 - `/committee/sessions/[id]`
 - `/committee/sessions/new`
 - `/compliance/[framework]`
 - `/compliance/[framework]/[id]`
+- `/cvo`
 - `/enrollments`
 - `/enrollments/[id]`
 - `/fsmb-pdc`
-- `/legal/cookies`
-- `/legal/hipaa`
-- `/legal/privacy`
 - `/medicaid`
 - `/medicaid/[id]`
 - `/medicaid/new`
 - `/monitoring`
 - `/peer-review`
 - `/peer-review/[id]`
+- `/pricing`
 - `/providers/[id]`
 - `/providers/[id]/bots`
 - `/reports`
 - `/reports/export`
+- `/sandbox`
 - `/scorecards`
+- `/settings/billing`
+- `/settings/compliance`
 - `/telehealth`
 - `/training`
 - `/verifications`
@@ -92,20 +91,36 @@ Pillars not run:   (none)
 - `GET /api/auth/[...nextauth]`
 - `POST /api/auth/[...nextauth]`
 - `POST /api/auth/register`
+- `POST /api/billing/checkout`
+- `POST /api/billing/portal`
+- `POST /api/billing/webhook`
+- `GET /api/compliance/auditor-package`
 - `GET /api/documents/[id]/download`
 - `GET /api/fhir/Endpoint`
 - `GET /api/fhir/Endpoint/[id]`
+- `GET /api/fhir/HealthcareService`
+- `GET /api/fhir/HealthcareService/[id]`
+- `GET /api/fhir/InsurancePlan`
+- `GET /api/fhir/InsurancePlan/[id]`
 - `GET /api/fhir/Location`
 - `GET /api/fhir/Location/[id]`
 - `GET /api/fhir/Organization`
 - `GET /api/fhir/Organization/[id]`
 - `GET /api/fhir/Practitioner/[id]`
+- `GET /api/fhir/Practitioner/[id]/$everything`
 - `GET /api/fhir/PractitionerRole`
 - `GET /api/fhir/PractitionerRole/[id]`
 - `GET /api/live`
 - `GET /api/metrics`
 - `GET /api/providers/[id]/audit-packet`
 - `GET /api/providers/[id]/cv.pdf`
+- `GET /api/sandbox/v1/fhir/metadata`
+- `GET /api/sandbox/v1/providers`
+- `POST /api/sandbox/v1/providers`
+- `PUT /api/sandbox/v1/providers`
+- `PATCH /api/sandbox/v1/providers`
+- `DELETE /api/sandbox/v1/providers`
+- `GET /api/sandbox/v1/providers/[id]`
 - `GET /api/trpc/[trpc]`
 - `POST /api/trpc/[trpc]`
 - `POST /api/upload`
@@ -315,6 +330,7 @@ Pillars not run:   (none)
 - `telehealth.deleteCert`
 - `telehealth.evaluateImlc`
 - `telehealth.listCerts`
+- `telehealth.syncExpirables`
 - `telehealth.updateImlcRecord`
 - `telehealth.upsertCert`
 - `training.create`

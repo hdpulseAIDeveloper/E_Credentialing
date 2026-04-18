@@ -21,7 +21,27 @@
   },
   {
     "href": "/",
+    "file": "src/app/changelog/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/",
+    "file": "src/app/cvo/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/",
     "file": "src/app/legal/layout.tsx",
+    "external": false
+  },
+  {
+    "href": "/",
+    "file": "src/app/pricing/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/",
+    "file": "src/app/sandbox/page.tsx",
     "external": false
   },
   {
@@ -91,7 +111,27 @@
   },
   {
     "href": "/auth/signin",
+    "file": "src/app/changelog/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/auth/signin",
+    "file": "src/app/cvo/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/auth/signin",
     "file": "src/app/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/auth/signin",
+    "file": "src/app/pricing/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/auth/signin",
+    "file": "src/app/sandbox/page.tsx",
     "external": false
   },
   {
@@ -102,6 +142,16 @@
   {
     "href": "/bots/exceptions/${v.id}",
     "file": "src/app/(staff)/bots/exceptions/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/changelog",
+    "file": "src/app/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/changelog.rss",
+    "file": "src/app/changelog/page.tsx",
     "external": false
   },
   {
@@ -147,6 +197,26 @@
   {
     "href": "/compliance/soc2",
     "file": "src/app/(staff)/compliance/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/cvo",
+    "file": "src/app/changelog/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/cvo",
+    "file": "src/app/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/cvo",
+    "file": "src/app/pricing/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/cvo",
+    "file": "src/app/sandbox/page.tsx",
     "external": false
   },
   {
@@ -205,6 +275,16 @@
     "external": false
   },
   {
+    "href": "/legal/cookies",
+    "file": "src/app/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/legal/hipaa",
+    "file": "src/app/page.tsx",
+    "external": false
+  },
+  {
     "href": "/legal/privacy",
     "file": "src/app/(provider)/application/attestation/page.tsx",
     "external": false
@@ -215,8 +295,18 @@
     "external": false
   },
   {
+    "href": "/legal/privacy",
+    "file": "src/app/page.tsx",
+    "external": false
+  },
+  {
     "href": "/legal/terms",
     "file": "src/app/(provider)/application/attestation/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/legal/terms",
+    "file": "src/app/page.tsx",
     "external": false
   },
   {
@@ -262,6 +352,31 @@
   {
     "href": "/peer-review/${m.id}",
     "file": "src/app/(staff)/peer-review/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/pricing",
+    "file": "src/app/changelog/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/pricing",
+    "file": "src/app/cvo/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/pricing",
+    "file": "src/app/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/pricing",
+    "file": "src/app/sandbox/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/pricing",
+    "file": "src/app/settings/billing/page.tsx",
     "external": false
   },
   {
@@ -470,6 +585,26 @@
     "external": false
   },
   {
+    "href": "/sandbox",
+    "file": "src/app/changelog/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/sandbox",
+    "file": "src/app/cvo/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/sandbox",
+    "file": "src/app/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/sandbox",
+    "file": "src/app/pricing/page.tsx",
+    "external": false
+  },
+  {
     "href": "/scorecards",
     "file": "src/app/(staff)/scorecards/page.tsx",
     "external": false
@@ -492,6 +627,11 @@
   {
     "href": "mailto:cred_onboarding@essenmed.com",
     "file": "src/app/(provider)/layout.tsx",
+    "external": true
+  },
+  {
+    "href": "mailto:cred_onboarding@essenmed.com",
+    "file": "src/app/changelog/page.tsx",
     "external": true
   }
 ]
