@@ -1,0 +1,157 @@
+{
+  "title": "E-Credentialing — Platform Health (Wave 4.1)",
+  "uid": "ecred-platform-health",
+  "schemaVersion": 39,
+  "tags": ["ecred", "cvo", "wave-4-1"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "queue",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(ecred_queue_jobs, queue)",
+        "refresh": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Open monitoring alerts",
+      "targets": [
+        {
+          "expr": "sum(ecred_monitoring_alerts_open)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 25 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Audit writes (24h)",
+      "targets": [{ "expr": "ecred_audit_log_writes_24h" }],
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Active providers",
+      "targets": [{ "expr": "ecred_providers_total" }],
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Process resident memory",
+      "targets": [{ "expr": "ecred_process_resident_memory_bytes" }],
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Scrape errors (last)",
+      "targets": [{ "expr": "ecred_metrics_scrape_errors_total" }],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "BullMQ queue depth by state",
+      "targets": [
+        {
+          "expr": "sum by (state) (ecred_queue_jobs{queue=~\"$queue\"})",
+          "legendFormat": "{{state}}"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "tRPC calls per second by result",
+      "targets": [
+        {
+          "expr": "sum by (result) (rate(ecred_trpc_calls_total[5m]))",
+          "legendFormat": "{{result}}"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "tRPC duration (avg ms) — top 10 paths",
+      "targets": [
+        {
+          "expr": "topk(10, sum by (path) (ecred_trpc_duration_ms) / sum by (path) (ecred_trpc_calls_total))",
+          "legendFormat": "{{path}}"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "AI decisions by terminal verdict",
+      "targets": [
+        {
+          "expr": "sum by (decision) (ecred_ai_decisions_total)",
+          "legendFormat": "{{decision}}"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Bot runs by status",
+      "targets": [
+        {
+          "expr": "sum by (status) (ecred_bot_runs_by_status)",
+          "legendFormat": "{{status}}"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 }
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Open monitoring alerts by severity",
+      "targets": [
+        {
+          "expr": "sum by (severity) (ecred_monitoring_alerts_open)",
+          "legendFormat": "{{severity}}"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 }
+    }
+  ]
+}

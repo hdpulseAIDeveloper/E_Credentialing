@@ -8,6 +8,11 @@ import { ZodError } from "zod";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import type { UserRole } from "@prisma/client";
+import {
+  captureException,
+  recordCounter,
+  recordHistogram,
+} from "@/lib/telemetry";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
@@ -41,6 +46,34 @@ const t = initTRPC.context<Context>().create({
 
 export const createCallerFactory = t.createCallerFactory;
 export const createTRPCRouter = t.router;
+
+// ─── Telemetry middleware (Wave 4.1) ─────────────────────────────────────────
+// Counts every procedure invocation and forwards exceptions to Sentry/AI.
+// Labels are kept low-cardinality (path + result) so the Prometheus
+// series count stays bounded.
+const telemetryMiddleware = t.middleware(async ({ path, type, next }) => {
+  const start = Date.now();
+  try {
+    const result = await next();
+    const labels = { path, type, result: result.ok ? "ok" : "error" };
+    recordCounter("ecred_trpc_calls_total", 1, labels);
+    recordHistogram("ecred_trpc_duration_ms", Date.now() - start, labels);
+    return result;
+  } catch (err) {
+    recordCounter("ecred_trpc_calls_total", 1, {
+      path,
+      type,
+      result: "throw",
+    });
+    recordHistogram("ecred_trpc_duration_ms", Date.now() - start, {
+      path,
+      type,
+      result: "throw",
+    });
+    captureException(err, { trpcPath: path, trpcType: type });
+    throw err;
+  }
+});
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 
@@ -80,23 +113,27 @@ const enforceUserHasRole = (roles: UserRole[]) =>
 // ─── Procedure Builders ───────────────────────────────────────────────────────
 
 /** Public procedure — no auth required */
-export const publicProcedure = t.procedure;
+export const publicProcedure = t.procedure.use(telemetryMiddleware);
 
 /** Protected procedure — requires any authenticated user */
-export const protectedProcedure = t.procedure.use(enforceUserIsAuthed);
+export const protectedProcedure = t.procedure
+  .use(telemetryMiddleware)
+  .use(enforceUserIsAuthed);
 
 /** Staff procedure — requires non-provider role */
-export const staffProcedure = t.procedure.use(
-  enforceUserHasRole(["SPECIALIST", "MANAGER", "COMMITTEE_MEMBER", "ADMIN"])
-);
+export const staffProcedure = t.procedure
+  .use(telemetryMiddleware)
+  .use(enforceUserHasRole(["SPECIALIST", "MANAGER", "COMMITTEE_MEMBER", "ADMIN"]));
 
 /** Manager procedure — requires MANAGER or ADMIN */
-export const managerProcedure = t.procedure.use(
-  enforceUserHasRole(["MANAGER", "ADMIN"])
-);
+export const managerProcedure = t.procedure
+  .use(telemetryMiddleware)
+  .use(enforceUserHasRole(["MANAGER", "ADMIN"]));
 
 /** Admin procedure — requires ADMIN */
-export const adminProcedure = t.procedure.use(enforceUserHasRole(["ADMIN"]));
+export const adminProcedure = t.procedure
+  .use(telemetryMiddleware)
+  .use(enforceUserHasRole(["ADMIN"]));
 
 // NOTE: There is intentionally no providerProcedure. Providers authenticate via
 // magic-link invite tokens (see src/lib/auth/provider-token.ts), not session

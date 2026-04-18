@@ -38,35 +38,62 @@ Workers carry `{ jobId, queue }` in their child logger.
 
 Container orchestrators (Azure Container Apps) should use `/api/live` for liveness and `/api/ready` for readiness.
 
-## Metrics (planned)
+## Metrics (Wave 4.1 — landed)
 
-Prometheus scrape endpoint at `/api/metrics`. Emitted:
+Prometheus scrape endpoint at `/api/metrics`. Auth: `Authorization: Bearer ${METRICS_BEARER_TOKEN}` in production; open in dev.
 
-- `http_requests_total{method,route,status}`
-- `http_request_duration_seconds` (histogram)
-- `bot_runs_total{bot_type,outcome}`
-- `bot_run_duration_seconds`
-- `queue_jobs_total{queue,status}`
-- `audit_entries_total{action}`
-- `encrypt_decrypt_errors_total`
+Currently emitted (text exposition):
 
-Implementation plan: add `prom-client`, wire middleware, scrape from Azure Monitor.
+- `ecred_process_resident_memory_bytes`, `ecred_process_heap_used_bytes`, `ecred_process_uptime_seconds`
+- `ecred_queue_jobs{queue,state}` — BullMQ depth across all queues
+- `ecred_monitoring_alerts_open{severity}` — open continuous-monitoring alerts
+- `ecred_bot_runs_total`, `ecred_bot_runs_by_status{status}`
+- `ecred_providers_total`
+- `ecred_audit_log_writes_24h`
+- `ecred_ai_decisions_total{decision}`
+- `ecred_metrics_scrape_errors_total`
+- `ecred_trpc_calls_total{path,type,result}` *(Wave 4.1)*
+- `ecred_trpc_duration_ms{path,type,result}` *(Wave 4.1)*
 
-## Distributed tracing (planned)
+The `ecred_trpc_*` series come from the in-process counter registry
+maintained by `src/lib/telemetry/index.ts`. Anything you record via
+`recordCounter()` / `recordHistogram()` automatically appears in the
+next scrape — no Prometheus client lib required for the basic case.
 
-OpenTelemetry SDK, OTLP exporter to Azure Monitor Application Insights.
-Spans from:
+When `prom-client` is installed in staging/prod (`npm i prom-client`)
+the registry will be replaced with the proper histogram-bucket
+implementation; the metric names and labels are stable.
 
-- HTTP requests (auto-instrumented via `@opentelemetry/instrumentation-http`)
-- Prisma (instrumentation package)
-- BullMQ (custom wrapper)
-- Playwright (custom wrapper; one span per bot)
+A pre-built Grafana dashboard ships at
+`infra/grafana/dashboards/ecred-platform-health.json` — see
+`infra/grafana/README.md` for provisioning steps.
 
+## Error tracking + APM (Wave 4.1 — landed)
+
+`src/lib/telemetry/index.ts` is the single integration point for
+Sentry and Azure Application Insights. Both SDKs are **lazy-loaded**:
+
+- Install in staging/prod only: `npm i @sentry/nextjs applicationinsights`
+- Set env vars: `SENTRY_DSN`, `APPLICATIONINSIGHTS_CONNECTION_STRING`
+- Next.js `instrumentation.ts.register()` calls `initTelemetry()`
+  on every Node-runtime cold start
+- The worker bootstrap (`src/workers/index.ts`) does the same with
+  `serviceName: "ecred-worker"` so Application Insights' cloud-role
+  filter splits app vs. worker dependency graphs.
+
+When SDKs aren't installed or env vars are unset, the wrapper degrades
+to a pure no-op (the in-process Prometheus registry still works). This
+keeps `npm run test` and local dev light.
+
+PHI safety: `captureException(err, context)` scrubs known PHI keys
+(`ssn`, `dob`, `mrn`, `personalEmail`, `mobilePhone`, etc.) from the
+context before forwarding to either sink.
+
+## Distributed tracing (planned, Wave 4.2)
+
+OpenTelemetry SDK, OTLP exporter to Azure Monitor / Tempo. Spans from
+HTTP requests, Prisma, BullMQ, Playwright (one span per bot run).
 Baggage: `providerId`, `botType`, `jobId`.
-
-## Error tracking (planned)
-
-Sentry with PHI scrubbing at the edge. `sentry.server.config.ts` and `sentry.client.config.ts`. `beforeSend` drops payload for HTTP bodies by default and applies the same redact list as `pino`.
 
 ## Logs in production
 

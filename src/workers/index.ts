@@ -389,6 +389,11 @@ app.get("/health", (_req: express.Request, res: express.Response) => {
 const WORKER_PORT = parseInt(process.env.BULL_BOARD_PORT ?? "6025", 10);
 app.listen(WORKER_PORT, () => {
   console.log(`[Worker] Bull Board running on http://localhost:${WORKER_PORT}/bull-board`);
+  // Wave 4.1 — initialize unified telemetry (Sentry + App Insights +
+  // Prometheus). Env-gated; no-op when SDKs/keys are absent.
+  void import("../lib/telemetry").then(({ initTelemetry }) =>
+    initTelemetry({ serviceName: "ecred-worker" }),
+  );
   scheduleJobs();
 });
 

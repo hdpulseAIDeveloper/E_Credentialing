@@ -23,6 +23,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { childLogger } from "@/lib/logger";
 import { psvBotQueue, enrollmentBotQueue, scheduledJobQueue } from "@/workers/queues";
+import { snapshotRegistry } from "@/lib/telemetry";
 
 const log = childLogger({ module: "metrics" });
 
@@ -235,6 +236,25 @@ async function gather(): Promise<MetricLine[]> {
     type: "counter",
     value: scrapeErrors,
   });
+
+  // Wave 4.1 — fold in the in-process telemetry registry so counters
+  // recorded via `recordCounter()` (e.g. tRPC procedure invocations,
+  // FHIR requests) show up in the same scrape.
+  try {
+    for (const m of snapshotRegistry()) {
+      out.push({
+        name: m.name,
+        help: m.help,
+        // Treat histograms as counters in the text exposition for now;
+        // proper histogram buckets land when prom-client is enabled.
+        type: m.type === "counter" ? "counter" : "gauge",
+        labels: m.labels,
+        value: m.value,
+      });
+    }
+  } catch (err) {
+    log.warn({ err }, "metrics: in-process registry snapshot failed");
+  }
 
   return out;
 }
