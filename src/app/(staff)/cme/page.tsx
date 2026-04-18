@@ -175,6 +175,15 @@ export default async function CmePage({
                       <Link href={`/providers/${r.id}?tab=cme`} className="text-sm text-blue-600 hover:underline">
                         Details
                       </Link>
+                      <span className="text-gray-300 mx-1">·</span>
+                      <a
+                        href={`/api/providers/${r.id}/cv.pdf`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm text-blue-600 hover:underline"
+                      >
+                        Download CV
+                      </a>
                     </td>
                   </tr>
                 ))

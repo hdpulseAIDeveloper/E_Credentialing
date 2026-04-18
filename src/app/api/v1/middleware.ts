@@ -100,6 +100,7 @@ export function requireScope(
  */
 export const API_SCOPES = [
   "providers:read",
+  "providers:cv",
   "sanctions:read",
   "enrollments:read",
   "fhir:read",

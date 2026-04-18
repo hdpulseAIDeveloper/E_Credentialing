@@ -2,7 +2,7 @@
 
 ```
 Routes covered:    11 of 60
-API cells covered: 5 of 34
+API cells covered: 5 of 36
 tRPC covered:      0 of 218
 Per-screen cards:  60 of 60
 Pillars touched:   A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R
@@ -105,12 +105,14 @@ Pillars not run:   (none)
 - `GET /api/live`
 - `GET /api/metrics`
 - `GET /api/providers/[id]/audit-packet`
+- `GET /api/providers/[id]/cv.pdf`
 - `GET /api/trpc/[trpc]`
 - `POST /api/trpc/[trpc]`
 - `POST /api/upload`
 - `GET /api/v1/enrollments`
 - `GET /api/v1/providers`
 - `GET /api/v1/providers/[id]`
+- `GET /api/v1/providers/[id]/cv.pdf`
 - `GET /api/v1/sanctions`
 - `POST /api/webhooks/exclusions`
 - `POST /api/webhooks/fsmb-pdc`

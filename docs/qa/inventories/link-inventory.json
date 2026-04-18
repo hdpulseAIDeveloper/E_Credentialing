@@ -70,6 +70,11 @@
     "external": false
   },
   {
+    "href": "/api/providers/${r.id}/cv.pdf",
+    "file": "src/app/(staff)/cme/page.tsx",
+    "external": false
+  },
+  {
     "href": "/auth/register",
     "file": "src/app/auth/signin/page.tsx",
     "external": false

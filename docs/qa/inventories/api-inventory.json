@@ -169,6 +169,14 @@
     "dynamic": true
   },
   {
+    "route": "/api/providers/[id]/cv.pdf",
+    "file": "src/app/api/providers/[id]/cv.pdf/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": true
+  },
+  {
     "route": "/api/ready",
     "file": "src/app/api/ready/route.ts",
     "methods": [
@@ -220,6 +228,14 @@
   {
     "route": "/api/v1/providers/[id]",
     "file": "src/app/api/v1/providers/[id]/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": true
+  },
+  {
+    "route": "/api/v1/providers/[id]/cv.pdf",
+    "file": "src/app/api/v1/providers/[id]/cv.pdf/route.ts",
     "methods": [
       "GET"
     ],
