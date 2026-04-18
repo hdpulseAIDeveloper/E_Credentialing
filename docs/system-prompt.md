@@ -546,7 +546,7 @@ ALLOW_DEPLOY=1
 For the comprehensive test strategy and per-module test cases see
 [qa/test-strategy.md](qa/test-strategy.md), [qa/unit-testing.md](qa/unit-testing.md),
 [qa/functional-testing.md](qa/functional-testing.md), and
-[qa/uat-criteria.md](qa/uat-criteria.md).
+[qa/uat-plan.md](qa/uat-plan.md).
 
 ---
 

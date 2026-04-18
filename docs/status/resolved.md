@@ -13,8 +13,7 @@ When you mark a blocker resolved here, also remove it from
 
 ### Wave 0 unblock pass (2026-04-18)
 
-The Wave 0 of the
-[unblock + commercialize plan](../../.cursor/plans/unblock_+_commercialize_ecred_9d024374.plan.md)
+The Wave 0 of the local "unblock + commercialize" Cursor plan
 authored a complete prod-ops automation toolkit under
 [`scripts/ops/`](../../scripts/ops/), [`scripts/azure/`](../../scripts/azure/),
 [`scripts/seed/`](../../scripts/seed/), and

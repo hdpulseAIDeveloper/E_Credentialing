@@ -3,7 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-04-18
 **Deciders:** Engineering (autonomous lock-in per user directive 2026-04-18)
-**Related:** Wave 5.1 in [`unblock_+_commercialize_ecred_9d024374.plan.md`](../../../.cursor/plans/unblock_+_commercialize_ecred_9d024374.plan.md)
+**Related:** Wave 5.1 in the local Cursor plan
+`unblock_+_commercialize_ecred` (multi-tenancy shim implementation).
 
 ## Context
 

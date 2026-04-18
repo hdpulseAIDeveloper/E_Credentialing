@@ -23,7 +23,7 @@ activation**, **operational hardening**, **organizational rollout**, and
 | 5 | Optimization & Roadmap | Nov 2026 → ongoing | Planned |
 
 Phases 2–5 below contain explicit tasks, owners, dependencies, and acceptance
-criteria. Use the [pm/status-reports.md](pm/status-reports.md) template to
+criteria. Use the [pm/status-reporting.md](pm/status-reporting.md) template to
 report against this plan every Friday.
 
 ---
@@ -47,7 +47,7 @@ Delivered in April 2026. Outcomes:
 
 Detailed Phase 1 deliverables are preserved in
 [planning/scope.md](planning/scope.md) and the prior implementation plan now
-mirrored at [pm/development-plan.md](pm/development-plan.md).
+mirrored in the `docs/pm/` PM artifacts (charter, status reporting, decision log).
 
 ---
 
@@ -290,7 +290,7 @@ The full register is maintained in [pm/risk-register.md](pm/risk-register.md).
 - **Project Manager:** Credentialing Manager.
 - **Technical Lead:** Lead Developer.
 - **Status reporting:** Weekly, every Friday, using the
-  [pm/status-reports.md](pm/status-reports.md) template, distributed to all
+  [pm/status-reporting.md](pm/status-reporting.md) template, distributed to all
   stakeholders.
 - **Steering Committee:** Monthly, Phases 2–4.
 - **Go/No-Go decision points:** End of Phase 2 (proceed to pilot), End of

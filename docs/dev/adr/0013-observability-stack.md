@@ -5,8 +5,9 @@
 **Deciders:** Engineering (autonomous lock-in per user directive 2026-04-18)
 **Supersedes:** none
 **Related:** [ADR 0010](./0010-pino-redaction.md) (logger redaction), the
-existing `/api/metrics` Prometheus endpoint, the wave-4 telemetry todo
-in [`unblock_+_commercialize_ecred_9d024374.plan.md`](../../../.cursor/plans/unblock_+_commercialize_ecred_9d024374.plan.md).
+existing `/api/metrics` Prometheus endpoint, and the wave-4 telemetry
+todo tracked in the local Cursor plan
+`unblock_+_commercialize_ecred` (Wave 4.1 telemetry).
 
 ## Context
 

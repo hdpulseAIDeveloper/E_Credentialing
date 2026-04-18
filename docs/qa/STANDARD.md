@@ -403,5 +403,5 @@ even if every spec is green.
    `~/.cursor/rules/qa-standard-global.mdc` so all agents see the new version.
 
 Reference plan that this standard operationalizes:
-[`browser-based_qa_layer` plan](../testing/qa-test-plan.md) (mirrored in the
-repo from the working plan in `~/.cursor/plans/`).
+[testing strategy](../testing/strategy.md) and [E2E plan](../testing/e2e-plan.md).
+The original `browser-based_qa_layer` working plan lives in `~/.cursor/plans/`.

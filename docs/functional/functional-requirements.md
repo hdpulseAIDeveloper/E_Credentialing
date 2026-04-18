@@ -496,7 +496,7 @@ follow.
 
 > Note for QA: every module's per-screen tests live under
 > [qa/functional-testing.md](../qa/functional-testing.md). Every UAT scenario
-> lives under [qa/uat-criteria.md](../qa/uat-criteria.md). The Master Test
+> lives under [qa/uat-plan.md](../qa/uat-plan.md). The Master Test
 > Plan workbook ([testing/](../testing/README.md)) consolidates 250+ rows across
 > modules.
 

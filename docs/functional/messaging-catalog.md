@@ -86,7 +86,7 @@ useful.
 | `session.expired` | `destructive` | "Your session expired. Please sign in again." |
 | `provider.token.expired` | `warning` | "This invite link has expired. Contact your credentialing specialist for a new one." |
 | `provider.token.revoked` | `warning` | "This invite link is no longer valid (a newer link was sent or your application was already submitted)." |
-| `compliance.gap` | `caution` | "{Count} compliance items need your attention. Open the [Compliance dashboard](/compliance)." |
+| `compliance.gap` | `caution` | "{Count} compliance items need your attention. Open the Compliance dashboard at `/compliance`." |
 | `bot.outage` | `destructive` | "{Bot type} is currently offline. New runs will queue and retry." |
 | `system.maintenance` | `info` | "Scheduled maintenance from {start} to {end}. Some features may be unavailable." |
 

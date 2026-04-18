@@ -34,7 +34,7 @@ Setting the env var to `true` without a real implementation in `src/workers/bots
 
 ## Related code
 
-- [src/workers/bots/npdb-query.ts](../src/workers/bots/npdb-query.ts) — bot implementation
-- [src/components/bots/BotStatusPanel.tsx](../src/components/bots/BotStatusPanel.tsx) — UI banner
-- [docs/competitive-gap-analysis.md](competitive-gap-analysis.md) — gap registry (P0 #1)
-- [docs/planning/open-questions.md](planning/open-questions.md) — Q7 NPDB credentials
+- [src/workers/bots/npdb-query.ts](../../../src/workers/bots/npdb-query.ts) — bot implementation
+- [src/components/bots/BotStatusPanel.tsx](../../../src/components/bots/BotStatusPanel.tsx) — UI banner
+- [docs/archive/legacy-md/competitive-gap-analysis.md](../../archive/legacy-md/competitive-gap-analysis.md) — gap registry (P0 #1)
+- `docs/planning/open-questions.md` — Q7 NPDB credentials (see `docs/planning/integrations.md`)

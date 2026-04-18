@@ -44,7 +44,7 @@ every foreground/background pair the app renders. See the card for
 the full ratio table and the `npm run qa:a11y:palette` verifier.
 
 DEF-INFRA-0001 was fully closed on 2026-04-18 by Wave 1.1 of the
-[unblock + commercialize plan](../../../.cursor/plans/unblock_+_commercialize_ecred_9d024374.plan.md).
+local "unblock + commercialize" Cursor plan.
 The fix is `npm run qa:e2e:prod` — `scripts/qa/e2e-prod-bundle.mjs`
 orchestrates `npm run build` → `npm start` → wait-for-`/api/health` →
 `playwright test --config=playwright.prod.config.ts` → kill server,

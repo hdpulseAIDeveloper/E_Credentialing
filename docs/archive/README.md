@@ -15,7 +15,7 @@ Markdown files superseded by the audience-organized structure.
 | `functional.md` | [functional/](../functional/README.md) — full FRD + per-screen detail |
 | `technical.md` | [technical/](../technical/README.md) — TRD + architecture + data model + security + ops |
 | `requirements.md` | [functional/business-requirements.md](../functional/business-requirements.md) + [technical/technical-requirements.md](../technical/technical-requirements.md) |
-| `implementation-plan.md` | [development-plan.md](../development-plan.md) — REQUIRED |
+| `implementation-plan.md` (legacy) | superseded by [development-plan.md](../development-plan.md) — REQUIRED |
 | `deployment-plan.md` | [technical/deployment-and-operations.md](../technical/deployment-and-operations.md) |
 | `user-training.md` | [training/](../training/README.md) + per-role pages |
 | `competitive-gap-analysis.md` | [product/market-analysis.md](../product/market-analysis.md) |

@@ -18,6 +18,9 @@
 ## Companion documents
 
 - [Development Plan](../development-plan.md) — phased delivery plan (REQUIRED).
-- [Implementation Plan](../implementation-plan.md) — earlier reference; superseded by the Development Plan but retained for traceability.
+- The earlier "Implementation Plan" was superseded by the
+  [Development Plan](../development-plan.md). Retained note: the
+  legacy file lives under [docs/archive/](../archive/) for
+  traceability.
 - [status/](../status/) — point-in-time status snapshots.
 - [planning/](../planning/) — original scope, integrations, milestones.
