@@ -37,7 +37,7 @@ jobs:
       REDIS_URL: redis://localhost:6379
       NEXT_PUBLIC_APP_URL: http://localhost:6015
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -86,7 +86,7 @@ jobs:
       ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
       NEXT_PUBLIC_APP_URL: http://localhost:6015
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
