@@ -2,11 +2,16 @@ import { NextResponse } from "next/server";
 import { FHIR_CONTENT_TYPE } from "@/lib/fhir/helpers";
 
 /**
- * P2 Gap #16 — FHIR R4 CapabilityStatement.
+ * P2 Gap #16 / Wave 3.3 — FHIR R4 CapabilityStatement.
  *
  * Required by CMS-0057-F so consumers can discover what resources and
  * search parameters this provider directory supports. Conforms to the
  * DaVinci PDex Plan-Net IG.
+ *
+ * Wave 3.3 additions:
+ *   - HealthcareService (derived from DirectoryPractitionerRole tuples)
+ *   - InsurancePlan (derived from APPROVED Enrollment.payerName)
+ *   - Practitioner $everything operation
  *
  * The `/metadata` endpoint is intentionally **unauthenticated** — every
  * FHIR server must expose its capabilities publicly so clients can
@@ -19,19 +24,22 @@ const APP_URL = (
   "http://localhost:6015"
 ).replace(/\/+$/, "");
 
+const PUBLISHED_DATE = "2026-04-18";
+const SOFTWARE_VERSION = "1.1.0"; // Wave 3.3 bump.
+
 export async function GET() {
   const capability = {
     resourceType: "CapabilityStatement",
     status: "active",
-    date: "2026-04-16",
+    date: PUBLISHED_DATE,
     publisher: "Essen Medical Associates",
     kind: "instance",
     software: {
       name: "Essen Credentialing Platform",
-      version: "1.0.0",
+      version: SOFTWARE_VERSION,
     },
     implementation: {
-      description: "Essen Credentialing FHIR R4 Provider Directory",
+      description: "Essen Credentialing FHIR R4 Provider Directory (CVO platform)",
       url: `${APP_URL}/api/fhir`,
     },
     fhirVersion: "4.0.1",
@@ -67,6 +75,13 @@ export async function GET() {
               { name: "name", type: "string" },
               { name: "_count", type: "number" },
               { name: "_offset", type: "number" },
+            ],
+            operation: [
+              {
+                name: "everything",
+                definition:
+                  "http://hl7.org/fhir/OperationDefinition/Practitioner-everything",
+              },
             ],
           },
           {
@@ -107,6 +122,24 @@ export async function GET() {
               "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/plannet-Endpoint",
             interaction: [{ code: "read" }, { code: "search-type" }],
             searchParam: [{ name: "organization", type: "reference" }],
+          },
+          {
+            type: "HealthcareService",
+            profile:
+              "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/plannet-HealthcareService",
+            interaction: [{ code: "read" }, { code: "search-type" }],
+            searchParam: [
+              { name: "organization", type: "reference" },
+              { name: "location", type: "reference" },
+              { name: "specialty", type: "token" },
+            ],
+          },
+          {
+            type: "InsurancePlan",
+            profile:
+              "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/plannet-InsurancePlan",
+            interaction: [{ code: "read" }, { code: "search-type" }],
+            searchParam: [{ name: "name", type: "string" }],
           },
         ],
       },

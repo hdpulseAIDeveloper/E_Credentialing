@@ -65,6 +65,38 @@
     "dynamic": true
   },
   {
+    "route": "/api/fhir/HealthcareService",
+    "file": "src/app/api/fhir/HealthcareService/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/fhir/HealthcareService/[id]",
+    "file": "src/app/api/fhir/HealthcareService/[id]/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": true
+  },
+  {
+    "route": "/api/fhir/InsurancePlan",
+    "file": "src/app/api/fhir/InsurancePlan/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": false
+  },
+  {
+    "route": "/api/fhir/InsurancePlan/[id]",
+    "file": "src/app/api/fhir/InsurancePlan/[id]/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": true
+  },
+  {
     "route": "/api/fhir/Location",
     "file": "src/app/api/fhir/Location/route.ts",
     "methods": [
@@ -115,6 +147,14 @@
   {
     "route": "/api/fhir/Practitioner/[id]",
     "file": "src/app/api/fhir/Practitioner/[id]/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": true
+  },
+  {
+    "route": "/api/fhir/Practitioner/[id]/$everything",
+    "file": "src/app/api/fhir/Practitioner/[id]/$everything/route.ts",
     "methods": [
       "GET"
     ],
