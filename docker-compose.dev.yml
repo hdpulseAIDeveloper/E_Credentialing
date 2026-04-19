@@ -49,6 +49,25 @@ services:
       # Mount the route inventory so the dev warmer (scripts/dev/warm-routes.mjs)
       # can pre-compile every static route, not just its hard-coded fallback list.
       - ./docs/qa/inventories:/app/docs/qa/inventories
+      # Runtime-read documentation that the deployed bundle opens via
+      # `process.cwd()`-relative `readFile`. These paired bind mounts
+      # are the dev-side half of the DEF-0012 fix; the prod-side half
+      # is the corresponding `!docs/<X>/**` un-excludes in
+      # `.dockerignore`. Adding any new `process.cwd()` read of
+      # `docs/<NEW>` from `src/**` MUST add a paired entry in BOTH
+      # files. See `.dockerignore` for the full anti-weakening rule.
+      - ./docs/changelog:/app/docs/changelog
+      - ./docs/api:/app/docs/api
+      - ./docs/planning:/app/docs/planning
+      # `data/` houses runtime-read build artifacts (currently the
+      # auto-generated Postman collection at data/api/v1/postman.json,
+      # served by `src/app/api/v1/postman.json/route.ts` with Wave 17
+      # ETag + Content-Disposition handling). Distinct from `public/`
+      # because Next.js's static-file server would shadow the route
+      # handler if the artifact lived under `public/api/v1/`
+      # (DEF-0013, fixed in the same commit). `data/` is NOT in
+      # .dockerignore so the prod image picks it up automatically.
+      - ./data:/app/data
       - ./next.config.mjs:/app/next.config.mjs
       - ./tailwind.config.ts:/app/tailwind.config.ts
       - ./tsconfig.json:/app/tsconfig.json

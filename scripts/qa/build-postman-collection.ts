@@ -3,7 +3,7 @@
  *
  * Wave 11 (2026-04-18). Converts `docs/api/openapi-v1.yaml` into a
  * Postman Collection v2.1.0 JSON document and writes it to
- * `public/api/v1/postman.json`. Customers download the collection,
+ * `data/api/v1/postman.json`. Customers download the collection,
  * import into Postman/Insomnia/Bruno, and have every documented
  * endpoint pre-wired with auth, params, and example bodies.
  *
@@ -19,9 +19,14 @@
  * - The collection MUST use a Postman *variable* for the base URL
  *   (`{{base_url}}`) so customers point it at staging/prod by
  *   editing one field.
- * - The script writes to `public/api/v1/postman.json`, NOT to
- *   `docs/api/`. The contract is "Next.js serves it" — the file is
- *   a build artifact, not source documentation.
+ * - The script writes to `data/api/v1/postman.json`, NOT to
+ *   `docs/api/` and NOT to `public/api/v1/`. The contract is "the
+ *   route handler at `src/app/api/v1/postman.json/route.ts` serves
+ *   it with ETag + Content-Disposition" — putting the file in
+ *   `public/` would create a Next.js static-vs-route conflict at
+ *   the same URL and 500 every download (DEF-0013, fixed in the
+ *   same commit). The file is a build artifact, not source
+ *   documentation.
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
@@ -96,7 +101,7 @@ interface PostmanCollection {
 
 const REPO_ROOT = process.cwd();
 const SPEC_PATH = join(REPO_ROOT, "docs", "api", "openapi-v1.yaml");
-const OUT_PATH = join(REPO_ROOT, "public", "api", "v1", "postman.json");
+const OUT_PATH = join(REPO_ROOT, "data", "api", "v1", "postman.json");
 
 const HTTP_METHODS = new Set([
   "get",

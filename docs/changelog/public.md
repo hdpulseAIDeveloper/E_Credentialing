@@ -17,6 +17,31 @@ Anti-weakening: never delete a release. Strike-through a published
 note instead and add a follow-up release if the underlying claim
 turned out to be incorrect.
 
+## 2026-04-19 — v1.15.1 (Operations)
+
+### Fixed
+- **Public-API onboarding artifacts now ship correctly.** Three
+  customer-facing surfaces that had been quietly broken in the
+  deployed image are now live and validated end-to-end on every
+  build:
+  - `/changelog` (this page) and its `/changelog.rss` feed —
+    previously returned HTTP 500 because the deployed bundle
+    couldn't see the changelog markdown source.
+  - `/api/v1/openapi.yaml` — the YAML mirror of the OpenAPI 3.1
+    specification, used by code generators and import tools that
+    prefer YAML over JSON. Now serves the canonical 59 KB spec.
+  - `/api/v1/postman.json` — the auto-generated Postman v2.1.0
+    collection covering every documented v1 operation, with
+    `Content-Disposition` header so it lands in your downloads
+    folder with a sensible filename. ETag-cacheable so repeated
+    polls cost zero bytes when nothing has changed.
+- **Reproducibility:** every PR now runs an HTTP-only "Live Stack"
+  smoke gate that fetches each of these surfaces against the
+  deployed dev stack and fails the gate if any returns anything
+  other than HTTP 200 with the expected content type and a
+  non-trivial body. Regressions to "the artifact is missing"
+  or "the artifact is empty" can no longer ship to production.
+
 ## 2026-04-19 — v1.15.0 (API)
 
 ### Added

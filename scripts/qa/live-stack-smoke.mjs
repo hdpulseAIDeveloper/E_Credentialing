@@ -50,6 +50,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -416,6 +417,54 @@ async function surfaceAnonymous() {
     }
     record("5.public", `/errors/${code}`, "pass", "200 (DEF-0007 invariant)");
   }
+
+  // Public API artifact spot-checks — these aren't App Router pages
+  // (they don't have a <main> landmark) but they ARE part of the
+  // commercial public surface: the customer journey on /sandbox
+  // links to all four. A 500 here breaks the public-API value
+  // proposition. Validates content type + non-empty body to catch
+  // the DEF-0012 class (silently empty docs/) and the DEF-0013
+  // class (Next.js public-vs-route URL collision).
+  const apiArtifacts = [
+    { url: "/api/v1/openapi.json",  ctype: /^application\/json/, minBytes: 10000 },
+    { url: "/api/v1/openapi.yaml",  ctype: /^application\/yaml|^text\/yaml/, minBytes: 10000 },
+    { url: "/api/v1/postman.json",  ctype: /^application\/json/, minBytes: 5000 },
+    { url: "/changelog.rss",        ctype: /^application\/rss\+xml/, minBytes: 500 },
+  ];
+  for (const probe of apiArtifacts) {
+    const url = `${BASE_URL}${probe.url}`;
+    let res;
+    try {
+      res = await fetch(url, { redirect: "manual" });
+    } catch (e) {
+      record("5.public", probe.url, "fail", `fetch threw: ${e.message}`);
+      allGreen = false;
+      continue;
+    }
+    if (res.status !== 200) {
+      record("5.public", probe.url, "fail",
+        `expected 200, got ${res.status} (DEF-0012/0013 class: docs/ excluded from image OR public-vs-route URL collision)`);
+      allGreen = false;
+      continue;
+    }
+    const ctype = res.headers.get("content-type") ?? "";
+    if (!probe.ctype.test(ctype)) {
+      record("5.public", probe.url, "fail",
+        `wrong Content-Type: got "${ctype}", expected match ${probe.ctype}`);
+      allGreen = false;
+      continue;
+    }
+    const body = await res.text();
+    if (body.length < probe.minBytes) {
+      record("5.public", probe.url, "fail",
+        `body suspiciously small (${body.length} bytes < ${probe.minBytes}); empty-artifact tripwire`);
+      allGreen = false;
+      continue;
+    }
+    record("5.public", probe.url, "pass",
+      `200 ${ctype.split(";")[0]} (${body.length} bytes)`);
+  }
+
   return allGreen;
 }
 
@@ -437,15 +486,37 @@ function surfaceVersionPin() {
     return;
   }
 
-  // Compare on-disk prisma/schema.prisma to the running container's
-  // node_modules/.prisma/client/schema.prisma. Drift = stale node_modules
-  // volume.
+  // Compare the host's GENERATED prisma client schema to the
+  // container's GENERATED prisma client schema (both at
+  // `node_modules/.prisma/client/schema.prisma`, which is the
+  // normalized post-`prisma generate` representation). When they
+  // diverge the named `ecred_web_node_modules` volume is shadowing
+  // a stale prisma client — exactly the DEF-0009 failure mode.
+  //
+  // Why NOT compare host `prisma/schema.prisma` (source) to
+  // container `node_modules/.prisma/client/schema.prisma` (generated):
+  // prisma reformats the source on generate (header/footer comments,
+  // generator block normalization, whitespace), so source vs
+  // generated is APPLES-TO-ORANGES and would always false-positive.
+  // The two generated copies, however, are byte-identical when both
+  // were produced from the same source by the same prisma version.
+  //
+  // When the host has no `node_modules/` (clean CI checkout, or
+  // someone ran `npm prune` recently), this surface degrades to
+  // a NOTRUN with a clear remediation hint instead of a false fail.
+  const hostClientPath = join(REPO_ROOT, "node_modules", ".prisma", "client", "schema.prisma");
   let onDiskHash = "";
-  try {
-    const sch = readFileSync(join(REPO_ROOT, "prisma", "schema.prisma"), "utf8");
-    onDiskHash = require("node:crypto").createHash("sha1").update(sch).digest("hex").slice(0, 12);
-  } catch (e) {
-    record("6.version", "schema.prisma sha1", "warn", e.message);
+  if (existsSync(hostClientPath)) {
+    try {
+      const sch = readFileSync(hostClientPath, "utf8");
+      onDiskHash = createHash("sha1").update(sch).digest("hex").slice(0, 12);
+    } catch (e) {
+      record("6.version", "host prisma client", "warn", e.message);
+      return;
+    }
+  } else {
+    record("6.version", "named-volume staleness", "notrun",
+      "host has no node_modules/.prisma/client/ — run `npm install` on the host first to enable host↔container drift comparison");
     return;
   }
   let containerHash = "";
@@ -468,11 +539,13 @@ function surfaceVersionPin() {
   }
   if (containerHash !== onDiskHash) {
     record("6.version", "named-volume staleness", "fail",
-      `container schema.prisma sha1=${containerHash} vs on-disk ${onDiskHash}; ` +
-      `run \`docker volume rm e_credentialing_ecred_web_node_modules e_credentialing_ecred_web_next_cache && docker compose -f docker-compose.dev.yml up -d ecred-web\``);
+      `container generated client sha1=${containerHash} vs host generated client sha1=${onDiskHash}; ` +
+      `the named ecred_web_node_modules volume is shadowing a stale prisma client (DEF-0009 class). ` +
+      `Fix: \`docker compose -f docker-compose.dev.yml exec ecred-web npx prisma generate\` to regenerate inside the container, ` +
+      `OR \`docker volume rm e_credentialing_ecred_web_node_modules e_credentialing_ecred_web_next_cache && docker compose -f docker-compose.dev.yml up -d ecred-web\` for a fresh install.`);
   } else {
     record("6.version", "named-volume staleness", "pass",
-      `container prisma client schema.prisma sha1=${containerHash} matches on-disk`);
+      `host & container prisma client schema.prisma sha1=${containerHash} match — no DEF-0009-class drift`);
   }
 }
 

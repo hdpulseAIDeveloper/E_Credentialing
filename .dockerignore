@@ -16,4 +16,35 @@ tsconfig.tsbuildinfo
 .vscode
 .idea
 README.md
-docs
+
+# docs/ is mostly heavy internal documentation (qa, dev, functional,
+# technical, training, archive, product, ...) that the deployed bundle
+# does NOT read. Excluded from the image to keep it small.
+#
+# However, three subtrees are read by the running app at request time
+# and MUST ship in the image, or the corresponding routes return 500:
+#   - docs/changelog/  — src/lib/changelog/loader.ts → /changelog page
+#   - docs/api/        — src/app/api/v1/openapi.{json,yaml}/route.ts
+#                        and the public-API documentation links from
+#                        /sandbox + /api/v1/openapi.json
+#   - docs/planning/   — src/lib/ai/knowledge-base.ts (RAG corpus for
+#                        the conversational assistants)
+#
+# This is the structural fix for DEF-0012 (the dockerignore
+# previously dropped ALL of docs/, hidden in production by DEF-0008's
+# blanket /changelog → /auth/signin redirect; closing DEF-0008 made
+# the 500 visible to Pillar S on the very first run).
+#
+# Anti-weakening (per `src/lib/public-routes.ts` + ADR 0028): adding
+# any new `process.cwd()`-relative read of `docs/<X>` from `src/**`
+# REQUIRES a paired `!docs/<X>/**` un-exclude here AND a Pillar S
+# spec that probes the corresponding route. Hand-maintained
+# divergence between this file and the runtime loaders is a §4.2
+# violation and grounds for revert.
+docs/**
+!docs/changelog/
+!docs/changelog/**
+!docs/api/
+!docs/api/**
+!docs/planning/
+!docs/planning/**

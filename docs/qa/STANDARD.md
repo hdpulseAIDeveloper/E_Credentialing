@@ -630,6 +630,82 @@ violation of this standard even if every spec is green.
     qa:coverage && qa:migrations && qa:live-stack && sdk:check &&
     postman:check`. The static-only path is no longer green by itself.
 
+### 10.3 2026-04-19 — Public-API delivery surface broken in the deployed image (DEF-0012, DEF-0013)
+
+- **Symptom:** Closing DEF-0008 lifted the blanket
+  `/auth/signin` redirect on `/changelog` and the page
+  immediately 500'd. Adding artifact probes for the four public-API
+  delivery surfaces to Pillar S Surface 5
+  (`/api/v1/openapi.json`, `/api/v1/openapi.yaml`,
+  `/api/v1/postman.json`, `/changelog.rss`) caused
+  `/api/v1/postman.json` to surface a separate 500. Both
+  failures had been invisible in production for multiple waves.
+- **Root cause (two stacked):**
+  1. **DEF-0012:** `.dockerignore` carried a blanket `docs`
+     exclude. The image build (`Dockerfile.web` `COPY . .`)
+     silently dropped the entire `docs/` tree, so the runtime
+     markdown loader at `src/lib/changelog/loader.ts`,
+     the OpenAPI delivery routes at
+     `src/app/api/v1/openapi.{json,yaml}/route.ts`, and the AI
+     knowledge-base loader at `src/lib/ai/knowledge-base.ts`
+     all failed to read their `process.cwd()`-relative
+     `docs/<X>` source files. `/changelog` was the visible
+     symptom; the OpenAPI YAML mirror and the AI corpus were
+     silently degraded for months.
+  2. **DEF-0013:** `scripts/qa/build-postman-collection.ts`
+     wrote the auto-generated Postman collection to
+     `public/api/v1/postman.json`. A subsequent wave added a
+     route handler at `src/app/api/v1/postman.json/route.ts`
+     to layer on Wave 17's ETag/conditional-GET and a
+     `Content-Disposition` header for nicer downloads. Both
+     mapped to the same URL; Next.js refused to choose and
+     returned the
+     `https://nextjs.org/docs/messages/conflicting-public-file-page`
+     500 on every download. The Wave 17 author did not see
+     the conflict because no contract test fetched the route
+     over HTTP — Pillar J's existing
+     `tests/contract/pillar-j-postman.spec.ts` validated only
+     the on-disk JSON contents.
+- **Why the existing pillars did not catch them:**
+  - DEF-0012 was hidden by DEF-0008's middleware redirect
+    (no anonymous request ever reached the page-render
+    code path) plus the contract gates running against the
+    on-disk OpenAPI source rather than the served HTTP
+    response.
+  - DEF-0013 was invisible because no pillar probed the
+    Postman collection over HTTP — only the on-disk JSON
+    contract was tested. The earlier Pillar S Surface 5
+    iterated `route-inventory.json` public routes but did
+    NOT include the four public-API artifact URLs, which
+    are NOT App Router pages (they don't appear in the
+    inventory).
+- **Standard response (no version bump — same release as 1.2.0):**
+  - **Pillar S Surface 5 hardening:** added explicit probes for
+    `/api/v1/openapi.json`, `/api/v1/openapi.yaml`,
+    `/api/v1/postman.json`, `/changelog.rss` — each
+    asserting HTTP 200 + correct `Content-Type` prefix +
+    non-trivial body size. This catches both classes
+    structurally:
+    - "image ships but artifact source is missing"
+      (DEF-0012 class) → 500 or empty body → fail
+    - "two routes resolve to the same URL"
+      (DEF-0013 class) → Next.js conflicting-public-file-page
+      500 → fail
+  - **`.dockerignore` anti-weakening rule:** the file now
+    carries an inline rule binding any new
+    `process.cwd()`-relative `docs/<X>` read from `src/**` to
+    a paired `!docs/<X>/**` un-exclude AND a Pillar S probe.
+  - **`scripts/qa/build-postman-collection.ts` anti-weakening rule:**
+    expanded to forbid writing to `public/api/v1/`. The
+    new home for runtime-read build artifacts is `data/`.
+  - **Surface 6 fix:** the named-volume staleness probe now
+    compares `node_modules/.prisma/client/schema.prisma`
+    on host vs container (apples-to-apples, both
+    post-`prisma generate` normalized form) instead of the
+    earlier source-vs-generated comparison that always
+    false-positived. Also fixed an ESM `require()` regression
+    in the same probe.
+
 ---
 
 ## 11. How to evolve this standard

@@ -2,7 +2,7 @@
  * Pillar J — Postman collection parity contract.
  *
  * Wave 11 (2026-04-18). The auto-generated Postman v2.1.0 collection
- * at `public/api/v1/postman.json` MUST cover every operation in
+ * at `data/api/v1/postman.json` MUST cover every operation in
  * `docs/api/openapi-v1.yaml`. This test:
  *
  *   1. Asserts the generator produces a Postman v2.1.0 schema URI.
@@ -28,7 +28,7 @@ import * as yaml from "js-yaml";
 import { GET as getPostman } from "../../src/app/api/v1/postman.json/route";
 
 const SPEC_PATH = join(process.cwd(), "docs", "api", "openapi-v1.yaml");
-const COLLECTION_PATH = join(process.cwd(), "public", "api", "v1", "postman.json");
+const COLLECTION_PATH = join(process.cwd(), "data", "api", "v1", "postman.json");
 
 const SPEC = yaml.load(readFileSync(SPEC_PATH, "utf-8")) as {
   paths: Record<string, Record<string, unknown>>;

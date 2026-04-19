@@ -5,12 +5,12 @@
  * the Postman collection in memory from the current OpenAPI spec
  * and compares (deep-equal, ignoring the `_postman_id` field which
  * Postman auto-injects) against the checked-in
- * `public/api/v1/postman.json`. Non-zero exit on any drift.
+ * `data/api/v1/postman.json`. Non-zero exit on any drift.
  *
  * Anti-weakening
  * --------------
  * - Drift fix is ALWAYS `npm run postman:gen` then commit. NEVER
- *   hand-edit `public/api/v1/postman.json`.
+ *   hand-edit `data/api/v1/postman.json`.
  * - The script ignores `info._postman_id` (Postman injects this on
  *   import; the generator deliberately doesn't emit it). All other
  *   keys are deep-compared.
@@ -21,7 +21,7 @@ import { join } from "node:path";
 import { build } from "./build-postman-collection";
 
 const REPO_ROOT = process.cwd();
-const COMMITTED = join(REPO_ROOT, "public", "api", "v1", "postman.json");
+const COMMITTED = join(REPO_ROOT, "data", "api", "v1", "postman.json");
 
 function stripVolatile(c: unknown): unknown {
   if (!c || typeof c !== "object") return c;
@@ -41,7 +41,7 @@ function main(): number {
   } catch (err) {
     console.error(
       `postman:check ERROR — cannot read ${COMMITTED}: ${(err as Error).message}\n` +
-        "Fix:  npm run postman:gen && git add public/api/v1/postman.json",
+        "Fix:  npm run postman:gen && git add data/api/v1/postman.json",
     );
     return 2;
   }
@@ -53,7 +53,7 @@ function main(): number {
 
   if (a === b) {
     console.log(
-      "postman:check OK — public/api/v1/postman.json matches the spec.",
+      "postman:check OK — data/api/v1/postman.json matches the spec.",
     );
     return 0;
   }
@@ -65,10 +65,10 @@ function main(): number {
       "",
       "Fix:",
       "  npm run postman:gen",
-      "  git add public/api/v1/postman.json",
+      "  git add data/api/v1/postman.json",
       "  git commit -m 'chore(api): regenerate Postman collection'",
       "",
-      "DO NOT hand-edit public/api/v1/postman.json — it is",
+      "DO NOT hand-edit data/api/v1/postman.json — it is",
       "auto-generated and any manual changes WILL be overwritten.",
     ].join("\n"),
   );

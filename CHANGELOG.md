@@ -7,6 +7,97 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sem
 ## [Unreleased]
 
 ### Fixed
+- **Public-API delivery surface hardened — closes DEF-0012
+  (`docs/` excluded from Docker image) and DEF-0013 (Next.js
+  public-vs-route URL collision on `/api/v1/postman.json`)
+  (2026-04-19):** Two stacked defects, both blocking commercial
+  viability of the public-API value proposition. DEF-0012 was a
+  pre-existing bug surfaced by closing DEF-0008 (with `/changelog`
+  no longer redirected to `/auth/signin`, the page rendered and
+  immediately failed because `.dockerignore` had been silently
+  dropping the entire `docs/` tree from every image build since
+  Wave 5.5). DEF-0013 was discovered when Pillar S Surface 5 grew
+  HTTP probes for the public API artifacts: `/api/v1/postman.json`
+  returned 500 because Next.js refused to choose between the
+  static file at `public/api/v1/postman.json` and the App Router
+  route handler at `src/app/api/v1/postman.json/route.ts`
+  (`https://nextjs.org/docs/messages/conflicting-public-file-page`).
+  - `.dockerignore` (DEF-0012 prod fix): rewrote the blanket
+    `docs` exclude as `docs/**` followed by explicit
+    `!docs/changelog/**`, `!docs/api/**`, `!docs/planning/**`
+    un-excludes — the only three subtrees the deployed bundle
+    reads at request time (changelog page, OpenAPI/Postman
+    delivery routes, AI knowledge-base RAG corpus). The heavy
+    documentation tree (`docs/qa/`, `docs/dev/`, `docs/functional/`,
+    `docs/technical/`, `docs/training/`, `docs/archive/`,
+    `docs/product/`) stays out of the image so it doesn't bloat
+    deployments. The file now carries an inline anti-weakening
+    rule: every new `process.cwd()`-relative `docs/<X>` read from
+    `src/**` REQUIRES a paired `!docs/<X>/**` un-exclude AND a
+    Pillar S spec that probes the corresponding route.
+  - `docker-compose.dev.yml` (DEF-0012 dev fix, paired with
+    Option 1 prod fix per the defect card): added bind mounts for
+    `./docs/changelog`, `./docs/api`, `./docs/planning`, and
+    `./data` so the dev container picks up content edits without
+    rebuilds and so dev and prod always see the same runtime data
+    shape.
+  - `data/api/v1/postman.json` (NEW location, DEF-0013 fix):
+    moved from `public/api/v1/postman.json`, which had been
+    shadowed by Next.js's static-file server and conflicted with
+    the route handler. The new top-level `data/` directory is the
+    home for runtime-read build artifacts (sibling to `public/`,
+    NOT served as a static URL by Next.js, NOT excluded by
+    `.dockerignore`). Updated all four references in lockstep:
+    `src/app/api/v1/postman.json/route.ts` (read path +
+    docstring explaining the trap), `scripts/qa/build-postman-collection.ts`
+    (`OUT_PATH` constant + anti-weakening rule expanded to
+    forbid writes to `public/api/v1/`), `scripts/qa/check-postman-drift.ts`
+    (`COMMITTED` constant + drift-fix instructions), and
+    `tests/contract/pillar-j-postman.spec.ts` (`COLLECTION_PATH`).
+    Removed the now-empty `public/api/v1/` and `public/api/`
+    directories.
+  - `scripts/qa/live-stack-smoke.mjs` (Pillar S hardening): added
+    four new artifact probes to Surface 5 — `/api/v1/openapi.json`,
+    `/api/v1/openapi.yaml`, `/api/v1/postman.json`, `/changelog.rss`
+    — each validating HTTP 200, the expected `Content-Type`
+    prefix, AND a non-trivial body size (catches the
+    silently-empty-artifact regression class). Also fixed Surface 6
+    `named-volume staleness` to compare `node_modules/.prisma/client/schema.prisma`
+    on the host vs the container (apples-to-apples, both are the
+    post-`prisma generate` normalized form) instead of the source
+    `prisma/schema.prisma` vs the generated copy (apples-to-oranges,
+    always false-positive). And replaced the broken
+    `require("node:crypto")` ESM-incompatible call with a top-of-file
+    `import { createHash } from "node:crypto"`.
+  - **Verification (post-fix `npm run qa:live-stack --volume-probe`):**
+    `pass=26 fail=0 warn=0 notrun=0`, exit 0. Up from `pass=20 fail=1`
+    (DEF-0012) at the start of this batch. Every public surface — 12
+    marketing/auth pages, 2 `/errors/[code]` casings, 4 API artifacts,
+    1 RSS feed, 4 role sign-ins, 1 authenticated dashboard probe, git
+    HEAD pin, and named-volume drift detector — now passes against
+    the deployed dev stack.
+  - `docs/qa/defects/DEF-0012.md`: closed with full anti-weakening
+    attestation per STANDARD.md §4.2 (the `.dockerignore` rule, the
+    paired dev/prod fix, the four Pillar S probes that catch any
+    future regression of this class).
+  - `docs/qa/defects/DEF-0013.md` (NEW): filed and closed in the
+    same commit (per STANDARD.md §4.1.1: the `qa:live-stack` run
+    that surfaced it is the same one that proves the fix). Full
+    captured evidence (HTTP 500 + Next.js conflicting-public-file-page
+    error JSON + `ls` showing the file collision), root-cause
+    reconstruction across Wave 11 and Wave 17, the structural fix,
+    and the anti-weakening attestation.
+  - **Commercial-viability framing:** the user's mandate for this
+    batch was "create a commercially viable product." The Postman
+    collection is the first thing prospective API customers
+    download after reading the OpenAPI spec; `/sandbox` and the
+    OpenAPI `info.description` both link to it; a 500 on first
+    download is a credibility-destroying first impression
+    (technical equivalent of the demo crashing in the sales
+    meeting). Same logic applies to `/changelog` (the public
+    "what shipped recently" surface that prospects read before
+    asking for a trial). Both now ship clean.
+
 - **Single source of truth for public routes — closes DEF-0008
   (middleware lagging route-inventory) and DEF-0011 (route-inventory
   ahead of middleware) (2026-04-19):** Both defects were the SAME
