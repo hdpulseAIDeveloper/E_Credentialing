@@ -1,0 +1,173 @@
+/**
+ * Public REST v1 API client (TypeScript SDK shim).
+ *
+ * Wave 10 (2026-04-18). A thin, dependency-free wrapper over `fetch`
+ * that consumes the auto-generated `v1-types.ts` shapes. Designed
+ * for two consumers:
+ *
+ *   1. Internal use (E2E tests, internal scripts) where the
+ *      "client" is just a strongly-typed call site.
+ *   2. Documentation: copy/paste this file into any TypeScript
+ *      project, point it at your host + bearer key, and you have a
+ *      working client without pulling our entire repository.
+ *
+ * Anti-weakening
+ * --------------
+ * - This file MUST stay dependency-free (no `axios`, no `ky`, no
+ *   `superagent`). The CVO promise is "drop into any v18+ Node or
+ *   any modern browser, no transitive deps".
+ * - The shape types come from `v1-types.ts` (auto-generated). Do NOT
+ *   hand-edit the response interfaces here — regenerate via
+ *   `npm run sdk:gen`.
+ * - Errors thrown by `request` MUST surface the response status and
+ *   any structured `{ error: { code, message } }` body — they are
+ *   the contract for retries and circuit breakers.
+ */
+
+import type { paths, components } from "./v1-types";
+
+/** Subset of `fetch` we depend on — keeps this file Node-runtime-agnostic. */
+type FetchLike = typeof fetch;
+
+export interface V1ClientOptions {
+  /** Base URL with no trailing slash, e.g. `https://api.example.com`. */
+  baseUrl: string;
+  /** Bearer API key. Issued via `/admin/api-keys`. */
+  apiKey: string;
+  /** Optional `fetch` implementation; defaults to global `fetch`. */
+  fetch?: FetchLike;
+}
+
+export class V1ApiError extends Error {
+  readonly status: number;
+  readonly code: string | undefined;
+
+  constructor(status: number, message: string, code?: string) {
+    super(message);
+    this.name = "V1ApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+export class V1Client {
+  private readonly baseUrl: string;
+  private readonly apiKey: string;
+  private readonly fetchImpl: FetchLike;
+
+  constructor(opts: V1ClientOptions) {
+    this.baseUrl = opts.baseUrl.replace(/\/$/, "");
+    this.apiKey = opts.apiKey;
+    this.fetchImpl =
+      opts.fetch ?? (typeof fetch === "function" ? fetch : (undefined as never));
+    if (!this.fetchImpl) {
+      throw new Error(
+        "V1Client: no fetch implementation available. Pass `opts.fetch`.",
+      );
+    }
+    if (!this.apiKey) {
+      throw new Error("V1Client: apiKey is required.");
+    }
+  }
+
+  private async request<T>(
+    method: string,
+    path: string,
+    init: RequestInit = {},
+  ): Promise<T> {
+    const url = `${this.baseUrl}${path}`;
+    const headers = new Headers(init.headers);
+    headers.set("Authorization", `Bearer ${this.apiKey}`);
+    headers.set("Accept", "application/json");
+    const res = await this.fetchImpl(url, { ...init, method, headers });
+    if (!res.ok) {
+      let code: string | undefined;
+      let message = `HTTP ${res.status} on ${method} ${path}`;
+      try {
+        const body = (await res.json()) as {
+          error?: { code?: string; message?: string };
+        };
+        if (body?.error?.message) message = body.error.message;
+        code = body?.error?.code;
+      } catch {
+        // Non-JSON error body is fine — the HTTP message is enough.
+      }
+      throw new V1ApiError(res.status, message, code);
+    }
+    return (await res.json()) as T;
+  }
+
+  // ---- providers ----
+
+  listProviders(
+    query: paths["/api/v1/providers"]["get"]["parameters"]["query"] = {},
+  ): Promise<
+    paths["/api/v1/providers"]["get"]["responses"]["200"]["content"]["application/json"]
+  > {
+    const qs = new URLSearchParams();
+    if (query) {
+      for (const [k, v] of Object.entries(query)) {
+        if (v !== undefined && v !== null) qs.set(k, String(v));
+      }
+    }
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return this.request("GET", `/api/v1/providers${suffix}`);
+  }
+
+  getProvider(
+    id: string,
+  ): Promise<components["schemas"]["ProviderDetail"]> {
+    return this.request("GET", `/api/v1/providers/${encodeURIComponent(id)}`);
+  }
+
+  /** CV PDF: returns the raw response so the caller can stream it. */
+  async getProviderCv(id: string): Promise<Response> {
+    const url = `${this.baseUrl}/api/v1/providers/${encodeURIComponent(id)}/cv.pdf`;
+    const res = await this.fetchImpl(url, {
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        Accept: "application/pdf",
+      },
+    });
+    if (!res.ok) {
+      throw new V1ApiError(res.status, `HTTP ${res.status} on GET ${url}`);
+    }
+    return res;
+  }
+
+  // ---- sanctions ----
+
+  listSanctions(
+    query: paths["/api/v1/sanctions"]["get"]["parameters"]["query"] = {},
+  ): Promise<
+    paths["/api/v1/sanctions"]["get"]["responses"]["200"]["content"]["application/json"]
+  > {
+    const qs = new URLSearchParams();
+    if (query) {
+      for (const [k, v] of Object.entries(query)) {
+        if (v !== undefined && v !== null) qs.set(k, String(v));
+      }
+    }
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return this.request("GET", `/api/v1/sanctions${suffix}`);
+  }
+
+  // ---- enrollments ----
+
+  listEnrollments(
+    query: paths["/api/v1/enrollments"]["get"]["parameters"]["query"] = {},
+  ): Promise<
+    paths["/api/v1/enrollments"]["get"]["responses"]["200"]["content"]["application/json"]
+  > {
+    const qs = new URLSearchParams();
+    if (query) {
+      for (const [k, v] of Object.entries(query)) {
+        if (v !== undefined && v !== null) qs.set(k, String(v));
+      }
+    }
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return this.request("GET", `/api/v1/enrollments${suffix}`);
+  }
+}
+
+export type { paths, components, operations } from "./v1-types";

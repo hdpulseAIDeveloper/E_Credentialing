@@ -88,6 +88,37 @@ curl -s https://your-host/api/v1/openapi.json | jq .`}</code>
           </p>
         </section>
 
+        <section className="mt-12 rounded-xl border border-emerald-200 bg-emerald-50 p-6">
+          <h2 className="text-xl font-bold text-gray-900">TypeScript SDK</h2>
+          <p className="mt-2 text-sm text-gray-700">
+            A dependency-free TypeScript client lives in the repository at{" "}
+            <code className="font-mono">src/lib/api-client/v1.ts</code> with
+            spec-derived types at{" "}
+            <code className="font-mono">src/lib/api-client/v1-types.ts</code>.
+            Drop both files into any Node 18+ project (no transitive deps):
+          </p>
+          <pre className="mt-3 overflow-x-auto rounded bg-white border border-emerald-200 p-3 text-xs">
+            <code>{`import { V1Client } from "./api-client/v1";
+
+const client = new V1Client({
+  baseUrl: "https://your-host",
+  apiKey: process.env.ECRED_API_KEY!,
+});
+
+const { data, pagination } = await client.listProviders({
+  status: "APPROVED",
+  page: 1,
+  limit: 25,
+});`}</code>
+          </pre>
+          <p className="mt-3 text-xs text-gray-600">
+            Python customers: see{" "}
+            <code className="font-mono">docs/dev/runbooks/sdk-generation.md</code>{" "}
+            for the canonical <code>openapi-python-client</code> flow against the
+            same OpenAPI spec.
+          </p>
+        </section>
+
         <section className="mt-12 rounded-xl bg-gray-900 text-white p-8">
           <h2 className="text-xl font-bold">Quick start</h2>
           <p className="mt-2 text-gray-300">

@@ -19,5 +19,6 @@ Operational playbooks for recurring tasks and incidents. Each runbook:
 | [Incident response](incident-response.md) | Something is broken and customers notice | All |
 | [Access request](access-request.md) | Provision a new staff user | Admin |
 | [Schemathesis fuzz](schemathesis-fuzz.md) | Validate the public REST v1 surface against its OpenAPI 3.1 spec | API engineer |
+| [SDK generation](sdk-generation.md) | Regenerate the TypeScript SDK or vendor a Python SDK from the spec | API engineer |
 
 See also: [Deployment](../deployment.md), [Observability](../observability.md).
