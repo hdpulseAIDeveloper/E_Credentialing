@@ -7,6 +7,51 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sem
 ## [Unreleased]
 
 ### Added
+- **Wave 9 — JSON mirror + Schemathesis fuzz harness for the public
+  REST v1 surface (2026-04-18):**
+  - `src/app/api/v1/openapi.json/route.ts`: JSON mirror of the OpenAPI
+    spec at `/api/v1/openapi.json`. Mechanical YAML→JSON conversion
+    (`js-yaml.load` → `JSON.stringify`), 5min browser / 1h CDN cache,
+    same `X-Content-Type-Options: nosniff` headers as the YAML route.
+    For tools that don't speak YAML (Postman import,
+    `openapi-typescript`, `openapi-python-client`, Stoplight Elements).
+  - `tests/contract/pillar-j-openapi-json-mirror.spec.ts`: 5-test
+    parity contract — JSON body parses, deep-equals the parsed YAML
+    source of truth, declares the same OpenAPI 3.1.x version + info,
+    emits sensible cache headers. Anti-weakening: any divergence
+    between the YAML and JSON surfaces fails this suite.
+  - `tests/contract/pillar-j-openapi.spec.ts`: extended the permitted
+    `SPEC_DELIVERY_ROUTES` exclusion list to cover both
+    `/api/v1/openapi.yaml` and `/api/v1/openapi.json` (the spec
+    cannot describe its own delivery endpoints — that would be a
+    circular reference). The list size is hard-capped at 2 by
+    review convention.
+  - `src/app/sandbox/page.tsx`: updated the "Machine-readable
+    contract" section with curl examples for both YAML (`yq`) and
+    JSON (`jq`) formats.
+  - `docs/api/openapi-v1.yaml`: added an `x-scopes` extension under
+    `components.securitySchemes.BearerApiKey` documenting the five
+    machine-readable scope names (`providers:read`, `providers:cv`,
+    `sanctions:read`, `enrollments:read`, `documents:read`).
+  - `scripts/qa/schemathesis-run.py`: new Python harness that drives
+    Schemathesis against `/api/v1/openapi.yaml` (or the served spec
+    via `--use-served-spec`) with `--checks all`. Refuses to run
+    against the prod-hostname allowlist unless
+    `ALLOW_SCHEMATHESIS_PROD=1`. Bearer key is redacted in the
+    printed command. JUnit XML output to
+    `tests/perf/results/schemathesis-junit.xml`.
+  - `docs/dev/runbooks/schemathesis-fuzz.md`: full runbook covering
+    pre-flight install, local-dev / staging / reproducible-seed
+    invocations, output triage matrix (status / schema / content-type
+    / 5xx / hangs), anti-weakening rules, and the defect-card
+    escalation path. Linked from `docs/dev/runbooks/README.md`.
+  - `docs/dev/adr/0021-schemathesis-fuzz-harness.md`: ADR describing
+    why a one-shot harness ships before a CI step (synthetic-key
+    vending isn't built yet), the anti-weakening rules
+    (`--checks all` is mandatory, `PROD_HOSTNAMES` stays narrow,
+    failures become defect cards), and Wave 10 candidates (CI
+    promotion + regression-seed replay).
+
 - **Wave 8 — OpenAPI 3.1 spec for the public REST v1 surface (2026-04-18):**
   - `docs/api/openapi-v1.yaml` — hand-authored OpenAPI 3.1 contract
     for `/api/v1/providers`, `/api/v1/providers/{id}`,

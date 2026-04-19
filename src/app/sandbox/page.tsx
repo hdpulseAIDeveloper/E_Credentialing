@@ -71,13 +71,20 @@ export default function SandboxPage() {
             generator at:
           </p>
           <pre className="mt-3 overflow-x-auto rounded bg-white border border-blue-200 p-3 text-xs">
-            <code>curl -s https://your-host/api/v1/openapi.yaml | yq .</code>
+            <code>{`# YAML (RFC 9512 source of truth)
+curl -s https://your-host/api/v1/openapi.yaml | yq .
+
+# JSON mirror — for tools that don't speak YAML
+curl -s https://your-host/api/v1/openapi.json | jq .`}</code>
           </pre>
           <p className="mt-3 text-xs text-gray-600">
             Source of truth lives at{" "}
             <code className="font-mono">docs/api/openapi-v1.yaml</code>{" "}
-            in the repository. Versioned with the platform; changes are
-            announced in the public <Link href="/changelog" className="underline text-blue-700">changelog</Link>.
+            in the repository. The JSON document at{" "}
+            <code className="font-mono">/api/v1/openapi.json</code> is a
+            mechanical 1:1 conversion. Versioned with the platform; changes
+            are announced in the public{" "}
+            <Link href="/changelog" className="underline text-blue-700">changelog</Link>.
           </p>
         </section>
 

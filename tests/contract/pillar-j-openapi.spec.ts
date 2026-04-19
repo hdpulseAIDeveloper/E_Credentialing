@@ -43,10 +43,15 @@ function inventoryRouteToOpenApi(route: string): string {
   return route.replace(/\[([^\]]+)\]/g, "{$1}");
 }
 
-// The OpenAPI document does not describe its own delivery endpoint
-// (`/api/v1/openapi.yaml`) — it would be a circular reference. The
-// list below is the SOLE permitted exclusion.
-const SPEC_DELIVERY_ROUTES = new Set(["/api/v1/openapi.yaml"]);
+// The OpenAPI document does not describe its own delivery endpoints
+// (`/api/v1/openapi.yaml` and the Wave 9 JSON mirror
+// `/api/v1/openapi.json`) — they would be circular references. The
+// list below is the SOLE permitted exclusion. Adding any other entry
+// here is a code-smell review item.
+const SPEC_DELIVERY_ROUTES = new Set([
+  "/api/v1/openapi.yaml",
+  "/api/v1/openapi.json",
+]);
 
 const V1_ROUTES = (apiInventory as ApiEntry[]).filter(
   (e) => e.route.startsWith("/api/v1/") && !SPEC_DELIVERY_ROUTES.has(e.route),

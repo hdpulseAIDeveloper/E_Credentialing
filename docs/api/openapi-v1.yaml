@@ -175,9 +175,14 @@ components:
       bearerFormat: API key
       description: |
         Issue keys via `/admin/api-keys`. Each key carries one or more
-        scopes (e.g. `providers:read`, `sanctions:read`,
-        `enrollments:read`, `providers:cv`). Keys are stored hashed
+        scopes (see `x-scopes` below). Keys are stored hashed
         (SHA-256) in `api_keys`; raw value is shown once at creation.
+      x-scopes:
+        providers:read: Read provider summary + detail records.
+        providers:cv: Generate the curriculum vitae PDF for a provider.
+        sanctions:read: Read OIG/SAM sanction match records.
+        enrollments:read: Read payor enrollment status records.
+        documents:read: Read provider document metadata (no PHI).
 
   parameters:
     Page:
