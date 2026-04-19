@@ -1,7 +1,7 @@
 # Architecture
 
 **Audience:** Developers, architects.
-**Status:** Reflects the deployed system as of 2026-04-17.
+**Status:** Reflects the deployed system as of 2026-04-19.
 
 This document is the long-form companion to the architecture summary in the
 [TRD](technical-requirements.md#3-architecture-summary) and the practical
@@ -91,7 +91,35 @@ full picture; read the dev guide when you need to do the work.
 1. Client sends `Authorization: Bearer ck_…` to `/api/v1/...`.
 2. `withApiKeyAuth` middleware loads key by SHA-256 hash, checks scope, increments rate limit, writes audit row.
 3. Handler hits Prisma; PHI fields stripped per scope.
-4. JSON returned.
+4. JSON returned. Errors are emitted as **`application/problem+json`**
+   (RFC 9457): every body carries `type` (a dereferencable URL pointing at
+   `/errors/{code}`), `title`, `status`, `detail`, and `instance`. The
+   legacy `{ "error": { "code", "message" } }` envelope is emitted in
+   parallel for one major version with `x-deprecated: true`. The `type`
+   target page is anonymous-readable per RFC 9457 §3.1.1 — see
+   "Public surfaces" below.
+
+### Public surfaces (anonymous, no API key)
+
+These routes serve anyone on the internet without authentication. They
+are explicitly allow-listed in `src/middleware.ts`:
+
+| Surface | URL | Owner | Notes |
+|---|---|---|---|
+| Marketing landing | `/` | Marketing | Leads with the CVO positioning. |
+| CVO explainer | `/cvo` | Product | NCQA element catalog, TJC NPG-12, CMS-0057-F. |
+| Pricing | `/pricing` | Product / Billing | Live values from Stripe when `BILLING_ENABLED=true`. |
+| Sandbox | `/sandbox` | API Product | Read-only REST against synthetic data (`@faker-js/faker`). |
+| Public changelog | `/changelog`, `/changelog.rss` | PM | Hand-edited Markdown source ([docs/changelog/public.md](../changelog/public.md)). ADR 0018. |
+| Legal | `/legal/{privacy,terms,cookies,hipaa}` | Compliance | DEF-0008 — currently impacted by middleware drift; structural fix tracked. |
+| **Public Error Catalog (HTML)** | `/errors`, `/errors/{code}` | API Product | RFC 9457 §3.1.1 dereferencable target for every Problem `type` URI. ADR 0027. |
+
+The catalog HTML pages are the human-readable destination of every
+Problem Details body's `type` URI. They are anonymous by contract —
+see [`docs/qa/defects/DEF-0007.md`](../qa/defects/DEF-0007.md) for the
+regression-and-fix history and
+[`tests/e2e/anonymous/pillar-a-public-smoke.spec.ts`](../../tests/e2e/anonymous/pillar-a-public-smoke.spec.ts)
+for the iterator anti-regression gate.
 
 ## 4. Authentication & authorization
 
@@ -183,6 +211,14 @@ Scheduled jobs (defined in `src/server/jobs`):
 
 ## 11. Change history
 
+- 2026-04-19 — Wave 21 + 21.5 documentation refresh: added the Public
+  Surfaces section under §3 (data flows) covering `/`, `/cvo`,
+  `/pricing`, `/sandbox`, `/changelog`, `/legal/*`, and the new
+  `/errors` + `/errors/{code}` Error Catalog HTML pages; rewrote the
+  "Public API call" data-flow step to require `application/problem+json`
+  (RFC 9457) error responses with dereferencable `type` URIs (ADRs 0025,
+  0026, 0027); cross-linked DEF-0007 (closed) and DEF-0008 (escalated)
+  for the anonymous-public-surface invariant.
 - 2026-04-17 — Documentation refresh; pulled the deep architecture content out
   of the older `docs/technical.md` and aligned with current router / migration
   inventory.

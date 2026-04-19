@@ -1,10 +1,10 @@
 ## Coverage headline (per STANDARD.md §3)
 
 ```
-Routes covered:    66 of 66
-API cells covered: 57 of 57
+Routes covered:    68 of 68
+API cells covered: 59 of 59
 tRPC covered:      219 of 219
-Per-screen cards:  66 of 66
+Per-screen cards:  68 of 68
 Pillars touched:   A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R
 Pillars not run:   (none)
 ```

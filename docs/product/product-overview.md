@@ -68,8 +68,16 @@ external partners.
 16. **AI governance** — model cards, decision logs, override audit.
 17. **Audit log** — append-only, HMAC chained, verifier on demand.
 18. **Public REST v1 + FHIR R4** — for payer / partner integrations.
+    Versioned [OpenAPI 3.1 contract](../api/openapi-v1.yaml) with a
+    generated TypeScript SDK, a fuzz harness in CI (Schemathesis), and
+    **RFC 9457 Problem Details** error responses whose `type` URI
+    resolves to a public, anonymous-readable [Error Catalog](../api/errors.md).
 19. **Comms inbox** — email + SMS via SendGrid + ACS.
 20. **Reports + analytics** — drilldown dashboards, exports, scorecards.
+21. **Public Error Catalog (RFC 9457)** — every code the API emits has a
+    durable, dereferencable home at `/errors/{code}`; integrators paste
+    the URL from any error body into a browser and read what happened,
+    why it happened, and what to do about it.
 
 ## What it is not
 
@@ -81,4 +89,17 @@ external partners.
 ## Status
 
 In production at ESSEN Health Care; phased rollout across teams (see
-[Development Plan](../development-plan.md)).
+[Development Plan](../development-plan.md)). All 21 functional modules
+(20 operational + Public Error Catalog) have shipped at least their P0
+surface. Phase 1.5 (Commercial-Readiness Band) and Phase 1.6 (Public-API
+Hardening) are complete; Phase 2 (Integration Activation) is in
+progress.
+
+## Where to read more
+
+- One-page audience-cut summary: [stakeholder-brief.md](stakeholder-brief.md)
+- Functional detail (BAs, QA, Product): [../functional/functional-requirements.md](../functional/functional-requirements.md)
+- Technical detail (Engineering, Architects): [../technical/architecture.md](../technical/architecture.md)
+- Public REST + FHIR API reference: [../api/README.md](../api/README.md)
+- NCQA / HIPAA / CMS-0057-F posture: [../compliance/](../compliance/)
+- Phased delivery plan + KPIs: [../development-plan.md](../development-plan.md)

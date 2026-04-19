@@ -1,7 +1,7 @@
 # Public REST API — Versioning, Deprecation, and Sunset Policy
 
-- **Status:** v1 — current stable (spec `1.9.0`)
-- **Last reviewed:** 2026-04-19 (Wave 20)
+- **Status:** v1 — current stable (spec `1.10.0`)
+- **Last reviewed:** 2026-04-19 (Wave 21)
 - **Related:**
   ADR [0020](../dev/adr/0020-openapi-v1-spec.md) (OpenAPI spec),
   ADR [0022](../dev/adr/0022-public-rest-v1-sdk.md) (TypeScript SDK),
@@ -9,6 +9,7 @@
   ADR [0024](../dev/adr/0024-deprecation-sunset-headers.md) (deprecation headers),
   ADR [0025](../dev/adr/0025-problem-details-rfc-9457.md) (Problem Details),
   ADR [0026](../dev/adr/0026-server-side-request-validation.md) (server-side request validation),
+  ADR [0027](../dev/adr/0027-error-catalog.md) (public error catalog),
   [`docs/api/openapi-v1.yaml`](openapi-v1.yaml).
 
 This document is the **contract** between the platform and any
@@ -568,6 +569,83 @@ renaming any stable Zod `code`, or expanding validation to
 previously-accepted inputs without a SemVer bump would all be
 breaking changes and require a `/api/v2/`.
 
+### 3.10 Public error catalog (since spec v1.10.0)
+
+The `type` URI on every Problem body in §3.8 resolves to a
+publicly-cacheable, machine-readable description of the error
+class. The catalog is the single source of truth for the
+following fields, all keyed by the snake_case `code`:
+
+- `title` — RFC 9457 `title` (Title-Cased, ≤ 60 chars).
+- `status` — the HTTP status the platform always returns alongside
+  this code. One status per code: if the same condition can produce
+  two statuses, that's two separate codes.
+- `summary` — one-sentence English summary, plain prose.
+- `description` — full English explanation (markdown permitted).
+- `remediation` — concrete remediation guidance (markdown
+  permitted; empty string allowed for 5xx codes where the
+  remediation is "retry with backoff").
+- `sinceVersion` — SemVer of the spec at which the code was
+  introduced (lets clients query "what's new in 1.10.0").
+- `retiredInVersion` — SemVer at which the code was retired (the
+  row stays in the catalog forever so old `type` URIs resolve).
+- `docsPath` — pre-computed `/errors/<kebab-code>` path.
+
+The catalog has three faces, all backed by the same in-memory
+`ERROR_CATALOG` array in `src/lib/api/error-catalog.ts`:
+
+| Face | Path | Purpose |
+|---|---|---|
+| JSON list | `GET /api/v1/errors` | Bulk download for SDK code-gen, dashboards, alerting rules. ETag-cacheable. |
+| JSON entry | `GET /api/v1/errors/{code}` | One-off lookup; both snake_case and kebab-case accepted. |
+| HTML index | `/errors` | Human-browseable index; statically rendered. |
+| HTML detail | `/errors/{code}` | What every Problem body's `type` URI resolves to in a browser. Statically pre-rendered for every catalog entry. |
+
+**Stability contract:**
+
+- Renaming a `code` is a SemVer breaking change — clients
+  dispatch on the value and the catalog is the closed enumeration
+  of every value the platform can ever emit on `error.code`.
+- Renaming any field on `ErrorCatalogEntry` is a SemVer breaking
+  change for the same reason as any other response schema (§2.1).
+- Adding a new code is a **minor** bump; the new entry MUST set
+  `sinceVersion` to the spec version that introduces it.
+- Retiring a code MUST set `retiredInVersion` and MUST NOT remove
+  the row — old SDKs in the wild still resolve to the URI.
+- The catalog is exhaustive: every literal `code` string passed to
+  `v1ErrorResponse` or `buildProblem` MUST have a matching catalog
+  entry. The unit-test gate in `tests/unit/api/error-catalog.test.ts`
+  greps the source tree on every CI run; merging an emitter
+  without a catalog row fails the build.
+- The legacy `PROBLEM_TITLES` map in `src/lib/api/problem-details.ts`
+  is now derived from the catalog — there is exactly one source of
+  truth for the title-per-code mapping.
+
+**SDK observation contract:**
+
+```ts
+import {
+  V1Client,
+  type V1ErrorCatalogEntry,
+  type V1ErrorCatalogList,
+} from "@e-credentialing/api-client";
+
+const client = new V1Client({ baseUrl, apiKey });
+
+const list: V1ErrorCatalogList = await client.listErrors();
+for (const entry of list.entries) {
+  console.log(entry.code, entry.status, entry.title);
+}
+
+// Either form works; both resolve to the same row.
+const e1: V1ErrorCatalogEntry = await client.getError("insufficient_scope");
+const e2: V1ErrorCatalogEntry = await client.getError("insufficient-scope");
+```
+
+Removing the `/api/v1/errors*` endpoints, repurposing a `code`,
+removing a row, or renaming any catalog field would all be
+breaking changes and require a `/api/v2/`.
+
 ## 4. Major-version overlap window
 
 When `/api/v2` ships:
@@ -632,6 +710,7 @@ The following invariants MUST be preserved:
 - "How do I add ETag support to a new endpoint?" → §3.7.
 - "What error-body shape do I emit?" → §3.8 (Problem Details).
 - "How do I validate query parameters on a new endpoint?" → §3.9 (Server-side request validation).
+- "How do I add a new error code?" → §3.10 (Public error catalog) — add a row to `ERROR_CATALOG` in `src/lib/api/error-catalog.ts`; the unit test greps `v1ErrorResponse` / `buildProblem` calls and fails if the code is missing.
 - "How do I document this deprecation in the spec?" → §3.2.
 - "When can I ship `/api/v2`?" → After at least one of:
   - Required customer feature that can't ship in v1, OR

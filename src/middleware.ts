@@ -69,7 +69,18 @@ export default authMiddleware((req) => {
   const { pathname } = req.nextUrl;
   const session = req.auth;
 
-  // Allow public routes
+  // Allow public routes.
+  //
+  // `/errors` and `/errors/<code>` (Wave 21, DEF-0007 fix) are the public,
+  // human-readable HTML faces of the v1 error catalog — every Problem body's
+  // `type` URI resolves here, and RFC 9457 §3.1.1 requires the URI be
+  // dereferencable to a human-readable description by *anyone* who has the
+  // URI, not just authenticated callers. The JSON sibling at
+  // `/api/v1/errors[...]` keeps its Bearer-key requirement (already covered
+  // by the `/api/v1/` clause above) — only the HTML faces are public.
+  // See `docs/qa/defects/DEF-0007.md` for the captured 307-evidence and
+  // `docs/qa/defects/DEF-0008.md` for the broader middleware/route-inventory
+  // drift that this entry does NOT yet close (escalated, separate PR).
   if (
     pathname === "/" ||
     pathname.startsWith("/auth/") ||
@@ -83,7 +94,9 @@ export default authMiddleware((req) => {
     pathname.startsWith("/api/fhir/") ||
     pathname.startsWith("/api/application/") ||
     pathname.startsWith("/api/attestation") ||
-    pathname.startsWith("/verify/")
+    pathname.startsWith("/verify/") ||
+    pathname === "/errors" ||
+    pathname.startsWith("/errors/")
   ) {
     const res = NextResponse.next();
     res.headers.set("x-request-id", reqId);

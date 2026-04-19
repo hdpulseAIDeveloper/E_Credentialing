@@ -20,6 +20,22 @@ Markdown files superseded by the audience-organized structure.
 | `user-training.md` | [training/](../training/README.md) + per-role pages |
 | `competitive-gap-analysis.md` | [product/market-analysis.md](../product/market-analysis.md) |
 
+### `legacy-testing/`
+
+Superseded snapshots from the Master Test Plan workbook generators and
+the runtime smoke runner. The current authoritative set
+(latest non-EXECUTED workbook + latest EXECUTED workbook + the four
+Python generators + the latest report) lives at
+[`docs/testing/`](../testing/README.md).
+
+| Archived asset | Replaced by |
+|---|---|
+| `ESSEN_Credentialing_Master_Test_Plan_20260417_010249.xlsx` | `docs/testing/ESSEN_Credentialing_Master_Test_Plan_20260417_010720.xlsx` (later regen the same day) |
+| `ESSEN_Credentialing_Master_Test_Plan_EXECUTED_20260417_013233.xlsx` | `docs/testing/ESSEN_Credentialing_Master_Test_Plan_EXECUTED_20260417_074709.xlsx` (later run the same day) |
+| `ESSEN_Credentialing_Test_Plan_20260416_100935.xlsx`, `..._110654.xlsx` | first-pass legacy workbooks; superseded by the Master Test Plan series |
+| `runtime_results_20260416_105254.json`, `runtime_test_results_20260416_104910.json`, `test_results_deep.json` | one-shot runtime smoke outputs; the runner now writes results back into the EXECUTED workbook |
+| `TEST_EXECUTION_REPORT_20260417.md` | `docs/testing/TEST_EXECUTION_REPORT_20260417_v2.md` (later run the same day) |
+
 ### `legacy-decks/`
 
 Older PowerPoint and HTML deck artifacts plus the build scripts that

@@ -16,6 +16,7 @@ customer-facing version of this story.
 | Document | Audience | Purpose |
 |---|---|---|
 | [Product Overview](product-overview.md) | All | What the platform is, who it's for, the elevator pitch |
+| [Stakeholder Brief](stakeholder-brief.md) | All | Single-page, audience-cut summary — read this first if your role is unclear from the table |
 | [Value Proposition](value-proposition.md) | Buyers, sponsors | Outcomes, ROI, differentiators |
 | [Market Analysis](market-analysis.md) | Sponsors, sales | Landscape, competitors, positioning |
 | [Glossary](glossary.md) | All | Domain terms used across the docs |

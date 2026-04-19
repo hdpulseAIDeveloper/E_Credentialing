@@ -1,7 +1,7 @@
 # Technical Requirements Document (TRD) — E-Credentialing CVO Platform
 
-**Version:** 2.1
-**Last Updated:** 2026-04-18
+**Version:** 2.2
+**Last Updated:** 2026-04-19
 **Status:** Active — kept current with the codebase
 **Audience:** Developers, architects, DevOps, security engineers
 **Owner:** Tech Lead
@@ -95,6 +95,39 @@ For diagrams and the full overview see [architecture.md](architecture.md) and
 ### TR-F-010 AI governance
 - Every AI-driven decision creates an `AiDecisionLog` row with model id,
   prompt hash, output hash, override reason. Model cards in `AiModelCard`.
+
+### TR-F-011 RFC 9457 Problem Details + Public Error Catalog (Wave 21)
+- **Need:** Every REST v1 error must be self-explanatory, dereferencable,
+  and stable across SDK versions. The public surface must satisfy
+  RFC 9457 §3.1.1 (the `type` URI dereferences to a human-readable page
+  by anyone who has the URI).
+- **Solution.**
+  - `src/lib/api/error-catalog.ts` is the typed registry — single source
+    of truth for `code → { status, title, description, rationale,
+    remediation, since, deprecatedSince?, replacedBy?, category, tags }`.
+  - `src/lib/api/problem-details.ts` builds `application/problem+json`
+    bodies from the registry. The legacy
+    `{ "error": { "code", "message" } }` envelope is emitted alongside
+    Problem Details for one major version with an `x-deprecated: true`
+    marker.
+  - Four faces stay in lockstep with the registry:
+    - `GET /api/v1/errors` (JSON list, API key)
+    - `GET /api/v1/errors/{code}` (JSON entry, API key)
+    - `GET /errors` (public HTML index, anonymous)
+    - `GET /errors/{code}` (public HTML detail, anonymous)
+  - The public HTML pages MUST be on the middleware allow-list; the
+    iterator spec `tests/e2e/anonymous/pillar-a-public-smoke.spec.ts`
+    iterates every `group: "public"` route in `route-inventory.json` and
+    asserts an anonymous 200 (no 307). This is the gate that closed
+    DEF-0007.
+- **Coverage gate.** Every code emitted by the platform must appear in
+  the registry, in `docs/api/openapi-v1.yaml` (`Error` and
+  `ProblemDetails` schemas), and in at least one Schemathesis fuzz test
+  (ADR 0021). New codes added in code without docs/contract updates fail
+  the PR.
+- **References.** ADR 0025 (Problem Details adoption), ADR 0026 (server-side
+  request validation), ADR 0027 (Error Catalog SoT), [api/errors.md](../api/errors.md),
+  [api/openapi-v1.yaml](../api/openapi-v1.yaml).
 
 ---
 
@@ -249,6 +282,21 @@ Maintained in [dev/adr/](../dev/adr/). Active ADRs:
 - 0010 — Pino with redaction
 - 0011 — Audit tamper-evidence (HMAC chain)
 - 0012 — NCQA criterion catalog model
+- 0013 — Observability stack (Sentry + AppInsights + Prometheus + Grafana)
+- 0014 — Multi-tenancy shim (Organization + AsyncLocalStorage)
+- 0015 — Design system (TanStack DataTable + Theme + `no-raw-color` rule)
+- 0016 — Stripe billing (`BILLING_ENABLED` flag, dynamic SDK)
+- 0017 — Auditor-package one-click export
+- 0018 — Public changelog + RSS
+- 0019 — Iterator-aware coverage gate
+- 0020 — OpenAPI v1 spec at `docs/api/openapi-v1.yaml`
+- 0021 — Schemathesis fuzz harness in CI
+- 0022 — Public REST v1 SDK (TypeScript) generated from OAS
+- 0023 — API versioning policy (semver + URL major)
+- 0024 — Deprecation / Sunset headers (RFC 8594 + RFC 8288)
+- 0025 — Problem Details (RFC 9457) for REST v1 errors
+- 0026 — Server-side request validation surface
+- 0027 — Public Error Catalog as the single source of truth
 
 ---
 
@@ -266,3 +314,4 @@ required documents and must reflect the current state at all times.
 |---|---|---|
 | 2026-04-15 | 1.0 | Initial; reflected implemented surface |
 | 2026-04-17 | 2.0 | Documentation refresh — restructured as TR-F / TR-N; added external system contracts table; aligned with shipped 60+ Prisma models |
+| 2026-04-19 | 2.2 | Documentation refresh (Wave 21 + 21.5) — added TR-F-011 (RFC 9457 Problem Details + Public Error Catalog); refreshed §13 ADR list to 0001–0027 (was 0001–0012). |

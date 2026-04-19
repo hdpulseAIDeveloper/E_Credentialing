@@ -31,6 +31,16 @@
   },
   {
     "href": "/",
+    "file": "src/app/errors/[code]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/",
+    "file": "src/app/errors/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/",
     "file": "src/app/legal/layout.tsx",
     "external": false
   },
@@ -117,6 +127,16 @@
   {
     "href": "/auth/signin",
     "file": "src/app/cvo/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/auth/signin",
+    "file": "src/app/errors/[code]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/auth/signin",
+    "file": "src/app/errors/page.tsx",
     "external": false
   },
   {
@@ -211,6 +231,16 @@
   },
   {
     "href": "/cvo",
+    "file": "src/app/errors/[code]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/cvo",
+    "file": "src/app/errors/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/cvo",
     "file": "src/app/page.tsx",
     "external": false
   },
@@ -252,6 +282,11 @@
   {
     "href": "/enrollments/${e.id}",
     "file": "src/app/(staff)/providers/[id]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/errors",
+    "file": "src/app/errors/[code]/page.tsx",
     "external": false
   },
   {
@@ -367,6 +402,11 @@
   {
     "href": "/pricing",
     "file": "src/app/cvo/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/pricing",
+    "file": "src/app/errors/page.tsx",
     "external": false
   },
   {
@@ -601,6 +641,16 @@
   },
   {
     "href": "/sandbox",
+    "file": "src/app/errors/[code]/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/sandbox",
+    "file": "src/app/errors/page.tsx",
+    "external": false
+  },
+  {
+    "href": "/sandbox",
     "file": "src/app/page.tsx",
     "external": false
   },
@@ -618,6 +668,11 @@
     "href": "/verifications",
     "file": "src/app/(staff)/dashboard/page.tsx",
     "external": false
+  },
+  {
+    "href": "https://datatracker.ietf.org/doc/html/rfc9457",
+    "file": "src/app/errors/page.tsx",
+    "external": true
   },
   {
     "href": "https://www.npdb.hrsa.gov/",

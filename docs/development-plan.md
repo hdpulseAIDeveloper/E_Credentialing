@@ -2,7 +2,7 @@
 
 **Status:** REQUIRED. Keep current with every scope or schedule change.
 **Audience:** Project Manager, Tech Lead, Sponsors, Steering Committee.
-**Last Updated:** 2026-04-18
+**Last Updated:** 2026-04-19
 
 ---
 
@@ -10,17 +10,20 @@
 
 The **E-Credentialing CVO platform** (Credentialing Verification
 Organization platform) is in production at
-`credentialing.hdpulseai.com`. All 20 functional modules have
+`credentialing.hdpulseai.com`. All 21 functional modules have
 implemented at least their P0 surface; the focus has shifted from build
 to **integration activation**, **operational hardening**, **organizational
 rollout**, **commercial readiness** (multi-tenancy shim, public marketing,
 pricing, billing scaffolding, public sandbox API, auditor-package export,
-and a public changelog), and **continuous compliance**.
+and a public changelog), **public-API hardening** (OpenAPI v1 contract,
+TypeScript SDK, Schemathesis fuzz harness, RFC 9457 Problem Details,
+public Error Catalog), and **continuous compliance**.
 
 | Phase | Name | Window | Status |
 |---|---|---|---|
 | 1 | Core Platform Build | Apr 2026 (4 weeks) | **Complete** |
 | 1.5 | Commercial-Readiness Band (Waves 0–6) | Apr 16–18 2026 | **Complete** |
+| 1.6 | Public-API Hardening (Waves 7–21 + 21.5) | Apr 18–19 2026 | **Complete** |
 | 2 | Integration Activation | May–Jun 2026 (8 weeks) | In progress |
 | 3 | Training & Pilot | Jul–Aug 2026 (8 weeks) | Planned |
 | 4 | Full Rollout & PARCS Sunset | Sep–Oct 2026 (8 weeks) | Planned |
@@ -95,6 +98,36 @@ Phase 1.5 carried no production deploys. The next step (still
 gated on human action) is one production deploy that activates the
 new feature flags one at a time per the rollout plan in
 [docs/status/shipped.md](status/shipped.md).
+
+---
+
+## 2.6 Phase 1.6 — Public-API Hardening (Waves 7–21 + 21.5, complete)
+
+**Window:** 2026-04-18 → 2026-04-19 (autonomous Cursor execution).
+**Goal:** Take the public REST/FHIR surface from "shipped" to
+"contract-stable, RFC-aligned, dereferencable, and SDK-publishable" so
+external integrators (payers, partners, sandbox evaluators) can build
+against a versioned, documented, machine-readable contract.
+
+| Wave | Theme | Headline outcome | ADR |
+|---|---|---|---|
+| 7 | Iterator-aware coverage gate hardening | `qa:gate` honored as the binding deploy gate; iterator detection rule pinned by unit tests; anti-weakening invariants codified in `STANDARD.md`. | 0019 |
+| 20 | OpenAPI v1 contract + SDK + fuzz harness | `docs/api/openapi-v1.yaml` (OAS 3.1) authored; TypeScript SDK generated; Postman collection synced; Schemathesis fuzz harness runs in CI; deprecation/sunset header policy formalized. | 0020, 0021, 0022, 0023, 0024 |
+| 21 | RFC 9457 Problem Details + Public Error Catalog | Every REST v1 error response is now `application/problem+json` with a dereferencable `type` URI; the four catalog faces (TS registry → JSON list → JSON entry → public HTML pages) are live; `src/lib/api/error-catalog.ts` is the single source of truth; `/errors` and `/errors/[code]` HTML pages render anonymously per RFC 9457 §3.1.1. | 0025, 0026, 0027 |
+| 21.5 | Anonymous-public-surface gate (DEF-0007 / DEF-0008) | DEF-0007 closed: `/errors` and `/errors/[code]` added to the middleware public allow-list; new iterator spec `tests/e2e/anonymous/pillar-a-public-smoke.spec.ts` iterates every `group: "public"` route in `route-inventory.json` and asserts an anonymous 200 (no 307 to `/auth/signin`). DEF-0008 escalated: pre-existing systemic drift on other public routes (`/legal/*`, `/cvo`, `/sandbox`) documented for a structural fix where middleware reads the inventory rather than a hand-maintained allow-list. | — |
+
+Aggregate impact:
+
+- **Public contract:** REST v1 now machine-readable end-to-end (OAS 3.1 +
+  SDK + Postman + fuzz + RFC 9457 errors + dereferencable catalog).
+- **Defect ledger:** DEF-0007 closed; DEF-0008 open and escalated to the
+  next planning window.
+- **Anti-weakening:** new pillar-A iterator spec absorbs every future
+  public route without a code change to the test, removing the
+  inventory/middleware drift class entirely once DEF-0008 is structurally
+  fixed.
+
+This phase carried no production deploys.
 
 ---
 
@@ -354,3 +387,4 @@ The full register is maintained in [pm/risk-register.md](pm/risk-register.md).
 | 2026-04-15 | HDPulse | Initial implementation plan (Phase 1 complete). |
 | 2026-04-17 | Documentation refresh | Promoted to required document; added Phase 5 detail; aligned roadmap with shipped feature set; added governance and metric sections. |
 | 2026-04-18 | Cursor (autonomous Wave 7) | Added Phase 1.5 (Commercial-Readiness Band, Waves 0–6) to executive summary and as a new full section between Phase 1 and Phase 2. Cross-linked to `docs/status/shipped.md` and ADRs 0013–0019. |
+| 2026-04-19 | Documentation refresh (Wave 21 + 21.5) | Added Phase 1.6 (Public-API Hardening, Waves 7–21 + 21.5) to the executive summary and as a new full section. Documents the OpenAPI v1 contract + SDK + fuzz harness (Wave 20, ADRs 0020–0024), the RFC 9457 Problem Details + Public Error Catalog (Wave 21, ADRs 0025–0027), and the DEF-0007 closure / DEF-0008 escalation that resulted from the anonymous-public-surface audit. |

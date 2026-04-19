@@ -1,7 +1,7 @@
 # Functional Requirements Document (FRD) — E-Credentialing CVO Platform
 
-**Version:** 2.1
-**Last Updated:** 2026-04-18
+**Version:** 2.2
+**Last Updated:** 2026-04-19
 **Status:** Active — kept in sync with the shipped UI
 **Audience:** Business Analysts, QA, Product, end users
 **Owner:** Credentialing Manager + Product Lead
@@ -43,6 +43,11 @@ For shared definitions:
 | Environment | URL pattern | Audience | Auth |
 |---|---|---|---|
 | Public landing | `/` | Anyone | None |
+| CVO explainer | `/cvo` | Anyone | None |
+| Pricing | `/pricing` | Anyone | None |
+| Sandbox | `/sandbox` | Anyone | None |
+| Public changelog | `/changelog`, `/changelog.rss` | Anyone | None |
+| Public Error Catalog | `/errors`, `/errors/{code}` | Anyone | None — RFC 9457 §3.1.1 |
 | Sign in | `/auth/signin` | Staff | Entra ID redirect |
 | Staff portal | `/(staff)/...` | Staff | Entra ID session |
 | Provider portal | `/application`, `/attestation`, `/upload` | Provider | Single-active JWT in URL |
@@ -582,6 +587,124 @@ Route `(staff)/admin`. Sub-routes:
 
 ---
 
+## 11A. Module 21 — Public Error Catalog (RFC 9457)
+
+### 11A.1 Purpose
+Single, public, machine-readable + human-readable catalog of every
+`error.code` the platform emits from REST v1. Required by **RFC 9457
+§3.1.1**: the `type` URI in every Problem Details body must dereference to
+a human-readable description by anyone who has the URI. The catalog is
+that destination.
+
+### 11A.2 Actors
+- **API integrators** (payers, partners, sandbox evaluators) — read JSON.
+- **On-call humans, auditors, support staff, prospects** — read HTML
+  pages anonymously.
+- **Internal server code** — looks up entries from the typed registry.
+
+### 11A.3 Routes & screens
+
+| Face | URL | Audience | Auth | Source |
+|---|---|---|---|---|
+| TS registry | `src/lib/api/error-catalog.ts` | server code, tests | n/a | source of truth |
+| JSON list | `GET /api/v1/errors` | API integrators | API key (Bearer) | derived from registry |
+| JSON entry | `GET /api/v1/errors/{code}` | API integrators | API key (Bearer) | derived from registry |
+| **Public HTML index** | `GET /errors` | **Anyone** | **None** | rendered from registry |
+| **Public HTML detail** | `GET /errors/{code}` | **Anyone** | **None** | rendered from registry |
+
+### 11A.4 Layout — public HTML index (`/errors`)
+
+- `<h1>` — "Error Catalog".
+- Lead paragraph — one sentence explaining what the page is and citing
+  RFC 9457.
+- Search box (client-side filter over `code` and `title`).
+- Category tabs / chips: `auth`, `validation`, `not-found`, `conflict`,
+  `rate-limit`, `internal`, `compliance`, `billing`.
+- Table (sortable): `Code`, `Status`, `Title`, `Category`, `Since`,
+  `Deprecated since` (badge if set).
+- Each `Code` cell links to `/errors/{code}`.
+- Empty state for filtered "no matches" — copy: "No catalog entries match
+  your filter."
+
+### 11A.5 Layout — public HTML detail (`/errors/{code}`)
+
+- `<h1>` — `{code}` (mono).
+- Sub-line — `HTTP {status} · {category}` with severity-token color.
+- Sections:
+  1. **Title** — short human-readable name.
+  2. **Description** — Markdown body explaining what happened.
+  3. **Why this exists** — `rationale` (if present).
+  4. **What you should do** — `remediation` (if present).
+  5. **Lifecycle** — `Since vX.Y.Z`; `Deprecated since vX.Y.Z` (if set);
+     `Replaced by` link to another `/errors/{newCode}` (if set).
+  6. **Tags** — chips.
+  7. **Example Problem body** — fenced JSON code block, copyable.
+  8. **Cross-links** — to `/api/v1/errors/{code}` (JSON sibling) and to
+     `docs/api/errors.md` (developer reference).
+- 404 for unknown `{code}` — copy: "No catalog entry for code
+  '{requested}'. The code may have been removed in a later major version;
+  see [docs/api/changelog.md](../api/changelog.md)."
+
+### 11A.6 JSON contract (`GET /api/v1/errors[/{code}]`)
+
+```json
+{
+  "code": "PROVIDER_NOT_FOUND",
+  "status": 404,
+  "title": "Provider not found",
+  "description": "No active or archived provider matches the supplied id.",
+  "rationale": "Hides existence of records the caller cannot read; ID-leak prevention.",
+  "remediation": "Verify the id was returned by GET /providers; ensure your API key has the providers:read scope.",
+  "since": "v1.0.0",
+  "category": "not-found",
+  "tags": ["providers"],
+  "type": "https://credentialing.hdpulseai.com/errors/PROVIDER_NOT_FOUND"
+}
+```
+
+The `type` field returned in this JSON entry MUST equal the `type` URI
+that REST v1 emits in any Problem body for that code.
+
+### 11A.7 Validation, error responses, anonymous-access invariant
+
+- `code` segment in `/errors/{code}` and `/api/v1/errors/{code}` is
+  validated against the registry. Unknown codes:
+  - HTML page → 404 with the "no catalog entry" copy above.
+  - JSON endpoint → Problem Details with `code: "ERROR_CODE_NOT_FOUND"`,
+    `status: 404`.
+- HTML pages MUST NOT redirect anonymous users to `/auth/signin`. The
+  middleware allow-list MUST contain `pathname === "/errors"` and
+  `pathname.startsWith("/errors/")` (DEF-0007 fix; see
+  [docs/qa/defects/DEF-0007.md](../qa/defects/DEF-0007.md)).
+
+### 11A.8 Messages
+- Toast on copy of the example Problem body — "Copied to clipboard."
+- Empty filter — see 11A.4.
+- Unknown code — see 11A.7.
+
+### 11A.9 Audit
+- JSON endpoint reads write `api.request` audit rows via `auditApiRequest`
+  (already mandatory for every `/api/v1/*` request).
+- HTML pages do not write audit rows (anonymous, read-only, no PHI).
+
+### 11A.10 Permissions
+- HTML pages: anyone (anonymous).
+- JSON endpoints: any active API key. **No scope is required** because
+  the catalog publishes only the public meaning of public error codes;
+  withholding it from a caller would defeat the RFC 9457 contract that
+  the same caller already needs to understand.
+
+### 11A.11 Cross-references
+- ADR [0025](../dev/adr/0025-problem-details-rfc-9457.md) — Problem Details adoption.
+- ADR [0026](../dev/adr/0026-server-side-request-validation.md) — server-side validation surface.
+- ADR [0027](../dev/adr/0027-error-catalog.md) — Error Catalog single source of truth.
+- Reference doc: [api/errors.md](../api/errors.md).
+- OpenAPI 3.1: [api/openapi-v1.yaml](../api/openapi-v1.yaml) (`Error` and `ProblemDetails` schemas).
+- QA cards: [qa/per-screen/errors.md](../qa/per-screen/errors.md), [qa/per-screen/errors__code.md](../qa/per-screen/errors__code.md).
+- Defect cards: [qa/defects/DEF-0007.md](../qa/defects/DEF-0007.md) (closed), [qa/defects/DEF-0008.md](../qa/defects/DEF-0008.md) (open / escalated).
+
+---
+
 ## 12. Cross-cutting messages, alerts, and notifications
 
 ### 12.1 Channels
@@ -664,3 +787,4 @@ user.created           user.updated             user.deactivated
 | 2026-04-14 | 0.1 | Initial functional spec | HDPulse |
 | 2026-04-15 | 1.0 | Updated to reflect implemented features; all screen descriptions | Claude Code |
 | 2026-04-17 | 2.0 | Documentation refresh — added per-screen UI/UX, validation, message catalog references, full permissions matrix, audit vocabulary, modules 11–20 detail | Documentation refresh |
+| 2026-04-19 | 2.2 | Documentation refresh (Wave 21 + 21.5) — added Module 21 (Public Error Catalog) §11A with the four faces, layouts, JSON contract, anonymous-access invariant, validation, messages, audit, and permissions. Added the public surfaces (`/`, `/cvo`, `/pricing`, `/sandbox`, `/changelog`, `/errors`, `/errors/{code}`) to §2 application structure. Cross-references ADRs 0025–0027 and the DEF-0007 closure / DEF-0008 escalation. | Documentation refresh |

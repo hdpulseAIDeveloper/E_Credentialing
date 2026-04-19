@@ -17,6 +17,67 @@ Anti-weakening: never delete a release. Strike-through a published
 note instead and add a follow-up release if the underlying claim
 turned out to be incorrect.
 
+## 2026-04-19 — v1.15.0 (API)
+
+### Added
+- **Public, machine-readable error catalog.** Every error code
+  the v1 surface can emit is now enumerated in a single,
+  publicly-readable catalog. The catalog has three faces, all
+  backed by the same source of truth:
+  - `GET /api/v1/errors` — the full catalog as JSON, sorted by
+    `code` ascending. Authenticates with any active key (no
+    specific scope required, identical to `health()` / `me()`),
+    ETag-cacheable on the standard envelope so dashboards and
+    SDK code-gen pipelines can poll it cheaply. Use this to
+    discover what's new in a release: filter `entries[]` by
+    `sinceVersion`.
+  - `GET /api/v1/errors/{code}` — one row by code. Both the
+    snake_case form (`insufficient_scope` — the value of
+    `error.code` in any Problem body) AND the kebab-case form
+    (`insufficient-scope` — the suffix of the `type` URI) are
+    accepted; the SDK passes the caller's value through
+    verbatim. Returns the standard 404 NotFound Problem when
+    the code is not in the catalog.
+  - `/errors` (HTML index) and `/errors/{code}` (HTML detail) —
+    public, browseable, no auth. Every Problem body's `type`
+    URI now resolves to a real page in the browser instead of
+    a 404. Pages are statically pre-rendered for every catalog
+    entry (both URL forms) at build time, so they load
+    instantly and are indexed by search engines.
+- **`ErrorCatalogEntry` response shape.** Each row carries
+  `code` (snake_case identifier; the SemVer-stable dispatch
+  key), `title` (RFC 9457 short label, ≤ 60 chars), `status`
+  (the HTTP status the platform always returns alongside this
+  code — one status per code), `summary` (one-sentence English),
+  `description` (full English explanation; markdown permitted),
+  `remediation` (concrete guidance for the integrator; markdown
+  permitted; empty string allowed for 5xx where the remediation
+  is "retry with backoff"), `sinceVersion` (SemVer at which the
+  code was introduced), `retiredInVersion` (SemVer at which the
+  code was retired — retired rows stay in the catalog forever
+  so old `type` URIs in SDKs in the wild keep resolving), and
+  `docsPath` (pre-computed `/errors/<kebab-code>` path).
+- **TypeScript SDK exposes `listErrors()` + `getError(code)`.**
+  Two new dependency-free integrations in
+  `@e-credentialing/api-client`:
+  - `client.listErrors()` — returns a `V1ErrorCatalogList`.
+  - `client.getError(code)` — returns a `V1ErrorCatalogEntry`.
+    Accepts both snake_case and kebab-case codes.
+  Both types are auto-derived from the OpenAPI spec, so they
+  cannot drift from the wire contract.
+
+### Improved
+- **Versioning policy gains §3.10.** `docs/api/versioning.md`
+  documents the catalog's three-faces design, the per-field
+  stability contract (renaming a `code` or any catalog field
+  is a SemVer breaking change; new codes MAY be added in a
+  minor; retired codes MUST keep their rows), and the SDK
+  observation contract.
+- **Spec bumped to `1.10.0`.** `info.version` reflects the new
+  endpoints and schemas. SDK and Postman collection
+  regenerated automatically; both pass `npm run sdk:check` and
+  `npm run postman:check`.
+
 ## 2026-04-19 — v1.14.0 (API)
 
 ### Added

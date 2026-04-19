@@ -35,6 +35,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { findCatalogEntry } from "./error-catalog";
 
 /**
  * Base URL for the canonical `type` URIs. Overridable for local-dev /
@@ -79,26 +80,31 @@ export interface Problem {
 }
 
 /**
- * Map of v1 error `code` -> human-readable `title`. The `title` is
- * supposed to be invariant for a given `type` per RFC 9457 §3.1.3 —
- * "It SHOULD NOT change from occurrence to occurrence of the
- * problem". Adding a new code requires a row here.
+ * Legacy map of v1 error `code` -> human-readable `title`.
  *
- * Keep alphabetised. Codes not in this map fall back to a
- * Title-Cased version of the snake_case code, which is a safe
- * default but loses the editorial value.
+ * **Wave 21:** the canonical source of titles is now
+ * `src/lib/api/error-catalog.ts` (`findCatalogEntry(code).title`).
+ * This object is preserved so external test suites and any
+ * downstream consumers that imported it before Wave 21 keep
+ * working unchanged. New entries MUST be added to the catalog,
+ * not here; this map is now derived from the catalog at module
+ * load and frozen.
+ *
+ * The `title` is invariant for a given `type` per RFC 9457 §3.1.3.
+ * Codes not in this map fall back to a Title-Cased version of the
+ * snake_case code — see `problemTitleFor`.
  */
-export const PROBLEM_TITLES: Readonly<Record<string, string>> = {
-  expired_api_key: "Expired API key",
-  insufficient_scope: "Insufficient scope",
-  invalid_api_key: "Invalid API key",
-  invalid_request: "Invalid request",
-  missing_authorization: "Missing authorization",
-  not_found: "Resource not found",
-  rate_limited: "Rate limit exceeded",
-  unauthorized: "Unauthorized",
-  upstream_unavailable: "Upstream unavailable",
-};
+export const PROBLEM_TITLES: Readonly<Record<string, string>> = Object.freeze({
+  expired_api_key: findCatalogEntry("expired_api_key")?.title ?? "Expired API key",
+  insufficient_scope: findCatalogEntry("insufficient_scope")?.title ?? "Insufficient scope",
+  invalid_api_key: findCatalogEntry("invalid_api_key")?.title ?? "Invalid API key",
+  invalid_request: findCatalogEntry("invalid_request")?.title ?? "Invalid request",
+  missing_authorization: findCatalogEntry("missing_authorization")?.title ?? "Missing authorization",
+  not_found: findCatalogEntry("not_found")?.title ?? "Resource not found",
+  rate_limited: findCatalogEntry("rate_limited")?.title ?? "Rate limit exceeded",
+  unauthorized: findCatalogEntry("unauthorized")?.title ?? "Unauthorized",
+  upstream_unavailable: findCatalogEntry("upstream_unavailable")?.title ?? "Upstream unavailable",
+});
 
 /**
  * Compute the canonical `type` URI for an error code. Stable per code.
@@ -110,10 +116,24 @@ export function problemTypeUri(code: string): string {
   return `${PROBLEM_BASE_URL}/errors/${slug}`;
 }
 
-/** Resolve the human-readable title for a code, with a safe default. */
+/**
+ * Resolve the human-readable title for a code, with a safe default.
+ *
+ * Lookup order (Wave 21):
+ *   1. The canonical error catalog (`error-catalog.ts`) — single
+ *      source of truth for every `code` the platform emits.
+ *   2. The legacy `PROBLEM_TITLES` map (now derived from the
+ *      catalog at module load) — only useful if a downstream
+ *      consumer hot-patched it.
+ *   3. A Title-Cased version of the snake_case code — safe
+ *      default for unknown codes (e.g. an experimental code that
+ *      hasn't reached the catalog yet).
+ */
 export function problemTitleFor(code: string): string {
-  const explicit = PROBLEM_TITLES[code];
-  if (explicit) return explicit;
+  const fromCatalog = findCatalogEntry(code);
+  if (fromCatalog) return fromCatalog.title;
+  const legacy = PROBLEM_TITLES[code];
+  if (legacy) return legacy;
   return code
     .split("_")
     .filter(Boolean)

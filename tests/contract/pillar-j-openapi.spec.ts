@@ -563,6 +563,127 @@ describe("pillar-J: OpenAPI 3.1 contract", () => {
     });
   });
 
+  describe("Wave 21: error catalog contract", () => {
+    it("declares an 'errors' tag describing the public catalog", () => {
+      const tags = (SPEC as { tags?: Array<{ name?: string; description?: string }> })
+        .tags ?? [];
+      const errorsTag = tags.find((t) => t.name === "errors");
+      expect(errorsTag, "missing tags entry name='errors'").toBeTruthy();
+      expect(errorsTag?.description ?? "").toMatch(/catalog/i);
+    });
+
+    it("declares the /api/v1/errors path with a GET operation tagged errors", () => {
+      const path = SPEC.paths["/api/v1/errors"] as
+        | Record<string, { tags?: string[]; operationId?: string }>
+        | undefined;
+      expect(path, "missing /api/v1/errors path").toBeTruthy();
+      expect(path?.get, "missing GET /api/v1/errors").toBeTruthy();
+      expect(path?.get?.operationId).toBe("listErrorCatalog");
+      expect(path?.get?.tags ?? []).toContain("errors");
+    });
+
+    it("declares the /api/v1/errors/{code} path with a GET operation tagged errors", () => {
+      const path = SPEC.paths["/api/v1/errors/{code}"] as
+        | Record<string, { tags?: string[]; operationId?: string }>
+        | undefined;
+      expect(path, "missing /api/v1/errors/{code} path").toBeTruthy();
+      expect(path?.get, "missing GET /api/v1/errors/{code}").toBeTruthy();
+      expect(path?.get?.operationId).toBe("getErrorCatalogEntry");
+      expect(path?.get?.tags ?? []).toContain("errors");
+    });
+
+    it("declares an ErrorCatalogEntry schema with the catalog row shape", () => {
+      const entry = SPEC.components?.schemas?.ErrorCatalogEntry as
+        | { properties?: Record<string, { type?: string; pattern?: string }>; required?: string[] }
+        | undefined;
+      expect(entry, "missing components.schemas.ErrorCatalogEntry").toBeTruthy();
+      const props = entry?.properties ?? {};
+      for (const required of [
+        "code",
+        "title",
+        "status",
+        "summary",
+        "description",
+        "remediation",
+        "sinceVersion",
+        "docsPath",
+      ]) {
+        expect(
+          required in props,
+          `ErrorCatalogEntry missing property '${required}'`,
+        ).toBe(true);
+      }
+      expect(props.code?.type).toBe("string");
+      expect(props.code?.pattern).toBe("^[a-z][a-z0-9_]*$");
+      expect(props.status?.type).toBe("integer");
+      expect(props.sinceVersion?.pattern).toBe("^\\d+\\.\\d+\\.\\d+$");
+      expect(entry?.required ?? []).toEqual(
+        expect.arrayContaining([
+          "code",
+          "title",
+          "status",
+          "summary",
+          "description",
+          "remediation",
+          "sinceVersion",
+          "docsPath",
+        ]),
+      );
+    });
+
+    it("declares an ErrorCatalogList schema wrapping entries[]", () => {
+      const list = SPEC.components?.schemas?.ErrorCatalogList as
+        | {
+            properties?: Record<
+              string,
+              { type?: string; items?: { $ref?: string } }
+            >;
+            required?: string[];
+          }
+        | undefined;
+      expect(list, "missing components.schemas.ErrorCatalogList").toBeTruthy();
+      const entries = list?.properties?.entries;
+      expect(entries?.type).toBe("array");
+      expect(entries?.items?.$ref).toBe(
+        "#/components/schemas/ErrorCatalogEntry",
+      );
+      expect(list?.required ?? []).toContain("entries");
+    });
+
+    it("attaches the same envelope (200 + 304 + 401 + 429 + headers) on /api/v1/errors", () => {
+      const op = (SPEC.paths["/api/v1/errors"] as Record<string, unknown> | undefined)?.[
+        "get"
+      ] as
+        | {
+            responses?: Record<
+              string,
+              { content?: Record<string, { schema?: { $ref?: string } }>; headers?: Record<string, unknown> }
+            >;
+          }
+        | undefined;
+      expect(op?.responses?.["200"], "missing 200 response").toBeTruthy();
+      expect(op?.responses?.["304"], "missing 304 response").toBeTruthy();
+      expect(op?.responses?.["401"], "missing 401 response").toBeTruthy();
+      expect(op?.responses?.["429"], "missing 429 response").toBeTruthy();
+      const r200 = op?.responses?.["200"];
+      expect(r200?.content?.["application/json"]?.schema?.$ref).toBe(
+        "#/components/schemas/ErrorCatalogList",
+      );
+      for (const h of ["ETag", "X-Request-Id", "X-RateLimit-Limit"]) {
+        expect(r200?.headers?.[h], `200 missing header ${h}`).toBeTruthy();
+      }
+    });
+
+    it("attaches 404 NotFound on /api/v1/errors/{code} for unknown-code requests", () => {
+      const op = (SPEC.paths["/api/v1/errors/{code}"] as Record<string, unknown> | undefined)?.[
+        "get"
+      ] as { responses?: Record<string, { $ref?: string }> } | undefined;
+      expect(op?.responses?.["404"]?.$ref).toBe(
+        "#/components/responses/NotFound",
+      );
+    });
+  });
+
   describe("anti-PHI guard", () => {
     /**
      * Walks the spec and collects every property name that appears

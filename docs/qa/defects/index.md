@@ -29,6 +29,8 @@ when the issues are picked up):
 | DEF-0005       | **Closed (fixed)**  | Systemic WCAG 2.1 AA color-contrast failure on stat tiles (palette)            | E      | 2026-04-17 | 2026-04-17 |
 | DEF-0006       | **Closed (fixed)**  | `<select>` on `/dashboard` missing accessible name (WCAG 4.1.2)                | E      | 2026-04-17 | 2026-04-17 |
 | DEF-INFRA-0001 | **Closed (fixed)**  | Pillar runs against `next dev` are unstable for E2E (production-build mode)   | All    | 2026-04-17 | 2026-04-18 |
+| DEF-0007       | **Closed (fixed)**  | `/errors` HTML pages redirect anonymous visitors (Wave 21 contract regression) | A,J    | 2026-04-19 | 2026-04-19 |
+| DEF-0008       | Open — **Escalated** | Systemic drift: middleware public allow-list out of sync with `route-inventory.json` `group:public` (PRE-EXISTING, ≥7 affected routes) | A,B,Q  | 2026-04-19 | —          |
 
 DEF-0003 and DEF-0004 were the original failures named in `STANDARD.md`
 §10 that this entire QA Standard exists to prevent from recurring
@@ -55,5 +57,31 @@ budgets in `playwright.prod.config.ts` are unchanged from the dev
 config (no STANDARD.md §4.2 weakening); workers are cranked from 2 →
 4 because production bundles serve concurrent requests cleanly.
 
-With DEF-INFRA-0001 closed, the QA Standard's open-defect ledger is
-empty.
+With DEF-INFRA-0001 closed, the QA Standard's open-defect ledger was
+empty until 2026-04-19.
+
+DEF-0007 was discovered during the Wave 21 Fix-Until-Green loop: the
+new `/errors` and `/errors/[code]` public HTML pages — promised as
+"fully public" by the per-screen cards, ADR 0027, and §3.10 of the
+versioning policy — were redirected by `src/middleware.ts` to
+`/auth/signin` for anonymous visitors. Captured evidence is in the
+DEF-0007 card (HTTP 307 against the `npm start` prod bundle on
+`http://localhost:6015`). Closed the same day by adding `/errors` and
+`/errors/` to the middleware public allow-list, plus a new
+`tests/e2e/anonymous/pillar-a-public-smoke.spec.ts` that iterates over
+`route-inventory.json` `group === "public"` and asserts each route
+returns 200 to an anonymous client.
+
+DEF-0008 was surfaced in the same loop, as a separate card to keep
+the DEF-0007 fix at "one root cause per commit" (STANDARD.md §4.1.4).
+It is the systemic same-shape drift between the hand-maintained
+public allow-list in `src/middleware.ts` and the canonical
+`route-inventory.json` `group: public`. Eight routes are currently
+affected (`/legal/*` × 4, `/cvo`, `/sandbox`, `/pricing`,
+`/changelog`, plus the `/settings/billing` and `/settings/compliance`
+suspect cases). DEF-0008 is **Escalated** — the appropriate fix is
+structural (build-time derivation of the allow-list) and exceeds
+the Wave 21 PR's blast radius. The new anonymous public-smoke spec
+will catch every future drift instance from this point forward,
+without requiring DEF-0008 to be resolved before the runtime side
+of the contract is enforced.

@@ -1,9 +1,9 @@
 {
   "info": {
-    "name": "E-Credentialing CVO Platform — Public REST API v1 (v1.9.0)",
-    "description": "The v1 surface is intentionally read-only. Every request requires\na Bearer API key with the appropriate scope; every request is\naudited; PHI fields (SSN, DOB, DEA, personal address, notes) are\nNEVER returned regardless of scope.\n\nFor a no-auth playground using synthetic data, see\n`/api/sandbox/v1/*` (documented at `/sandbox`).\n\nRate limiting (since v1.2.0): every successful response carries\n`X-RateLimit-Limit`, `X-RateLimit-Remaining`, and\n`X-RateLimit-Reset` headers (Unix-seconds). When you exceed the\nper-key budget the API returns a `429` with the `RateLimitProblem`\nbody and a `Retry-After` header.\n\nRequest correlation (since v1.3.0): every request and response —\nsuccess or error — carries an `X-Request-Id` header. Send your\nown (`^[A-Za-z0-9_\\-]{8,128}$`) and we'll honour it; otherwise\nwe generate one server-side. Paste it into a support ticket and\nwe can find your call in O(1). See `docs/api/versioning.md`\nfor the full contract and deprecation policy.\n\nKey introspection (since v1.4.0): `GET /api/v1/me` returns the\ncurrent API key's name, granted scopes, lifecycle timestamps,\nand current rate-limit budget. Pairs with `/health` to make\n\"is my key configured correctly?\" a one-call answer.\n\nPagination links (since v1.5.0): every paginated list response\ncarries an RFC 8288 `Link` header listing `first`, `prev`,\n`next`, and `last` page URLs. Clients can navigate the result\nset without parsing the JSON envelope.\n\nConditional GETs (since v1.6.0): every read endpoint emits a\nweak `ETag` response header derived from a stable hash of the\ncacheable subset of the response body. Send the value back as\n`If-None-Match: \"<etag>\"` on the next poll; if nothing has\nchanged the API replies `304 Not Modified` with an empty body\n(zero JSON bytes). Saves bandwidth, DB round-trips, and your\nrate-limit budget. The 304 still carries `X-Request-Id` and\nthe rate-limit headers.\n\nDeprecation contract (since v1.7.0): an operation that has\nentered its deprecation window emits the standard advisory\nheaders — `Deprecation` (RFC 9745) carrying the `@unix-seconds`\nstructured-fields integer when deprecation took effect,\n`Sunset` (RFC 8594) carrying the IMF-fixdate when the operation\nwill start returning `410 Gone`, and `Link` entries with\n`rel=\"deprecation\"`, `rel=\"sunset\"`, and (where one exists)\n`rel=\"successor-version\"` pointing at the upgrade guide and\nreplacement endpoint. **The headers are absent from operations\nthat are not on a deprecation path** — their presence is the\nsignal. The full lifecycle policy lives in\n`docs/api/versioning.md` §4. The TypeScript SDK parses these\nheaders via `parseDeprecation(headers)` and emits a one-time\n`console.warn` per process so customers find out before the\nsunset wall-clock fires.\n\nProblem Details for HTTP APIs (since v1.8.0): every error\nresponse body is now an RFC 9457 Problem object — `type`\n(stable URI per error code), `title` (short human-readable),\n`status` (mirror of HTTP status), `detail` (occurrence-specific\nmessage), and optional `instance` (the request path that\ntriggered the error). The legacy `{ error: { code, message,\n...extras } }` envelope is preserved verbatim inside the same\nbody, so existing SDKs continue to read `body.error.code`\nunchanged. The Content-Type defaults to\n`application/problem+json` per RFC 9457 §3, except when the\ncaller's `Accept` header explicitly excludes it. Status codes\nare unchanged. The TypeScript SDK exposes `parseProblem(body)`\nand `V1ApiError.problem` for typed access; raw fetch callers\ncan read either shape.\n\nServer-side request validation (since v1.9.0): every paginated\nlist endpoint validates its query parameters with a strict Zod\nschema before touching the database. Invalid input returns a\n`400 Bad Request` Problem with `type` =\n`…/errors/invalid-request` and a non-empty `errors[]` extension\narray — each entry is `{ field, code, message }` where `field`\nis the dot-joined query parameter path, `code` is a stable Zod\nissue code (`too_small`, `too_big`, `invalid_enum_value`,\n`invalid_type`, `invalid_string`, etc.), and `message` is the\nEnglish explanation. Multiple invalid parameters in one request\nsurface as multiple entries in `errors[]` — clients no longer\nneed to retry once per fix. The legacy `error` envelope and\n`application/problem+json` content negotiation are unchanged.\n\nWave 8 (2026-04-18). See ADR 0020 and `docs/qa/per-pillar/pillar-j-api.md`.\n\nAuto-generated from `docs/api/openapi-v1.yaml`.\nDo not hand-edit — regenerate via `npm run postman:gen`.",
+    "name": "E-Credentialing CVO Platform — Public REST API v1 (v1.10.0)",
+    "description": "The v1 surface is intentionally read-only. Every request requires\na Bearer API key with the appropriate scope; every request is\naudited; PHI fields (SSN, DOB, DEA, personal address, notes) are\nNEVER returned regardless of scope.\n\nFor a no-auth playground using synthetic data, see\n`/api/sandbox/v1/*` (documented at `/sandbox`).\n\nRate limiting (since v1.2.0): every successful response carries\n`X-RateLimit-Limit`, `X-RateLimit-Remaining`, and\n`X-RateLimit-Reset` headers (Unix-seconds). When you exceed the\nper-key budget the API returns a `429` with the `RateLimitProblem`\nbody and a `Retry-After` header.\n\nRequest correlation (since v1.3.0): every request and response —\nsuccess or error — carries an `X-Request-Id` header. Send your\nown (`^[A-Za-z0-9_\\-]{8,128}$`) and we'll honour it; otherwise\nwe generate one server-side. Paste it into a support ticket and\nwe can find your call in O(1). See `docs/api/versioning.md`\nfor the full contract and deprecation policy.\n\nKey introspection (since v1.4.0): `GET /api/v1/me` returns the\ncurrent API key's name, granted scopes, lifecycle timestamps,\nand current rate-limit budget. Pairs with `/health` to make\n\"is my key configured correctly?\" a one-call answer.\n\nPagination links (since v1.5.0): every paginated list response\ncarries an RFC 8288 `Link` header listing `first`, `prev`,\n`next`, and `last` page URLs. Clients can navigate the result\nset without parsing the JSON envelope.\n\nConditional GETs (since v1.6.0): every read endpoint emits a\nweak `ETag` response header derived from a stable hash of the\ncacheable subset of the response body. Send the value back as\n`If-None-Match: \"<etag>\"` on the next poll; if nothing has\nchanged the API replies `304 Not Modified` with an empty body\n(zero JSON bytes). Saves bandwidth, DB round-trips, and your\nrate-limit budget. The 304 still carries `X-Request-Id` and\nthe rate-limit headers.\n\nDeprecation contract (since v1.7.0): an operation that has\nentered its deprecation window emits the standard advisory\nheaders — `Deprecation` (RFC 9745) carrying the `@unix-seconds`\nstructured-fields integer when deprecation took effect,\n`Sunset` (RFC 8594) carrying the IMF-fixdate when the operation\nwill start returning `410 Gone`, and `Link` entries with\n`rel=\"deprecation\"`, `rel=\"sunset\"`, and (where one exists)\n`rel=\"successor-version\"` pointing at the upgrade guide and\nreplacement endpoint. **The headers are absent from operations\nthat are not on a deprecation path** — their presence is the\nsignal. The full lifecycle policy lives in\n`docs/api/versioning.md` §4. The TypeScript SDK parses these\nheaders via `parseDeprecation(headers)` and emits a one-time\n`console.warn` per process so customers find out before the\nsunset wall-clock fires.\n\nProblem Details for HTTP APIs (since v1.8.0): every error\nresponse body is now an RFC 9457 Problem object — `type`\n(stable URI per error code), `title` (short human-readable),\n`status` (mirror of HTTP status), `detail` (occurrence-specific\nmessage), and optional `instance` (the request path that\ntriggered the error). The legacy `{ error: { code, message,\n...extras } }` envelope is preserved verbatim inside the same\nbody, so existing SDKs continue to read `body.error.code`\nunchanged. The Content-Type defaults to\n`application/problem+json` per RFC 9457 §3, except when the\ncaller's `Accept` header explicitly excludes it. Status codes\nare unchanged. The TypeScript SDK exposes `parseProblem(body)`\nand `V1ApiError.problem` for typed access; raw fetch callers\ncan read either shape.\n\nError catalog (since v1.10.0): the `type` URI inside every\nProblem body resolves to a public, machine-readable catalog\nentry. Browse the canonical HTML index at `/errors`, get the\nraw JSON list at `GET /api/v1/errors`, or fetch a single\nentry at `GET /api/v1/errors/{code}` (snake_case OR kebab-case\ncode accepted). Each catalog row carries a stable `code`,\n`title`, `status`, one-sentence `summary`, full `description`,\nconcrete `remediation` guidance, the `sinceVersion` it was\nintroduced in, and an optional `retiredInVersion`. Retired\ncodes stay in the catalog forever so old `type` URIs in\nSDKs in the wild keep resolving — see\n`docs/dev/adr/0027-error-catalog.md` for the contract.\n\nServer-side request validation (since v1.9.0): every paginated\nlist endpoint validates its query parameters with a strict Zod\nschema before touching the database. Invalid input returns a\n`400 Bad Request` Problem with `type` =\n`…/errors/invalid-request` and a non-empty `errors[]` extension\narray — each entry is `{ field, code, message }` where `field`\nis the dot-joined query parameter path, `code` is a stable Zod\nissue code (`too_small`, `too_big`, `invalid_enum_value`,\n`invalid_type`, `invalid_string`, etc.), and `message` is the\nEnglish explanation. Multiple invalid parameters in one request\nsurface as multiple entries in `errors[]` — clients no longer\nneed to retry once per fix. The legacy `error` envelope and\n`application/problem+json` content negotiation are unchanged.\n\nWave 8 (2026-04-18). See ADR 0020 and `docs/qa/per-pillar/pillar-j-api.md`.\n\nAuto-generated from `docs/api/openapi-v1.yaml`.\nDo not hand-edit — regenerate via `npm run postman:gen`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "version": "1.9.0"
+    "version": "1.10.0"
   },
   "auth": {
     "type": "bearer",
@@ -69,6 +69,71 @@
               ]
             },
             "description": "List payer enrollments"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "errors",
+      "item": [
+        {
+          "name": "getErrorCatalogEntry",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/errors/:code",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "errors",
+                ":code"
+              ],
+              "variable": [
+                {
+                  "key": "code",
+                  "value": "<code>",
+                  "description": "Path variable derived from OpenAPI {code}."
+                }
+              ]
+            },
+            "description": "Returns the catalog entry for a single error `code`.\nBoth the snake_case form (e.g. `insufficient_scope`) and\nthe kebab-case URL suffix form (e.g.\n`insufficient-scope` — the suffix of the `type` URI in\nevery Problem body) are accepted.\n\nReturns `404 Not Found` for unknown codes; the response\nis itself a Problem body with `type` =\n`…/errors/not-found` and an extension member\n`requestedCode` carrying the verbatim path parameter.\n\nAuthentication, cacheability, and versioning: same as\n`GET /api/v1/errors`.\n"
+          },
+          "response": []
+        },
+        {
+          "name": "listErrorCatalog",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/errors",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "errors"
+              ]
+            },
+            "description": "Returns the full v1 error catalog — every `code` the\nplatform can emit, with the same `title` / `status` the\nwire contract uses, plus a `summary`, `description`,\n`remediation`, and `sinceVersion`. The list is sorted by\n`code` ascending and is identical for every caller.\n\nAuthentication: any active API key. Like `/health` and\n`/me`, no specific scope is required — a brand-new,\nscopeless key returns 200 here.\n\nCacheability: the catalog only changes when the platform\nships a new release, so the `ETag` is stable across\nthousands of polls. Send the value back as\n`If-None-Match` and the API replies `304 Not Modified`.\n\nVersioning: shipped in v1.10.0 (SemVer minor — additive\nonly). See `docs/api/versioning.md` §3.10.\n"
           },
           "response": []
         }

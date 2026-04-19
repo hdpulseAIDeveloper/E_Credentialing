@@ -76,6 +76,7 @@ that meaningfully changes the platform without updating both as incomplete.
 
 - [product/README.md](product/README.md) — Product documentation index.
 - [product/product-overview.md](product/product-overview.md) — One-page platform overview.
+- [product/stakeholder-brief.md](product/stakeholder-brief.md) — **Audience-cut single-page summary** for every stakeholder type (executive, customer, partner, auditor, user, developer, PM, QA).
 - [product/value-proposition.md](product/value-proposition.md) — Value, outcomes, differentiators.
 - [product/market-analysis.md](product/market-analysis.md) — Competitive landscape and feature comparison.
 - [product/personas.md](product/personas.md) — User personas and jobs-to-be-done.
@@ -105,9 +106,17 @@ that meaningfully changes the platform without updating both as incomplete.
 | PHI encryption | [dev/encryption.md](dev/encryption.md) |
 | PSV bots | [dev/bots.md](dev/bots.md) |
 | Public REST/FHIR API | [api/README.md](api/README.md) |
+| OpenAPI 3.1 contract | [api/openapi-v1.yaml](api/openapi-v1.yaml) |
+| Public Error Catalog (RFC 9457) | [api/errors.md](api/errors.md) — and `/errors` on the running app |
 | NCQA CVO readiness | [compliance/ncqa-cvo.md](compliance/ncqa-cvo.md) |
 | HIPAA summary | [compliance/hipaa.md](compliance/hipaa.md) |
+| CMS-0057-F Provider Directory | [compliance/cms-0057.md](compliance/cms-0057.md) |
+| Joint Commission NPG-12 | [compliance/jc-npg-12.md](compliance/jc-npg-12.md) |
+| QA Standard (binding) | [qa/STANDARD.md](qa/STANDARD.md) |
+| Per-PR Definition of Done | [qa/definition-of-done.md](qa/definition-of-done.md) |
 | Test strategy | [qa/test-strategy.md](qa/test-strategy.md) |
+| Open defects + ledger | [qa/defects/index.md](qa/defects/index.md) |
+| Wave-by-wave delivery index | [status/shipped.md](status/shipped.md) |
 | Release notes | [../CHANGELOG.md](../CHANGELOG.md) (and [pm/change-log-policy.md](pm/change-log-policy.md) for the policy) |
 | Provider onboarding (user-facing) | [user/provider-onboarding.md](user/provider-onboarding.md) |
 | Production deployment & ops | [technical/deployment-and-operations.md](technical/deployment-and-operations.md) and [dev/runbooks/](dev/runbooks/) |

@@ -74,6 +74,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the public error catalog
+         * @description Returns the full v1 error catalog — every `code` the
+         *     platform can emit, with the same `title` / `status` the
+         *     wire contract uses, plus a `summary`, `description`,
+         *     `remediation`, and `sinceVersion`. The list is sorted by
+         *     `code` ascending and is identical for every caller.
+         *
+         *     Authentication: any active API key. Like `/health` and
+         *     `/me`, no specific scope is required — a brand-new,
+         *     scopeless key returns 200 here.
+         *
+         *     Cacheability: the catalog only changes when the platform
+         *     ships a new release, so the `ETag` is stable across
+         *     thousands of polls. Send the value back as
+         *     `If-None-Match` and the API replies `304 Not Modified`.
+         *
+         *     Versioning: shipped in v1.10.0 (SemVer minor — additive
+         *     only). See `docs/api/versioning.md` §3.10.
+         */
+        get: operations["listErrorCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/errors/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a single error catalog entry
+         * @description Returns the catalog entry for a single error `code`.
+         *     Both the snake_case form (e.g. `insufficient_scope`) and
+         *     the kebab-case URL suffix form (e.g.
+         *     `insufficient-scope` — the suffix of the `type` URI in
+         *     every Problem body) are accepted.
+         *
+         *     Returns `404 Not Found` for unknown codes; the response
+         *     is itself a Problem body with `type` =
+         *     `…/errors/not-found` and an extension member
+         *     `requestedCode` carrying the verbatim path parameter.
+         *
+         *     Authentication, cacheability, and versioning: same as
+         *     `GET /api/v1/errors`.
+         */
+        get: operations["getErrorCatalogEntry"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/providers": {
         parameters: {
             query?: never;
@@ -404,7 +472,7 @@ export interface components {
             keyId: string;
             /**
              * @description Semver version of the v1 surface (matches `info.version`).
-             * @example 1.9.0
+             * @example 1.10.0
              */
             apiVersion: string;
             /**
@@ -601,6 +669,95 @@ export interface components {
         EnrollmentsPage: {
             data: components["schemas"]["Enrollment"][];
             pagination: components["schemas"]["Pagination"];
+        };
+        /**
+         * @description One row in the public v1 error catalog (since v1.10.0). The
+         *     canonical, machine-readable description of a single error
+         *     `code` the platform can emit. The same row backs the HTML
+         *     page at `/errors/<kebab-code>` that every Problem body's
+         *     `type` URI resolves to.
+         *
+         *     The wire shape is invariant for a given `code` — renaming
+         *     any of `code`, `title`, `status`, or any other field is a
+         *     SemVer breaking change because clients dispatch on it. New
+         *     codes MAY be added in a minor; codes MAY be retired (set
+         *     `retiredInVersion`) but their entries MUST stay in the
+         *     catalog forever so old `type` URIs in SDKs in the wild keep
+         *     resolving.
+         */
+        ErrorCatalogEntry: {
+            /**
+             * @description Stable snake_case identifier — the value of `error.code`
+             *     in every Problem body and the kebab-case suffix of the
+             *     `type` URI. Renaming a code is a SemVer breaking change.
+             * @example insufficient_scope
+             */
+            code: string;
+            /**
+             * @description RFC 9457 `title` — short, occurrence-invariant English
+             *     label. Title-Case, no trailing punctuation, ≤ 60 chars.
+             * @example Insufficient scope
+             */
+            title: string;
+            /**
+             * @description HTTP status the platform always returns alongside this
+             *     code. One status per code; if the same condition can
+             *     produce two statuses, that's two separate codes.
+             * @example 403
+             */
+            status: number;
+            /**
+             * @description One-sentence English summary — the body of the `/errors`
+             *     index row. Plain prose, no markdown.
+             * @example The API key is valid, but it does not carry the scope required for the requested operation.
+             */
+            summary: string;
+            /**
+             * @description Full English explanation of what triggers the error and
+             *     what the body shape looks like. Markdown is permitted.
+             *     Used in the `/errors/{code}` detail page and the JSON
+             *     detail endpoint.
+             */
+            description: string;
+            /**
+             * @description Concrete remediation guidance for the integrator.
+             *     Markdown permitted. Empty string is allowed for `5xx`
+             *     codes where the remediation is "retry with backoff"
+             *     (which is implicit).
+             */
+            remediation: string;
+            /**
+             * @description SemVer of the OpenAPI spec at which this code was
+             *     introduced. Customers can filter the catalog by
+             *     `sinceVersion` to discover what's new.
+             * @example 1.0.0
+             */
+            sinceVersion: string;
+            /**
+             * @description If set, the SemVer of the OpenAPI spec at which this
+             *     code was retired. Retired codes still appear in the
+             *     catalog (so old `type` URIs keep resolving) but the
+             *     platform no longer emits them.
+             * @example 1.20.0
+             */
+            retiredInVersion?: string;
+            /**
+             * @description Stable HTTP path under the public host where the
+             *     human-readable docs for this code live. Always
+             *     `/errors/<kebab-code>`. Pre-computed server-side so
+             *     consumers don't have to derive it.
+             * @example /errors/insufficient-scope
+             */
+            docsPath: string;
+        };
+        /**
+         * @description Response body of `GET /api/v1/errors` (since v1.10.0). The
+         *     `entries[]` array is sorted by `code` ascending and is
+         *     identical for every caller — the catalog is fully public.
+         */
+        ErrorCatalogList: {
+            /** @description Every catalog row, sorted by `code` ascending. */
+            entries: components["schemas"]["ErrorCatalogEntry"][];
         };
     };
     responses: {
@@ -961,6 +1118,116 @@ export interface operations {
             };
             304: components["responses"]["NotModified"];
             401: components["responses"]["Unauthorized"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    listErrorCatalog: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional caller-supplied correlation id. If supplied and it
+                 *     matches `^[A-Za-z0-9_\-]{8,128}$` the server honours it and
+                 *     echoes it back on the response. Otherwise the server
+                 *     generates one. Pair this with your client-side log lines for
+                 *     end-to-end tracing. Available since v1.3.0.
+                 */
+                "X-Request-Id"?: components["parameters"]["RequestIdHeader"];
+                /**
+                 * @description Conditional GET — supply the `ETag` value the server returned
+                 *     on a previous response and, if nothing has changed, the
+                 *     server replies `304 Not Modified` with an empty body. Either
+                 *     the literal `*` (wildcard, always matches a current
+                 *     representation) or one or more quoted ETag tokens
+                 *     (`W/"<hex>"` or `"<hex>"`), comma-separated. Weak
+                 *     comparison per RFC 9110 §13.1.2 — a strong-form token
+                 *     (`"abc"`) matches the corresponding weak-form ETag
+                 *     (`W/"abc"`). Available since v1.6.0.
+                 * @example W/"deadbeefcafebabe1234567890abcdef12345678"
+                 */
+                "If-None-Match"?: components["parameters"]["IfNoneMatchHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The full v1 error catalog. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
+                    "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
+                    "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorCatalogList"];
+                };
+            };
+            304: components["responses"]["NotModified"];
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    getErrorCatalogEntry: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional caller-supplied correlation id. If supplied and it
+                 *     matches `^[A-Za-z0-9_\-]{8,128}$` the server honours it and
+                 *     echoes it back on the response. Otherwise the server
+                 *     generates one. Pair this with your client-side log lines for
+                 *     end-to-end tracing. Available since v1.3.0.
+                 */
+                "X-Request-Id"?: components["parameters"]["RequestIdHeader"];
+                /**
+                 * @description Conditional GET — supply the `ETag` value the server returned
+                 *     on a previous response and, if nothing has changed, the
+                 *     server replies `304 Not Modified` with an empty body. Either
+                 *     the literal `*` (wildcard, always matches a current
+                 *     representation) or one or more quoted ETag tokens
+                 *     (`W/"<hex>"` or `"<hex>"`), comma-separated. Weak
+                 *     comparison per RFC 9110 §13.1.2 — a strong-form token
+                 *     (`"abc"`) matches the corresponding weak-form ETag
+                 *     (`W/"abc"`). Available since v1.6.0.
+                 * @example W/"deadbeefcafebabe1234567890abcdef12345678"
+                 */
+                "If-None-Match"?: components["parameters"]["IfNoneMatchHeader"];
+            };
+            path: {
+                /** @description Error code (snake_case OR kebab-case). */
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The catalog entry for the requested code. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
+                    "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
+                    "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorCatalogEntry"];
+                };
+            };
+            304: components["responses"]["NotModified"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
         };
     };

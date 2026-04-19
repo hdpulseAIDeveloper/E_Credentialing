@@ -210,6 +210,18 @@
     "group": "staff"
   },
   {
+    "route": "/errors",
+    "file": "src/app/errors/page.tsx",
+    "dynamic": false,
+    "group": "public"
+  },
+  {
+    "route": "/errors/[code]",
+    "file": "src/app/errors/[code]/page.tsx",
+    "dynamic": true,
+    "group": "public"
+  },
+  {
     "route": "/evaluations",
     "file": "src/app/(staff)/evaluations/page.tsx",
     "dynamic": false,

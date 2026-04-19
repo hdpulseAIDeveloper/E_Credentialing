@@ -559,7 +559,57 @@ export class V1Client {
     const suffix = qs.toString() ? `?${qs.toString()}` : "";
     return this.request("GET", `/api/v1/enrollments${suffix}`);
   }
+
+  // ---- errors (public catalog — since spec v1.10.0 / Wave 21) ----
+
+  /**
+   * `GET /api/v1/errors` — list every error code the v1 surface
+   * can emit, with the same `title` / `status` the wire contract
+   * uses, plus a `summary`, `description`, `remediation`, and
+   * `sinceVersion` per code. Authenticates with any active key —
+   * no specific scope required, identical to `health()` / `me()`.
+   *
+   * The response is sorted by `code` ascending and is identical
+   * for every caller. Hard-cache it: the catalog only changes when
+   * the platform ships a new release, so the `ETag` is stable
+   * across thousands of polls.
+   *
+   * Pairs with `getError(code)` for one-off lookups and the
+   * `parseProblem(body).type` URI suffix for SDK dispatch.
+   */
+  listErrors(): Promise<components["schemas"]["ErrorCatalogList"]> {
+    return this.request("GET", "/api/v1/errors");
+  }
+
+  /**
+   * `GET /api/v1/errors/{code}` — fetch one row from the public
+   * error catalog. Both the snake_case form (e.g.
+   * `insufficient_scope`, the value of `error.code` in any Problem
+   * body) AND the kebab-case form (e.g. `insufficient-scope`, the
+   * suffix of the `type` URI) are accepted; the SDK passes the
+   * caller's value through verbatim.
+   *
+   * Throws a `V1ApiError` with status 404 and code `not_found` if
+   * the requested code is not in the catalog.
+   */
+  getError(code: string): Promise<components["schemas"]["ErrorCatalogEntry"]> {
+    return this.request("GET", `/api/v1/errors/${encodeURIComponent(code)}`);
+  }
 }
+
+/**
+ * One row in the public v1 error catalog (since spec v1.10.0).
+ * Re-export of the auto-generated schema so consumers don't have
+ * to import from the deeply-nested `paths["/api/v1/errors/{code}"]`
+ * shape.
+ */
+export type V1ErrorCatalogEntry = components["schemas"]["ErrorCatalogEntry"];
+
+/**
+ * Response body of `GET /api/v1/errors` (since spec v1.10.0).
+ * Re-export of the auto-generated schema for ergonomics.
+ */
+export type V1ErrorCatalogList = components["schemas"]["ErrorCatalogList"];
 
 export type { paths, components, operations } from "./v1-types";
 

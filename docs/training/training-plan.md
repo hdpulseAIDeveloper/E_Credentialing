@@ -54,7 +54,7 @@ By the end of the training program, all credentialing staff will be able to:
 
 | Time | Topic | Activity |
 |------|-------|----------|
-| 0:00–0:15 | Welcome & Goals | Introduction, why we're replacing PARCS, what to expect |
+| 0:00–0:15 | Welcome & Goals | Introduction, why we're adopting the new Credentialing application, what to expect |
 | 0:15–0:30 | Login & Authentication | Azure AD SSO demo, MFA, session management |
 | 0:30–0:50 | Dashboard Tour | Main dashboard, sidebar navigation, role-based views |
 | 0:50–1:10 | Provider Search & Filtering | Search by name/NPI, filter by status/type/specialist |

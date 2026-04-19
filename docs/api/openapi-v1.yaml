@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: E-Credentialing CVO Platform — Public REST API v1
-  version: "1.9.0"
+  version: "1.10.0"
   summary: Read-only public REST API for the E-Credentialing CVO platform.
   description: |
     The v1 surface is intentionally read-only. Every request requires
@@ -75,6 +75,19 @@ info:
     and `V1ApiError.problem` for typed access; raw fetch callers
     can read either shape.
 
+    Error catalog (since v1.10.0): the `type` URI inside every
+    Problem body resolves to a public, machine-readable catalog
+    entry. Browse the canonical HTML index at `/errors`, get the
+    raw JSON list at `GET /api/v1/errors`, or fetch a single
+    entry at `GET /api/v1/errors/{code}` (snake_case OR kebab-case
+    code accepted). Each catalog row carries a stable `code`,
+    `title`, `status`, one-sentence `summary`, full `description`,
+    concrete `remediation` guidance, the `sinceVersion` it was
+    introduced in, and an optional `retiredInVersion`. Retired
+    codes stay in the catalog forever so old `type` URIs in
+    SDKs in the wild keep resolving — see
+    `docs/dev/adr/0027-error-catalog.md` for the contract.
+
     Server-side request validation (since v1.9.0): every paginated
     list endpoint validates its query parameters with a strict Zod
     schema before touching the database. Invalid input returns a
@@ -113,6 +126,8 @@ tags:
     description: Sanctions check history.
   - name: enrollments
     description: Payer enrollment status.
+  - name: errors
+    description: Public error catalog — the canonical resolver of every Problem `type` URI.
 
 paths:
   /api/v1/health:
@@ -220,6 +235,101 @@ paths:
               schema: { $ref: "#/components/schemas/Me" }
         "304": { $ref: "#/components/responses/NotModified" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /api/v1/errors:
+    get:
+      tags: [errors]
+      summary: List the public error catalog
+      description: |
+        Returns the full v1 error catalog — every `code` the
+        platform can emit, with the same `title` / `status` the
+        wire contract uses, plus a `summary`, `description`,
+        `remediation`, and `sinceVersion`. The list is sorted by
+        `code` ascending and is identical for every caller.
+
+        Authentication: any active API key. Like `/health` and
+        `/me`, no specific scope is required — a brand-new,
+        scopeless key returns 200 here.
+
+        Cacheability: the catalog only changes when the platform
+        ships a new release, so the `ETag` is stable across
+        thousands of polls. Send the value back as
+        `If-None-Match` and the API replies `304 Not Modified`.
+
+        Versioning: shipped in v1.10.0 (SemVer minor — additive
+        only). See `docs/api/versioning.md` §3.10.
+      operationId: listErrorCatalog
+      parameters:
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IfNoneMatchHeader"
+      responses:
+        "200":
+          description: The full v1 error catalog.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
+            X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+            Deprecation: { $ref: "#/components/headers/Deprecation" }
+            Sunset: { $ref: "#/components/headers/Sunset" }
+            Link: { $ref: "#/components/headers/Link" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorCatalogList" }
+        "304": { $ref: "#/components/responses/NotModified" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /api/v1/errors/{code}:
+    get:
+      tags: [errors]
+      summary: Get a single error catalog entry
+      description: |
+        Returns the catalog entry for a single error `code`.
+        Both the snake_case form (e.g. `insufficient_scope`) and
+        the kebab-case URL suffix form (e.g.
+        `insufficient-scope` — the suffix of the `type` URI in
+        every Problem body) are accepted.
+
+        Returns `404 Not Found` for unknown codes; the response
+        is itself a Problem body with `type` =
+        `…/errors/not-found` and an extension member
+        `requestedCode` carrying the verbatim path parameter.
+
+        Authentication, cacheability, and versioning: same as
+        `GET /api/v1/errors`.
+      operationId: getErrorCatalogEntry
+      parameters:
+        - in: path
+          name: code
+          required: true
+          description: Error code (snake_case OR kebab-case).
+          schema:
+            type: string
+            pattern: "^[a-z][a-z0-9_-]*$"
+            example: "insufficient_scope"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IfNoneMatchHeader"
+      responses:
+        "200":
+          description: The catalog entry for the requested code.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
+            X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+            Deprecation: { $ref: "#/components/headers/Deprecation" }
+            Sunset: { $ref: "#/components/headers/Sunset" }
+            Link: { $ref: "#/components/headers/Link" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorCatalogEntry" }
+        "304": { $ref: "#/components/responses/NotModified" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "429": { $ref: "#/components/responses/RateLimited" }
 
   /api/v1/providers:
@@ -944,7 +1054,7 @@ components:
         apiVersion:
           type: string
           description: Semver version of the v1 surface (matches `info.version`).
-          example: "1.9.0"
+          example: "1.10.0"
         time:
           type: string
           format: date-time
@@ -1186,3 +1296,105 @@ components:
           type: array
           items: { $ref: "#/components/schemas/Enrollment" }
         pagination: { $ref: "#/components/schemas/Pagination" }
+
+    ErrorCatalogEntry:
+      type: object
+      description: |
+        One row in the public v1 error catalog (since v1.10.0). The
+        canonical, machine-readable description of a single error
+        `code` the platform can emit. The same row backs the HTML
+        page at `/errors/<kebab-code>` that every Problem body's
+        `type` URI resolves to.
+
+        The wire shape is invariant for a given `code` — renaming
+        any of `code`, `title`, `status`, or any other field is a
+        SemVer breaking change because clients dispatch on it. New
+        codes MAY be added in a minor; codes MAY be retired (set
+        `retiredInVersion`) but their entries MUST stay in the
+        catalog forever so old `type` URIs in SDKs in the wild keep
+        resolving.
+      required:
+        [code, title, status, summary, description, remediation, sinceVersion, docsPath]
+      properties:
+        code:
+          type: string
+          pattern: "^[a-z][a-z0-9_]*$"
+          description: |
+            Stable snake_case identifier — the value of `error.code`
+            in every Problem body and the kebab-case suffix of the
+            `type` URI. Renaming a code is a SemVer breaking change.
+          example: "insufficient_scope"
+        title:
+          type: string
+          maxLength: 60
+          description: |
+            RFC 9457 `title` — short, occurrence-invariant English
+            label. Title-Case, no trailing punctuation, ≤ 60 chars.
+          example: "Insufficient scope"
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+          description: |
+            HTTP status the platform always returns alongside this
+            code. One status per code; if the same condition can
+            produce two statuses, that's two separate codes.
+          example: 403
+        summary:
+          type: string
+          description: |
+            One-sentence English summary — the body of the `/errors`
+            index row. Plain prose, no markdown.
+          example: "The API key is valid, but it does not carry the scope required for the requested operation."
+        description:
+          type: string
+          description: |
+            Full English explanation of what triggers the error and
+            what the body shape looks like. Markdown is permitted.
+            Used in the `/errors/{code}` detail page and the JSON
+            detail endpoint.
+        remediation:
+          type: string
+          description: |
+            Concrete remediation guidance for the integrator.
+            Markdown permitted. Empty string is allowed for `5xx`
+            codes where the remediation is "retry with backoff"
+            (which is implicit).
+        sinceVersion:
+          type: string
+          pattern: "^\\d+\\.\\d+\\.\\d+$"
+          description: |
+            SemVer of the OpenAPI spec at which this code was
+            introduced. Customers can filter the catalog by
+            `sinceVersion` to discover what's new.
+          example: "1.0.0"
+        retiredInVersion:
+          type: string
+          pattern: "^\\d+\\.\\d+\\.\\d+$"
+          description: |
+            If set, the SemVer of the OpenAPI spec at which this
+            code was retired. Retired codes still appear in the
+            catalog (so old `type` URIs keep resolving) but the
+            platform no longer emits them.
+          example: "1.20.0"
+        docsPath:
+          type: string
+          description: |
+            Stable HTTP path under the public host where the
+            human-readable docs for this code live. Always
+            `/errors/<kebab-code>`. Pre-computed server-side so
+            consumers don't have to derive it.
+          example: "/errors/insufficient-scope"
+
+    ErrorCatalogList:
+      type: object
+      description: |
+        Response body of `GET /api/v1/errors` (since v1.10.0). The
+        `entries[]` array is sorted by `code` ascending and is
+        identical for every caller — the catalog is fully public.
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          description: Every catalog row, sorted by `code` ascending.
+          items: { $ref: "#/components/schemas/ErrorCatalogEntry" }

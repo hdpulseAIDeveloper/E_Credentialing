@@ -1,7 +1,7 @@
 # Business Requirements Document (BRD) — E-Credentialing CVO Platform
 
-**Version:** 2.1
-**Last Updated:** 2026-04-18
+**Version:** 2.2
+**Last Updated:** 2026-04-19
 **Status:** Active
 **Audience:** Sponsors, Steering Committee, Business Analysts, Product, QA
 **Owner:** Credentialing Manager + Tech Lead
@@ -163,6 +163,29 @@ training tracked per user; gaps surface on dashboards.
 Owner: Tech Lead. Acceptance: every AI-driven decision recorded with model id,
 prompt hash, output hash, and reviewer override reason where applicable.
 
+### BR-021 Machine-readable Public Error Catalog & RFC 9457 Problem Details (P1)
+Owner: Tech Lead + API Product. Acceptance:
+- Every REST v1 error response is `application/problem+json` per **RFC 9457**
+  (Problem Details for HTTP APIs), carrying `type`, `title`, `status`,
+  `detail`, and `instance`. The legacy `{ "error": { "code", "message" } }`
+  envelope is emitted alongside Problem Details for one major version with
+  an `x-deprecated: true` marker.
+- The `type` URI in every Problem body resolves to a public,
+  human-readable description page — the catalog HTML at `/errors/{code}`
+  is reachable **anonymously** by any party that holds the URI, per
+  RFC 9457 §3.1.1.
+- A typed registry at `src/lib/api/error-catalog.ts` is the single source
+  of truth for every code; the four faces (TS module, JSON list at
+  `GET /api/v1/errors`, JSON entry at `GET /api/v1/errors/{code}`, public
+  HTML pages at `/errors` and `/errors/{code}`) stay in lockstep with it.
+- Coverage gate: every code emitted by the platform appears in the
+  registry, in the OpenAPI 3.1 contract (`docs/api/openapi-v1.yaml`), and
+  in at least one contract test (Schemathesis fuzz harness, ADR 0021).
+- Anti-regression gate: `tests/e2e/anonymous/pillar-a-public-smoke.spec.ts`
+  iterates every `group: "public"` route in `route-inventory.json` and
+  asserts an anonymous GET returns 200 (no 307 to `/auth/signin`). This
+  is the gate that closed DEF-0007 and that prevents its return.
+
 ---
 
 ## 6. Non-functional requirements
@@ -224,3 +247,4 @@ prompt hash, output hash, and reviewer override reason where applicable.
 | 2026-04-14 | 0.1 | Initial requirements from planning docs | HDPulse |
 | 2026-04-15 | 1.0 | Status updates for implemented modules; added NFRs | Claude Code |
 | 2026-04-17 | 2.0 | Documentation refresh — promoted to canonical BRD; added BR-011 through BR-020; aligned with shipped scope | Documentation refresh |
+| 2026-04-19 | 2.2 | Documentation refresh (Wave 21 + 21.5) — added BR-021 (machine-readable Public Error Catalog & RFC 9457 Problem Details). Cross-references ADRs 0025, 0026, 0027 and the DEF-0007 closure / DEF-0008 escalation. | Documentation refresh |

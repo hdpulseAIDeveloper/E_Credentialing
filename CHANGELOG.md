@@ -7,6 +7,198 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sem
 ## [Unreleased]
 
 ### Added
+- **Wave 21 — Public, machine-readable error catalog
+  (1.9.0 -> 1.10.0) (2026-04-19):** Tenth exercise of the
+  versioning machinery, and the resolver every Problem body's
+  `type` URI has implicitly promised since Wave 19. Until this
+  wave a customer who clicked
+  `https://essen-credentialing.example/errors/insufficient-scope`
+  got a 404 — the URI was contractually stable but resolved to
+  nothing. Worse, there was no enumerable list of failure modes
+  the platform could emit, so SDK code-gen, internal monitoring
+  rules, and customer-facing alerting were all hand-maintained
+  best-effort. This wave consolidates every error code into a
+  single source of truth in `src/lib/api/error-catalog.ts`,
+  exposes it on three faces (JSON list, JSON entry, HTML pages),
+  and locks the contract with a grep-based unit-test gate that
+  fails the build when an emitter is added without a catalog row.
+  - `src/lib/api/error-catalog.ts`: new module exporting the
+    `ErrorCatalogEntry` interface (`code`, `title`, `status`,
+    `summary`, `description`, `remediation`, `sinceVersion`,
+    `retiredInVersion`, `docsPath`), the `ERROR_CATALOG`
+    array (the closed enumeration of every value the platform
+    can ever emit on `error.code`), helper functions
+    `findCatalogEntry(code)` (snake_case OR kebab-case lookup)
+    and `listCatalogEntries()` (sorted-by-code clone), and a
+    private `kebab(code)` helper. Every existing emitter was
+    audited and seeded into the catalog; new emitters MUST add
+    their row in the same PR (the unit test enforces this).
+  - `src/lib/api/problem-details.ts`: the legacy `PROBLEM_TITLES`
+    map is now derived from `ERROR_CATALOG` rather than
+    hand-maintained. There is exactly one source of truth for
+    the title-per-code mapping. The hand-authored map is kept as
+    a backward-compat fallback for any code not yet migrated
+    (the test gate guarantees the set is empty in CI).
+  - `src/app/api/v1/errors/route.ts`: new `GET /api/v1/errors`
+    endpoint returning the full catalog (`ErrorCatalogList`
+    schema). Authenticates with any active key (no specific
+    scope required, matching `health()` and `me()`), wired into
+    the standard envelope: rate-limit headers, `X-Request-Id`,
+    weak `ETag` on a SHA-1 of the sorted entries, conditional
+    GET via `If-None-Match`, and `applyDeprecationByRoute` (no
+    deprecation today; the gate is in place for future
+    deprecation flows). `auditApiRequest` records the read.
+  - `src/app/api/v1/errors/[code]/route.ts`: new
+    `GET /api/v1/errors/{code}` endpoint returning a single
+    `ErrorCatalogEntry`. Both snake_case (`insufficient_scope` —
+    the value of `error.code`) and kebab-case
+    (`insufficient-scope` — the suffix of the `type` URI) are
+    accepted; the SDK passes the caller's value through
+    verbatim. Returns the standard 404 NotFound Problem when the
+    code is not in the catalog.
+  - `src/app/errors/page.tsx`: new public HTML index page at
+    `/errors` rendering a sortable summary table of every
+    catalog row with deep-links to the per-code detail pages.
+    Public (no auth), statically rendered, indexed by search
+    engines.
+  - `src/app/errors/[code]/page.tsx`: new public HTML detail
+    page at `/errors/{code}` rendering the full
+    `title` / `summary` / `description` / `remediation` for one
+    code plus a wire-format reference block showing the
+    Problem body shape. Statically pre-rendered for both
+    snake_case and kebab-case URLs of every catalog entry at
+    build time; unknown codes invoke `notFound()`.
+  - `docs/api/openapi-v1.yaml`: bumped to `1.10.0`. Adds
+    `tags[].name = "errors"`, paths
+    `/api/v1/errors` (`listErrorCatalog`) and
+    `/api/v1/errors/{code}` (`getErrorCatalogEntry`),
+    component schemas `ErrorCatalogEntry` and
+    `ErrorCatalogList`. Both ops attach the standard
+    response envelope (200 + 304 + 401 + 429 + headers); the
+    detail op also attaches the reusable 404 NotFound. The
+    `info.description` gains an "Error catalog (since
+    v1.10.0)" section. The `Health.apiVersion` example was
+    bumped to `"1.10.0"` to match.
+  - `src/lib/api-client/v1.ts`: SDK gains `client.listErrors()`
+    and `client.getError(code)` plus re-exported
+    `V1ErrorCatalogEntry` and `V1ErrorCatalogList` types. The
+    types are auto-derived from the regenerated
+    `src/lib/api-client/v1-types.ts` so they cannot drift from
+    the spec.
+  - `tests/unit/api/error-catalog.test.ts`: new unit suite
+    asserting per-row invariants (snake_case `code`, ≤ 60-char
+    Title-Cased `title`, 4xx/5xx `status`, non-empty `summary` /
+    `description`, SemVer `sinceVersion` / `retiredInVersion`,
+    correct kebab-case `docsPath`), lookup helper behaviour
+    (`findCatalogEntry` accepts both forms; `listCatalogEntries`
+    returns a sorted clone), the registry-completeness grep
+    contract (every literal `code` string passed to
+    `v1ErrorResponse` or `buildProblem` in `src/app/api/v1/**`
+    or `src/lib/api/**` MUST have a catalog row), and
+    `PROBLEM_TITLES` backward-compat parity.
+  - `tests/contract/pillar-j-openapi.spec.ts`: new
+    "Wave 21: error catalog contract" describe block asserting
+    the `errors` tag, both new paths with their `operationId` /
+    `tags`, both schema shapes (required fields, regex
+    patterns, type discipline), the standard envelope on the
+    list op, and the 404 NotFound on the detail op.
+  - `docs/qa/per-screen/errors.md`,
+    `docs/qa/per-screen/errors__code.md`: new per-screen cards
+    for the public HTML index and detail pages, documenting
+    route, allowed roles (public / no auth), PHI handling
+    (none), key actions, linked specs, linked OpenAPI
+    operations, known defects.
+  - `docs/dev/adr/0027-error-catalog.md`: new ADR documenting
+    the decision to consolidate every error code into a single
+    source of truth, the three-faces design (JSON list, JSON
+    entry, HTML pages), the strict `code` contract (renaming
+    is breaking, retiring keeps the row), the rejected
+    alternatives (per-route inline tables, an `application/json`
+    static asset, a separate microservice), and the
+    anti-weakening rules (the unit-test grep gate, the
+    `PROBLEM_TITLES` derivation, the
+    `findCatalogEntry`-must-handle-both-forms invariant).
+  - `docs/api/versioning.md`: bumped status to spec `1.10.0`,
+    adds ADR 0027 to the related list, adds new §3.10 (Public
+    error catalog) with the three-faces table, the per-field
+    stability contract, and the SDK observation contract,
+    augments §7 with a "How do I add a new error code?" entry
+    pointing at the unit-test grep gate.
+  - `docs/changelog/public.md`: new v1.15.0 (API) release note
+    announcing the catalog (see below).
+
+### Fixed
+- **DEF-0007 — `/errors` HTML pages redirected anonymous visitors
+  (Wave 21 contract regression) (2026-04-19):** `src/middleware.ts`
+  was missing `/errors` and `/errors/<code>` from its public
+  allow-list, so an anonymous browser hit on
+  `https://essen-credentialing.example/errors/insufficient-scope`
+  returned `307 → /auth/signin?callbackUrl=…` instead of the
+  pre-rendered catalog page. Direct violation of the per-screen
+  cards (`docs/qa/per-screen/errors.md`,
+  `docs/qa/per-screen/errors__code.md` — both promised "fully
+  public, anonymous allowed"), ADR 0027, §3.10 of
+  `docs/api/versioning.md`, and RFC 9457 §3.1.1 (the `type` URI
+  MUST be dereferencable to a human-readable description by anyone
+  who has the URI).
+  - `src/middleware.ts`: added `pathname === "/errors"` and
+    `pathname.startsWith("/errors/")` to the public-allow predicate,
+    mirroring the existing `/verify/` clause exactly so the diff is
+    minimal. The JSON sibling at `/api/v1/errors[...]` keeps its
+    Bearer-key requirement (already covered by the `/api/v1/`
+    clause); only the HTML faces are public.
+  - `tests/e2e/anonymous/pillar-a-public-smoke.spec.ts`: NEW
+    Pillar A spec that runs in the `anonymous` Playwright project
+    and iterates over `route-inventory.json` `group === "public"`
+    entries, asserting each returns `200` (NOT a redirect-followed-
+    by-200 — the FIRST response status is checked, so a 307 fails).
+    Spot-checks `/errors/insufficient-scope` and
+    `/errors/insufficient_scope` separately because the dynamic
+    `[code]` route is excluded from the iterator. Asserts a visible
+    `<main>` / `<h1>` / `<h2>` so a 200-blank-shell still fails
+    (DEF-0003 / DEF-0004 anti-shape). Floor sanity guard prevents
+    accidental over-filtering of the public-route set.
+  - `docs/qa/per-screen/errors.md`,
+    `docs/qa/per-screen/errors__code.md`: `Known defects` updated
+    with DEF-0007 closure pointer; `Linked specs` updated with the
+    new anonymous spec; `Last verified` updated.
+  - `docs/qa/defects/DEF-0007.md`: full Fix-Until-Green card with
+    captured before/after evidence, root cause, anti-weakening
+    attestation, and closure block.
+  - `docs/qa/defects/DEF-0008.md`: SEPARATE card, Status:
+    Open / Escalated. Documents the same-shape PRE-EXISTING drift
+    on `/legal/*` (×4), `/cvo`, `/sandbox`, `/pricing`,
+    `/changelog`, `/settings/billing`, `/settings/compliance`. NOT
+    auto-fixed in this commit (would violate "one root cause per
+    commit", §4.1 step 4); the new anonymous spec from DEF-0007
+    will turn these red on the next DB-up CI run, surfacing them
+    automatically until DEF-0008 is closed by a structural fix
+    (build-time derivation of the middleware allow-list from
+    `route-inventory.json` `group === "public"`).
+  - `docs/qa/defects/index.md`: DEF-0007 listed as Closed (fixed),
+    DEF-0008 listed as Open / Escalated; ledger explanation updated.
+
+  **Caveat (per STANDARD.md §3 / §4.1.1).** The full browser
+  Pillars A / B / E could not be run on the contributor's machine
+  during this loop — Docker is not available locally, so the
+  PostgreSQL (`localai-postgres-1:5432`) and Redis containers that
+  `tests/e2e/global-setup.ts` requires (for NextAuth credentials
+  callback) were unreachable. The fix was verified by:
+  (1) direct HTTP probe against `npm run build && npm start`
+  (every catalog code returns 200 anonymously, both casings; the
+  `/api/v1/errors*` JSON endpoints still return 401 as designed;
+  unknown codes correctly resolve to a 404 page); (2) full vitest
+  re-run (1865 tests across 65 files green); (3) full
+  `npm run qa:gate` re-run (inventories regenerated cleanly,
+  per-screen card check green, coverage gate green, SDK drift
+  gate green, Postman drift gate green); (4) `npm run typecheck`
+  green; (5) `npm run lint` green. Pillars A / B / E (browser
+  layer) are reported as "Not Run" in this loop's headline block;
+  per §3, "Not Run on a covered pillar counts as fail of the gate"
+  — surfaced honestly rather than masked. The new anonymous spec
+  is committed and will exercise the fix on the next DB-up CI
+  cycle.
+
 - **Wave 20 — Server-side request validation with Problem Details
   (1.8.0 -> 1.9.0) (2026-04-19):** Ninth exercise of the
   versioning machinery, and the first concrete consumer of the
@@ -1147,6 +1339,69 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sem
 - Pino-based logger with PHI redaction; unit test verifies redaction.
 - Tamper-evident audit log: HMAC-SHA256 chain (`previous_hash`, `hash`, `sequence`) over each row, with `ip_address`, `user_agent`, and `request_id` captured per entry. DB triggers block DELETE and TRUNCATE and allow UPDATE only for the one-time NULL→value transition on `hash`. `verifyAuditChain()` exported for compliance reporting. ADR 0011 captures the decision.
 - `AUDIT_HMAC_KEY` env var (32+ char secret); production refuses to start without it.
+
+### Documentation
+- **Documentation refresh — Wave 21 + 21.5 absorption (2026-04-19):**
+  full-codebase pass to fold the Public Error Catalog (Wave 21) and the
+  DEF-0007 / DEF-0008 anonymous-routing remediation (Wave 21.5) into
+  every document the audience-cut governance model requires to stay
+  current. No code changes; doc-only.
+  - `docs/system-prompt.md` — bumped, added Module 21 (Public Error
+    Catalog) to the modules table, rewrote `§10.1 REST v1` to require
+    RFC 9457 Problem Details with dereferencable `type` URIs, added
+    `§10.5 Public Error Catalog (Wave 21)` (TS registry +
+    `/api/v1/errors[*]` JSON faces + `/errors[*]` anonymous HTML faces +
+    `src/middleware.ts` allow-list invariant + DEF-0007 / DEF-0008
+    cross-refs + `tests/e2e/anonymous/pillar-a-public-smoke.spec.ts`),
+    extended build-order `§17` step 21, refreshed references `§19`
+    (ADRs 0001–0027, new QA + product docs), updated change log `§21`.
+  - `docs/development-plan.md` — added Phase 1.6 (Public-API Hardening,
+    Waves 7 / 20 / 21 / 21.5, complete) to the executive summary and
+    body; updated change log.
+  - `docs/functional/business-requirements.md` — added BR-021
+    (Machine-readable Public Error Catalog & RFC 9457 Problem Details);
+    bumped to 2.2.
+  - `docs/functional/functional-requirements.md` — extended the
+    application-structure table with the public surfaces (`/cvo`,
+    `/pricing`, `/sandbox`, `/changelog`, `/changelog.rss`, `/errors`,
+    `/errors/{code}`); added `§11A. Module 21 — Public Error Catalog
+    (RFC 9457)` (four faces, anonymous-access invariant, JSON contract
+    example, validation, messages, audit, permissions); bumped to 2.2.
+  - `docs/technical/technical-requirements.md` — added TR-F-011
+    (RFC 9457 + error-catalog single source of truth); refreshed the
+    ADR list to 0001–0027; bumped to 2.2.
+  - `docs/technical/architecture.md` — added "Public surfaces
+    (anonymous, no API key)" data-flow section; updated the
+    Public-API-call data flow to describe the RFC 9457 envelope and the
+    dereferencable `type` URI; refreshed change history.
+  - `docs/product/product-overview.md` — added top-capabilities entry
+    21 (Public Error Catalog); bumped status to "All 21 functional
+    modules"; added "Where to read more" cross-link block including the
+    new stakeholder brief.
+  - `docs/product/stakeholder-brief.md` — NEW. Single-page,
+    audience-cut summary (executives / sponsors / customers / auditors /
+    partners / internal teams) referencing Wave 21, RFC 9457, DEF-0007
+    closure, and ADRs 0001–0027.
+  - `docs/product/README.md` — registered the new stakeholder brief.
+  - `docs/README.md` — surfaced the stakeholder brief under "Product";
+    added "Quick navigation by topic" entries for the OpenAPI 3.1
+    contract, the Public Error Catalog (RFC 9457), CMS-0057-F, NPG-12,
+    the QA Standard, the Definition of Done, the defects ledger, and
+    the wave-by-wave delivery index.
+  - `docs/archive/legacy-testing/` — NEW archive batch. Moved the
+    superseded Master Test Plan workbooks
+    (`..._20260417_010249.xlsx`, `..._EXECUTED_20260417_013233.xlsx`),
+    the two first-pass legacy workbooks
+    (`..._20260416_100935.xlsx`, `..._110654.xlsx`), the three one-shot
+    runtime smoke JSONs (`runtime_results_20260416_105254.json`,
+    `runtime_test_results_20260416_104910.json`,
+    `test_results_deep.json`), and the superseded
+    `TEST_EXECUTION_REPORT_20260417.md` here. The current authoritative
+    set (latest non-EXECUTED workbook + latest EXECUTED workbook + the
+    four Python generators + the latest report) stays at
+    `docs/testing/`.
+  - `docs/archive/README.md` — registered the new `legacy-testing/`
+    batch with a row-by-row "replaced by" table.
 
 ### Changed
 - Bot lifecycle in `BotBase.run` now respects `REQUIRES_MANUAL` status and skips automatic completion.

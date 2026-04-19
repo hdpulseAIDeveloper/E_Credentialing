@@ -228,7 +228,7 @@ E_Credentialing/
 
 ---
 
-## 5. Modules to implement (20 total)
+## 5. Modules to implement (21 total)
 
 Each module ships with: tRPC router(s), one or more pages, Prisma models,
 migrations, seed data, unit + integration tests, E2E happy-path, audit-log
@@ -256,6 +256,7 @@ coverage, and updates to user/functional/technical/compliance docs.
 | 18 | Public REST API & FHIR | API consumers | v1 read-only REST + FHIR R4 Practitioner endpoint (CMS-0057-F) |
 | 19 | Telehealth Credentialing | Specialist | IMLC tracking, platform certifications, coverage gap alerts |
 | 20 | Performance & Analytics | Manager | Provider scorecards, turnaround analytics, pipeline visualization, EFT/ERA tracking, staff training/LMS |
+| 21 | Public Error Catalog (RFC 9457) | API consumers / public | Single source of truth for every `error.code` the platform emits; four faces (registry, JSON list, JSON entry, public HTML pages); the `type` URI in every Problem body resolves here. ADR 0027. |
 
 Cross-cutting modules (always implement first):
 
@@ -442,8 +443,15 @@ Folders inside the Blob container:
 - Read-only.
 - API-key auth + scope check + per-key rate limit + audit log on every request.
 - PHI fields stripped from every response regardless of scope.
-- Errors: `{ "error": { "code": "...", "message": "..." } }`.
-- Endpoints (initial set): `GET /providers`, `GET /providers/:id`, `GET /sanctions`, `GET /enrollments`.
+- Errors: **RFC 9457 Problem Details** (`application/problem+json`) — every
+  body carries `type`, `title`, `status`, `detail`, `instance`. The `type`
+  URI resolves to a public, dereferencable page in the error catalog
+  (§10.5). The legacy `{ "error": { "code", "message" } }` envelope is
+  emitted alongside Problem Details for backwards compatibility for one
+  major version (`x-deprecated: true` header on the legacy field).
+  ADR 0025. ADR 0026.
+- Endpoints (initial set): `GET /providers`, `GET /providers/:id`,
+  `GET /sanctions`, `GET /enrollments`, `GET /errors`, `GET /errors/:code`.
 
 ### 10.2 FHIR R4 (`/api/fhir/...`)
 
@@ -482,6 +490,74 @@ Admins can trigger a single ZIP bundle that includes:
 - SOC 2 Type I gap analysis Markdown.
 - A machine-readable `manifest.json` listing every file with SHA-256.
 The endpoint is admin-only at all times. ADR 0017.
+
+### 10.5 Public Error Catalog (Wave 21)
+
+**Goal.** Make every `error.code` the platform emits self-explanatory and
+linkable. RFC 9457 §3.1.1 requires the `type` URI in every Problem Details
+body to dereference to a human-readable description by anyone who has the
+URI; the catalog is that destination.
+
+Four faces, all served from a single TypeScript source of truth at
+`src/lib/api/error-catalog.ts`:
+
+| Face | URL | Audience | Auth |
+|---|---|---|---|
+| Registry (TS module) | `src/lib/api/error-catalog.ts` | Server code; problem-builder lookups; tests | n/a |
+| Public JSON list | `GET /api/v1/errors` | API integrators, generators | API key (`Bearer`) |
+| Public JSON entry | `GET /api/v1/errors/{code}` | Same | API key (`Bearer`) |
+| Public HTML index | `GET /errors` | Anyone (auditors, prospects, on-call humans) | **None — anonymous** |
+| Public HTML detail | `GET /errors/{code}` | Same | **None — anonymous** |
+
+The HTML faces MUST be reachable anonymously — they are the
+human-readable destination of every Problem `type` URI. Allow-list them
+explicitly in `src/middleware.ts`:
+
+```ts
+pathname === "/errors" ||
+pathname.startsWith("/errors/") ||
+```
+
+The JSON sibling endpoints under `/api/v1/errors[...]` keep their Bearer
+key requirement (already covered by the `/api/v1/` allow-list clause).
+
+**Catalog entry shape** (typed in `src/lib/api/error-catalog.ts`):
+
+```ts
+type ErrorCatalogEntry = {
+  code: string;            // "PROVIDER_NOT_FOUND"
+  status: number;          // 404
+  title: string;           // "Provider not found"
+  description: string;     // human-readable Markdown
+  rationale?: string;      // why this error class exists
+  remediation?: string;    // what the caller should do
+  since: string;           // first version that emitted this code, e.g. "v1.0.0"
+  deprecatedSince?: string;
+  replacedBy?: string;     // another `code` if this one is deprecated
+  category: "auth" | "validation" | "not-found" | "conflict" | "rate-limit" |
+            "internal" | "compliance" | "billing";
+  tags?: string[];         // free-form
+};
+```
+
+**Pillar-A coverage.** A new spec
+`tests/e2e/anonymous/pillar-a-public-smoke.spec.ts` iterates every
+`group: "public"` route in `docs/qa/inventories/route-inventory.json`
+and asserts an anonymous GET returns 200 with visible content (no 307
+redirect). This iterator-style test absorbs every new public route
+automatically and was the gate that closed DEF-0007. **Do not loosen
+it** to "redirects are OK" — that is the regression mode.
+
+**Defect history.** DEF-0007 (closed) — middleware redirected `/errors`
+to `/auth/signin`, breaking RFC 9457 §3.1.1. DEF-0008 (open / escalated)
+— wider middleware allow-list drift on other public routes
+(`/legal/*`, `/cvo`, `/sandbox`); the structural fix (route-inventory
+driven middleware) is tracked in
+[docs/qa/defects/DEF-0008.md](qa/defects/DEF-0008.md).
+
+ADR 0027. See [docs/api/errors.md](api/errors.md) for the full reference
+and [docs/api/openapi-v1.yaml](api/openapi-v1.yaml) for the OAS contract
+(both `Error` and `ProblemDetails` schemas).
 
 ---
 
@@ -632,10 +708,18 @@ When you change behaviour, update **all** of these in the same PR:
 7. `docs/technical/architecture.md` and/or `docs/dev/<subsystem>.md`.
 8. `docs/compliance/<standard>.md` if it touches NCQA, HIPAA, or CMS-0057-F.
 9. `docs/api/<endpoint>.md` if it touches the public API.
-10. `CHANGELOG.md` (root) and `docs/pm/changelog-product.md`.
-11. `docs/qa/functional-testing.md` and `docs/qa/uat-criteria.md` for new acceptance scenarios.
-12. **This `system-prompt.md`** if the change is architectural.
-13. **`docs/development-plan.md`** if the change shifts the schedule or scope.
+10. `docs/api/openapi-v1.yaml` whenever a request/response shape, status, or
+    error code changes — the OAS file is the contract; SDK and Postman
+    drift checks block the PR if it falls behind.
+11. `src/lib/api/error-catalog.ts` whenever a new `error.code` is emitted,
+    a status changes, or wording moves. The four catalog faces (registry,
+    JSON list/entry, public HTML pages) MUST stay in sync.
+12. `CHANGELOG.md` (root) and `docs/pm/changelog-product.md`.
+13. `docs/qa/functional-testing.md` and `docs/qa/uat-plan.md` for new
+    acceptance scenarios; `docs/qa/per-screen/<slug>.md` and
+    `docs/qa/per-flow/<slug>.md` for new routes/flows.
+14. **This `system-prompt.md`** if the change is architectural.
+15. **`docs/development-plan.md`** if the change shifts the schedule or scope.
 
 ---
 
@@ -663,6 +747,14 @@ If starting from zero:
 18. CME tracking + auto-generated CV.
 19. Telehealth, behavioral health, FSMB PDC, AI governance.
 20. Performance, analytics, training/LMS.
+21. **Public Error Catalog (RFC 9457 alignment).** Move every error string
+    used by REST v1 into the typed registry at
+    `src/lib/api/error-catalog.ts`. Switch `src/lib/api/problem-details.ts`
+    to source `type`/`title`/`status` from the registry. Build the four
+    public faces (`/api/v1/errors`, `/api/v1/errors/[code]`, `/errors`,
+    `/errors/[code]`). Add `/errors` and `/errors/[code]` to the
+    middleware public allow-list. Add the iterator-style anonymous
+    smoke spec under `tests/e2e/anonymous/`. ADR 0027.
 
 After each step, prove correctness with tests and update docs.
 
@@ -691,15 +783,24 @@ After each step, prove correctness with tests and update docs.
 - [technical/technical-requirements.md](technical/technical-requirements.md) — TRD
 - [functional/business-requirements.md](functional/business-requirements.md) — BRD
 - [functional/functional-requirements.md](functional/functional-requirements.md) — FRD
+- [product/product-overview.md](product/product-overview.md) — product overview for all stakeholders
+- [product/stakeholder-brief.md](product/stakeholder-brief.md) — single-page audience-cut brief
+- [qa/STANDARD.md](qa/STANDARD.md) — HDPulseAI QA Standard (binding)
 - [qa/test-strategy.md](qa/test-strategy.md) — Test Strategy
-- [planning/scope.md](planning/scope.md) — full functional scope (20 modules)
+- [qa/definition-of-done.md](qa/definition-of-done.md) — per-PR Definition of Done
+- [planning/scope.md](planning/scope.md) — full functional scope (20 + 1 modules)
 - [planning/data-model.md](planning/data-model.md) — entity definitions and ERD
 - [planning/architecture.md](planning/architecture.md) — original architecture rationale
 - [planning/integrations.md](planning/integrations.md) — every external system
 - [planning/credentialing-bots.md](planning/credentialing-bots.md) — PSV bot specs
 - [compliance/ncqa-cvo.md](compliance/ncqa-cvo.md) — NCQA CR 1–9 mapping
 - [compliance/hipaa.md](compliance/hipaa.md) — HIPAA controls
+- [compliance/cms-0057.md](compliance/cms-0057.md) — CMS-0057-F Provider Directory
 - [api/README.md](api/README.md) — REST + FHIR reference
+- [api/errors.md](api/errors.md) — Public Error Catalog reference (Wave 21)
+- [api/openapi-v1.yaml](api/openapi-v1.yaml) — REST v1 OpenAPI 3.1 contract
+- [dev/adr/](dev/adr/) — ADRs 0001–0027 (active decision records)
+- [status/shipped.md](status/shipped.md) — wave-by-wave delivery index
 
 ---
 
@@ -728,3 +829,4 @@ You have rebuilt the platform when:
 |---|---|---|
 | 2026-04-17 | Documentation refresh | Initial comprehensive prompt; supersedes inline guidance in `CLAUDE.md`. |
 | 2026-04-18 | Cursor (autonomous Wave 7) | Added §10.3 (public surfaces shipped in Wave 5), §10.4 (auditor-package export), iterator-coverage and production-bundle E2E expectations in §0 and §15. A regenerator now builds the Wave 5–6 commercial-readiness band from day one rather than retrofitting it. Cross-references ADR 0017, ADR 0018, ADR 0019. |
+| 2026-04-19 | Documentation refresh (Wave 21 + 21.5) | Promoted the Public Error Catalog to Module 21. Rewrote §10.1 to require RFC 9457 Problem Details (`application/problem+json`) per ADR 0025/0026; added §10.5 covering the four catalog faces (registry / JSON list / JSON entry / public HTML pages) with the explicit middleware allow-list rule that closes DEF-0007 and the iterator anonymous-public-smoke spec that prevents its return. Added build-order step 21. Refreshed §19 references to include the QA Standard, the stakeholder brief, the OpenAPI contract, ADRs 0001–0027, and `status/shipped.md`. |
