@@ -148,7 +148,7 @@ async function sendExpiryOutreach(
   }
 
   try {
-    const { sendEmail } = await import("../../lib/email/sendgrid");
+    const { sendEmail } = await import("../../lib/email/sendgrid.js");
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:6015";
 
     await sendEmail({

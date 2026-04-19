@@ -61,12 +61,30 @@ const COMPOSE_FILES = [
   {
     file: "docker-compose.prod.yml",
     services: ["ecred-web-prod", "ecred-worker-prod"],
-    requiresEnv: true, // prod compose pulls every secret from .env
+    requiresEnv: true, // prod compose pulls every secret from .env (or .env.prod.fake)
   },
 ];
 
+// Pillar S Surface 6 hardening (post-DEF-0015 / DEF-0016):
+//   When the developer doesn't have a real .env locally — which is the
+//   default for everybody who isn't a deploy operator — the gate used
+//   to degrade to NOTRUN and silently skip the prod cold build. That's
+//   exactly how DEF-0015 (worker tsconfig pulled @t3-oss/env-nextjs)
+//   and DEF-0016 (next build rejected literal "placeholder" strings)
+//   shipped to the deploy step. We now fall back to .env.prod.fake
+//   (committed; obviously fake values; passes Zod validation but
+//   never authenticates anything) so the cold build runs end-to-end
+//   on every machine. The fake env is loud-by-design: the gate prints
+//   "USING FAKE ENV" so nobody mistakes the run for a real-secret build.
+const REAL_ENV = resolve(REPO_ROOT, ".env");
+const FAKE_ENV = resolve(REPO_ROOT, ".env.prod.fake");
+const FAKE_ENV_OVERRIDE = "docker-compose.prod.fake-env.yml";
+
 let failures = 0;
-let notrun = 0;
+// Surface 6 hardening: NOTRUN is no longer reachable for prod compose
+// because we now always have either .env or .env.prod.fake. The variable
+// is kept at 0 as a defensive guard against future regressions.
+const notrun = 0;
 
 for (const { file, services, requiresEnv } of COMPOSE_FILES) {
   const path = resolve(REPO_ROOT, file);
@@ -75,25 +93,48 @@ for (const { file, services, requiresEnv } of COMPOSE_FILES) {
     continue;
   }
 
-  // Pre-flight: prod compose needs a real .env. We do NOT auto-create one
-  // (anti-weakening — the absence of .env is itself a setup signal that
-  // belongs in front of the contributor, not silently substituted). Per
-  // STANDARD.md §3, this is "Not Run" → fails the gate.
-  if (requiresEnv && !existsSync(resolve(REPO_ROOT, ".env"))) {
-    console.warn(
-      `  NOTRUN ${file} — requires .env (16+ secrets). Create .env from .env.example or run with --skip-prod to defer.\n` +
-      `         Per STANDARD.md §3, "Not Run on a covered pillar counts as a fail of the gate."`,
-    );
-    if (argv.includes("--skip-prod")) {
-      console.warn(`         (--skip-prod set; not counting as failure)`);
+  // Resolve which env file to pass to docker compose for this run.
+  let envFile = null;
+  let envSource = "(inlined defaults in compose)";
+  let useFakeEnvOverride = false;
+  if (requiresEnv) {
+    if (existsSync(REAL_ENV)) {
+      envFile = REAL_ENV;
+      envSource = ".env (real)";
+    } else if (existsSync(FAKE_ENV)) {
+      envFile = FAKE_ENV;
+      envSource = ".env.prod.fake (USING FAKE ENV — Pillar S Surface 6 hardening)";
+      useFakeEnvOverride = true;
     } else {
-      notrun += 1;
+      console.error(
+        `  FAIL  ${file} — neither .env nor .env.prod.fake present.\n` +
+          `         Per STANDARD.md §4 hard-fail (13), the prod cold-build gate cannot\n` +
+          `         silently NOTRUN. Restore .env.prod.fake (committed to the repo) or\n` +
+          `         provide a real .env, then re-run.`,
+      );
+      failures += 1;
+      continue;
     }
-    continue;
+    console.log(`  ENV   ${file} — using ${envSource}`);
   }
 
+  // docker compose CLI: --env-file controls ${VAR} interpolation; the
+  // override compose file (docker-compose.prod.fake-env.yml) is the
+  // mechanism that swaps the runtime `env_file:` directive itself
+  // (which --env-file alone cannot do).
+  const composePrefix = envFile
+    ? [
+        "compose",
+        "--env-file",
+        envFile,
+        "-f",
+        file,
+        ...(useFakeEnvOverride ? ["-f", FAKE_ENV_OVERRIDE] : []),
+      ]
+    : ["compose", "-f", file];
+
   // 1. config lint
-  const lint = spawnSync("docker", ["compose", "-f", file, "config", "-q"], {
+  const lint = spawnSync("docker", [...composePrefix, "config", "-q"], {
     cwd: REPO_ROOT,
     encoding: "utf8",
   });
@@ -112,7 +153,7 @@ for (const { file, services, requiresEnv } of COMPOSE_FILES) {
     process.stdout.write(`  RUN   ${file} :: ${svc} — docker compose build --no-cache ... `);
     const build = spawnSync(
       "docker",
-      ["compose", "-f", file, "build", "--no-cache", svc],
+      [...composePrefix, "build", "--no-cache", svc],
       { cwd: REPO_ROOT, encoding: "utf8", maxBuffer: 1024 * 1024 * 50 },
     );
     const elapsed = Math.round((Date.now() - t0) / 1000);

@@ -1,8 +1,11 @@
 {
+  "//": "Worker process build config. See docs/qa/defects/DEF-0015.md for the migration history.",
+  "//module": "node16 + moduleResolution: node16 (post-DEF-0015 hardening). Modern resolution is required so imports in src/workers/ and src/lib/ can resolve packages that publish their typings via the package `exports` map (e.g. @t3-oss/env-nextjs, @azure/* v3+). The worker has no `type: module` in package.json, so .ts files are still emitted as CommonJS at runtime.",
+  "//excludes": "Even with node16 resolution, the `exclude` list below remains essential — but for a *runtime-architecture* reason now, not a resolution workaround. The worker is emitted as CommonJS (no `type: module` in package.json), but several web-only library subtrees statically import ESM-only packages (e.g. @t3-oss/env-nextjs, which is exports-only ESM in v0.10+). CommonJS cannot statically `import` ESM (TS1479), so those subtrees would fail the worker compile if included. They have no business running in the worker anyway: billing UI, legal copy renderers, OpenAPI artifact generators, sandbox runners — all are Next.js-only surfaces. If a new src/lib/ subtree is purely server-and-worker-shared utility code (no Next.js deps, no React deps, no ESM-only deps), it can safely be omitted from this exclude list. See docs/qa/defects/DEF-0015.md for the full migration history.",
   "compilerOptions": {
     "target": "ES2020",
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "node16",
+    "moduleResolution": "node16",
     "esModuleInterop": true,
     "strict": true,
     "outDir": "dist",

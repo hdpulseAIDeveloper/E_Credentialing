@@ -228,7 +228,7 @@ export abstract class BotBase {
     result: BotVerificationResult | null
   ): Promise<void> {
     try {
-      const { redis } = await import("../lib/redis");
+      const { redis } = await import("../lib/redis.js");
       const channel = `provider:${providerId}:bots`;
       const payload = JSON.stringify({
         event: eventType,

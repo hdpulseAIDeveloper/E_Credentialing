@@ -722,6 +722,32 @@ violation of this standard even if every spec is green.
     earlier source-vs-generated comparison that always
     false-positived. Also fixed an ESM `require()` regression
     in the same probe.
+  - **Surface 6 hardening (post-DEF-0015 / DEF-0016):**
+    `scripts/qa/check-dockerfile-build.mjs` now falls back to
+    a committed `.env.prod.fake` (obviously-fake values that
+    pass `src/env.ts` Zod validation) layered with the
+    `!override` compose file `docker-compose.prod.fake-env.yml`
+    when no real `.env` is present. The gate emits a loud
+    `USING FAKE ENV — Pillar S Surface 6 hardening` log line.
+    NOTRUN is no longer a reachable state for the prod
+    compose file under any code path. **Anti-weakening
+    requirement:** any new required env var added to
+    `src/env.ts` MUST also receive a fake placeholder in
+    `.env.prod.fake` in the same PR; the cold-build gate
+    will fail otherwise. This requirement is the structural
+    closure of DEF-0015 and DEF-0016.
+  - **Worker tsconfig migration (post-DEF-0015):**
+    `tsconfig.worker.json` is now on `module: "node16"` +
+    `moduleResolution: "node16"` so modern `exports`-map
+    packages (e.g. `@t3-oss/env-nextjs`, `@azure/*` v3+)
+    resolve correctly under the worker's CommonJS runtime.
+    Future inclusions of new `src/lib/<name>/` subtrees will
+    surface clear, accurate compile errors (TS1479 for
+    ESM-only packages statically imported by CommonJS) at
+    PR time instead of misleading TS2307 errors at deploy
+    time. Three `await import()` call sites under
+    `src/workers/` were updated to use explicit `.js`
+    extensions (TS2834/2835 — required under `node16`).
 
 ---
 

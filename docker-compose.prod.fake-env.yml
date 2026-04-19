@@ -1,0 +1,47 @@
+# =============================================================================
+# docker-compose.prod.fake-env.yml — Pillar S Surface 6 hardening override
+# =============================================================================
+# This is a TEST-ONLY override that the cold-build gate
+# (scripts/qa/check-dockerfile-build.mjs) layers on top of
+# docker-compose.prod.yml when no real .env is present. It does ONE
+# thing: redirects the prod services' `env_file:` from `.env` (which
+# is operator-supplied and absent on most developer machines) to
+# `.env.prod.fake` (committed, obviously fake values, sufficient to
+# build the production image but never authenticates anything).
+#
+# DO NOT USE THIS OVERRIDE FOR ANYTHING THAT ACTUALLY RUNS THE APP.
+#   - It is loud-by-design: the gate prints "USING FAKE ENV" before
+#     applying it.
+#   - The fake env's DATABASE_URL points at a non-existent host, so
+#     any container that tried to start would crash on first DB call.
+#   - Real production runs use docker-compose.prod.yml WITHOUT this
+#     override, with a real .env mounted on the deploy server.
+#
+# Why a separate file (instead of editing docker-compose.prod.yml):
+#   docker compose's `env_file:` directive cannot be parameterized
+#   from the CLI's --env-file flag (--env-file controls only
+#   ${VAR} interpolation in the compose file, not what gets
+#   loaded into the container at runtime). The cleanest way to
+#   substitute env files is via a layered override compose file —
+#   `docker compose -f docker-compose.prod.yml -f docker-compose.prod.fake-env.yml`.
+#
+# Anti-weakening (STANDARD.md §4.2):
+#   - This override does NOT change the build context, the
+#     Dockerfile reference, the network topology, or the healthcheck.
+#     It only redirects which env file is consumed.
+#   - The fake env file lives next to this one and is reviewed
+#     in the same PR. If a new required env var is added to
+#     src/env.ts without a fake placeholder, the prod cold build
+#     fails — which is the point of Surface 6.
+# =============================================================================
+
+services:
+  ecred-web-prod:
+    # `!override` (Compose v2.20+) REPLACES the base file's env_file list
+    # rather than appending to it. Without this tag, compose would merge
+    # `[.env, .env.prod.fake]` and still try to read the missing .env.
+    env_file: !override
+      - .env.prod.fake
+  ecred-worker-prod:
+    env_file: !override
+      - .env.prod.fake

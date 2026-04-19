@@ -391,7 +391,7 @@ app.listen(WORKER_PORT, () => {
   console.log(`[Worker] Bull Board running on http://localhost:${WORKER_PORT}/bull-board`);
   // Wave 4.1 — initialize unified telemetry (Sentry + App Insights +
   // Prometheus). Env-gated; no-op when SDKs/keys are absent.
-  void import("../lib/telemetry").then(({ initTelemetry }) =>
+  void import("../lib/telemetry/index.js").then(({ initTelemetry }) =>
     initTelemetry({ serviceName: "ecred-worker" }),
   );
   scheduleJobs();
