@@ -153,6 +153,45 @@ curl -L https://your-host/api/v1/postman.json \\
           </p>
         </section>
 
+        <section className="mt-12 rounded-xl border border-rose-200 bg-rose-50 p-6">
+          <h2 className="text-xl font-bold text-gray-900">
+            Deprecation + Sunset headers (RFC 9745 / RFC 8594)
+          </h2>
+          <p className="mt-2 text-sm text-gray-700">
+            When an endpoint is on the deprecation path, every response
+            (success, 304, error) carries advisory headers (since spec{" "}
+            <code className="font-mono">1.7.0</code>). Endpoints NOT on
+            the deprecation path emit no such headers — their absence is
+            the contract signal. The current{" "}
+            <code className="font-mono">DEPRECATION_REGISTRY</code> is
+            intentionally empty; this is the wire-format you can wire
+            your tooling against today.
+          </p>
+          <pre className="mt-3 overflow-x-auto rounded bg-white border border-rose-200 p-3 text-xs">
+            <code>{`# Hypothetical deprecated endpoint:
+curl -i https://your-host/api/v1/legacy-thing \\
+  -H "Authorization: Bearer $ECRED_API_KEY"
+# HTTP/1.1 200 OK
+# Deprecation: @1796083200
+# Sunset: Sun, 11 Nov 2030 23:59:59 GMT
+# Link: <https://your-host/changelog#legacy-thing>; rel="deprecation",
+#       <https://your-host/changelog#legacy-thing>; rel="sunset",
+#       <https://your-host/api/v1/new-thing>; rel="successor-version"`}</code>
+          </pre>
+          <p className="mt-3 text-xs text-gray-600">
+            TypeScript SDK:{" "}
+            <code className="font-mono">parseDeprecation(response.headers)</code>{" "}
+            returns{" "}
+            <code className="font-mono">{`{ deprecatedAt, sunsetAt?, infoUrl?, successorUrl? }`}</code>.
+            Pass{" "}
+            <code className="font-mono">onDeprecated</code> to{" "}
+            <code className="font-mono">new V1Client(...)</code> to fire
+            once per (method, path) per process — perfect for metrics or
+            structured logs. Failures are also surfaced via{" "}
+            <code className="font-mono">V1ApiError.deprecation</code>.
+          </p>
+        </section>
+
         <section className="mt-12 rounded-xl border border-emerald-200 bg-emerald-50 p-6">
           <h2 className="text-xl font-bold text-gray-900">
             Conditional GETs (ETag + If-None-Match)

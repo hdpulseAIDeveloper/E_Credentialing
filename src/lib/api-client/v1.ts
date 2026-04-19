@@ -44,6 +44,42 @@ export interface V1ClientOptions {
    * else is silently dropped server-side. Available since v1.3.0.
    */
   requestIdFactory?: () => string | undefined;
+  /**
+   * Optional callback invoked the FIRST time the SDK observes a
+   * `Deprecation` header for a given operation in the lifetime of
+   * this client instance. Subsequent observations of the same
+   * operation are suppressed (the SDK keeps an internal set of
+   * already-warned operations). The default callback emits one
+   * `console.warn` per operation; pass `() => undefined` to silence
+   * entirely. Available since v1.7.0.
+   */
+  onDeprecated?: (info: V1Deprecation, context: V1DeprecationContext) => void;
+}
+
+/** Context passed to `onDeprecated` so callbacks can build per-op cache keys. */
+export interface V1DeprecationContext {
+  /** Uppercase HTTP method, e.g. `"GET"`. */
+  method: string;
+  /** Request path, e.g. `"/api/v1/legacy-thing"`. */
+  path: string;
+  /** Response status; `undefined` when invoked from a non-fetch context. */
+  status?: number;
+}
+
+/**
+ * Decoded RFC 9745 + RFC 8594 + RFC 5829 deprecation advisory.
+ * `undefined` when the operation is not on the deprecation path.
+ * Available on every v1 response since spec v1.7.0.
+ */
+export interface V1Deprecation {
+  /** Wall-clock when deprecation took effect, parsed from the `Deprecation` header. */
+  deprecatedAt: Date;
+  /** Wall-clock when the operation will return 410, parsed from the `Sunset` header. */
+  sunsetAt: Date | undefined;
+  /** Stable upgrade-guide URL, parsed from `Link; rel="deprecation"`. */
+  infoUrl: string | undefined;
+  /** Replacement endpoint URL, parsed from `Link; rel="successor-version"`. */
+  successorUrl: string | undefined;
 }
 
 export class V1ApiError extends Error {
@@ -65,6 +101,15 @@ export class V1ApiError extends Error {
    * network-aborted before headers arrived.
    */
   readonly requestId: string | undefined;
+  /**
+   * Parsed deprecation advisory from the response headers (since
+   * spec v1.7.0). `undefined` for operations on the supported path —
+   * its presence is the signal that the operation is being retired.
+   * The SDK surfaces a one-time `console.warn` per process when it
+   * sees a non-undefined value (suppress with
+   * `V1ClientOptions.onDeprecated = () => undefined`).
+   */
+  readonly deprecation: V1Deprecation | undefined;
 
   constructor(
     status: number,
@@ -72,6 +117,7 @@ export class V1ApiError extends Error {
     code?: string,
     rateLimit?: V1RateLimit,
     requestId?: string,
+    deprecation?: V1Deprecation,
   ) {
     super(message);
     this.name = "V1ApiError";
@@ -79,6 +125,7 @@ export class V1ApiError extends Error {
     this.code = code;
     this.rateLimit = rateLimit;
     this.requestId = requestId;
+    this.deprecation = deprecation;
   }
 }
 
@@ -121,11 +168,36 @@ export function parseRateLimit(headers: Headers): V1RateLimit | undefined {
 /** Regex for X-Request-Id - mirrors `src/lib/api/request-id.ts` server-side. */
 const REQUEST_ID_RE = /^[A-Za-z0-9_\-]{8,128}$/;
 
+/**
+ * Default `onDeprecated` callback. One concise `console.warn` per
+ * operation per process — enough to make a developer notice during
+ * QA but not noisy in production polling loops.
+ */
+function defaultDeprecationWarn(
+  info: V1Deprecation,
+  context: V1DeprecationContext,
+): void {
+  const sunset = info.sunsetAt ? info.sunsetAt.toISOString() : "unspecified";
+  const guide = info.infoUrl ?? "(no upgrade guide URL)";
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[V1Client] DEPRECATED: ${context.method} ${context.path} — ` +
+      `deprecated since ${info.deprecatedAt.toISOString()}, ` +
+      `sunset ${sunset}. Upgrade guide: ${guide}`,
+  );
+}
+
 export class V1Client {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly fetchImpl: FetchLike;
   private readonly requestIdFactory: (() => string | undefined) | undefined;
+  private readonly onDeprecated: (
+    info: V1Deprecation,
+    context: V1DeprecationContext,
+  ) => void;
+  /** Per-instance dedupe set: `${METHOD} ${path}` keys we've already warned on. */
+  private readonly warnedOperations = new Set<string>();
 
   constructor(opts: V1ClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/$/, "");
@@ -141,6 +213,27 @@ export class V1Client {
       throw new Error("V1Client: apiKey is required.");
     }
     this.requestIdFactory = opts.requestIdFactory;
+    this.onDeprecated = opts.onDeprecated ?? defaultDeprecationWarn;
+  }
+
+  /** Internal helper: dispatch the deprecation callback at most once per op. */
+  private maybeWarnDeprecation(
+    headers: Headers,
+    method: string,
+    path: string,
+    status: number | undefined,
+  ): V1Deprecation | undefined {
+    const info = parseDeprecation(headers);
+    if (!info) return undefined;
+    const key = `${method.toUpperCase()} ${path}`;
+    if (this.warnedOperations.has(key)) return info;
+    this.warnedOperations.add(key);
+    try {
+      this.onDeprecated(info, { method: method.toUpperCase(), path, status });
+    } catch {
+      // Callbacks must never break the request path.
+    }
+    return info;
   }
 
   private async request<T>(
@@ -159,6 +252,7 @@ export class V1Client {
       }
     }
     const res = await this.fetchImpl(url, { ...init, method, headers });
+    const deprecation = this.maybeWarnDeprecation(res.headers, method, path, res.status);
     if (!res.ok) {
       let code: string | undefined;
       let message = `HTTP ${res.status} on ${method} ${path}`;
@@ -177,6 +271,7 @@ export class V1Client {
         code,
         parseRateLimit(res.headers),
         res.headers.get("x-request-id") ?? undefined,
+        deprecation,
       );
     }
     return (await res.json()) as T;
@@ -250,6 +345,12 @@ export class V1Client {
       }
     }
     const res = await this.fetchImpl(url, { headers });
+    const deprecation = this.maybeWarnDeprecation(
+      res.headers,
+      "GET",
+      `/api/v1/providers/${id}/cv.pdf`,
+      res.status,
+    );
     if (!res.ok) {
       throw new V1ApiError(
         res.status,
@@ -257,6 +358,7 @@ export class V1Client {
         undefined,
         parseRateLimit(res.headers),
         res.headers.get("x-request-id") ?? undefined,
+        deprecation,
       );
     }
     return res;
@@ -348,6 +450,43 @@ export function parseEtag(headers: Headers): string | undefined {
 }
 
 /**
+ * Parse the RFC 9745 `Deprecation`, RFC 8594 `Sunset`, and RFC 8288
+ * `Link` headers off any v1 response into a single
+ * `V1Deprecation` record. Returns `undefined` when the operation
+ * is NOT on the deprecation path — its presence is the contract
+ * signal. Available since spec v1.7.0.
+ *
+ * Inputs the SDK is tolerant of:
+ *
+ *   - `Deprecation: @1796083200` (RFC 9745 structured-fields integer)
+ *   - `Sunset: Sun, 11 Nov 2030 23:59:59 GMT` (RFC 9110 IMF-fixdate)
+ *   - `Link: <https://app/x>; rel="deprecation"` (rel string)
+ *   - `Link: <https://app/x>; rel="successor-version"` (replacement)
+ *
+ * The `infoUrl` and `successorUrl` fields are populated independently
+ * of the rest — older deployments that emit `Deprecation` without a
+ * `Link` rel="deprecation" entry still produce a valid record with
+ * `infoUrl: undefined`.
+ */
+export function parseDeprecation(headers: Headers): V1Deprecation | undefined {
+  const dep = headers.get("deprecation");
+  if (!dep) return undefined;
+  const trimmed = dep.trim();
+  if (!trimmed.startsWith("@")) return undefined;
+  const seconds = Number(trimmed.slice(1));
+  if (!Number.isFinite(seconds) || seconds <= 0) return undefined;
+  const sunsetRaw = headers.get("sunset");
+  const sunsetTs = sunsetRaw ? Date.parse(sunsetRaw) : NaN;
+  const links = parseLinkHeader(headers.get("link"));
+  return {
+    deprecatedAt: new Date(seconds * 1000),
+    sunsetAt: Number.isFinite(sunsetTs) ? new Date(sunsetTs) : undefined,
+    infoUrl: links.deprecation,
+    successorUrl: links["successor-version"],
+  };
+}
+
+/**
  * Convenience wrapper to perform a conditional GET against any v1
  * endpoint (since spec v1.6.0). Returns either:
  *
@@ -374,8 +513,8 @@ export async function conditionalGetWith<T>(
   path: string,
   ifNoneMatch: string | undefined,
 ): Promise<
-  | { status: "fresh"; etag: string | undefined; data: T }
-  | { status: "not-modified"; etag: string | undefined }
+  | { status: "fresh"; etag: string | undefined; data: T; deprecation: V1Deprecation | undefined }
+  | { status: "not-modified"; etag: string | undefined; deprecation: V1Deprecation | undefined }
 > {
   // We have to reach into the client; expose enough internals
   // through a bound helper.
@@ -384,6 +523,12 @@ export async function conditionalGetWith<T>(
     apiKey: string;
     fetchImpl: FetchLike;
     requestIdFactory?: () => string | undefined;
+    maybeWarnDeprecation?: (
+      headers: Headers,
+      method: string,
+      path: string,
+      status: number | undefined,
+    ) => V1Deprecation | undefined;
   };
   const headers = new Headers({
     Authorization: `Bearer ${internals.apiKey}`,
@@ -399,8 +544,11 @@ export async function conditionalGetWith<T>(
   const res = await internals.fetchImpl(`${internals.baseUrl}${path}`, {
     headers,
   });
+  const deprecation = internals.maybeWarnDeprecation
+    ? internals.maybeWarnDeprecation(res.headers, "GET", path, res.status)
+    : parseDeprecation(res.headers);
   if (res.status === 304) {
-    return { status: "not-modified", etag: parseEtag(res.headers) };
+    return { status: "not-modified", etag: parseEtag(res.headers), deprecation };
   }
   if (!res.ok) {
     let code: string | undefined;
@@ -420,8 +568,9 @@ export async function conditionalGetWith<T>(
       code,
       parseRateLimit(res.headers),
       res.headers.get("x-request-id") ?? undefined,
+      deprecation,
     );
   }
   const data = (await res.json()) as T;
-  return { status: "fresh", etag: parseEtag(res.headers), data };
+  return { status: "fresh", etag: parseEtag(res.headers), data, deprecation };
 }

@@ -14,7 +14,10 @@ import {
   parseRateLimit,
   parseLinkHeader,
   parseEtag,
+  parseDeprecation,
   conditionalGetWith,
+  type V1Deprecation,
+  type V1DeprecationContext,
 } from "../../../../src/lib/api-client/v1";
 
 interface MockResponse {
@@ -448,6 +451,150 @@ describe("V1Client", () => {
 
   it("parseLinkHeader returns an empty object for null (older deployments)", () => {
     expect(parseLinkHeader(null)).toEqual({});
+  });
+
+  // ---- Wave 18: Deprecation + Sunset header parsing ----
+
+  it("parseDeprecation returns undefined when no Deprecation header is set", () => {
+    expect(parseDeprecation(new Headers())).toBeUndefined();
+  });
+
+  it("parseDeprecation parses the @<unix-seconds> form into a Date", () => {
+    const headers = new Headers({
+      Deprecation: "@1796083200",
+      Sunset: "Sun, 11 Nov 2030 23:59:59 GMT",
+      Link:
+        '<https://app.example.com/changelog#legacy-thing>; rel="deprecation", ' +
+        '<https://api.example.com/api/v1/new-thing>; rel="successor-version"',
+    });
+    const info = parseDeprecation(headers);
+    expect(info).toBeDefined();
+    expect(info!.deprecatedAt.toISOString()).toBe("2026-12-01T00:00:00.000Z");
+    expect(info!.sunsetAt?.toISOString()).toBe("2030-11-11T23:59:59.000Z");
+    expect(info!.infoUrl).toBe("https://app.example.com/changelog#legacy-thing");
+    expect(info!.successorUrl).toBe("https://api.example.com/api/v1/new-thing");
+  });
+
+  it("parseDeprecation rejects malformed Deprecation values", () => {
+    expect(parseDeprecation(new Headers({ Deprecation: "1796083200" }))).toBeUndefined();
+    expect(parseDeprecation(new Headers({ Deprecation: "@bad" }))).toBeUndefined();
+    expect(parseDeprecation(new Headers({ Deprecation: "@-1" }))).toBeUndefined();
+  });
+
+  it("parseDeprecation tolerates Deprecation present without Sunset/Link", () => {
+    const info = parseDeprecation(new Headers({ Deprecation: "@1796083200" }));
+    expect(info).toBeDefined();
+    expect(info!.sunsetAt).toBeUndefined();
+    expect(info!.infoUrl).toBeUndefined();
+    expect(info!.successorUrl).toBeUndefined();
+  });
+
+  it("V1Client invokes onDeprecated exactly once per operation per process", async () => {
+    const fetchSpy = makeFetch([
+      {
+        status: 200,
+        body: JSON.stringify({ ok: true }),
+        headers: {
+          "content-type": "application/json",
+          Deprecation: "@1796083200",
+          Sunset: "Sun, 11 Nov 2030 23:59:59 GMT",
+          Link: '<https://x/upgrade>; rel="deprecation"',
+        },
+      },
+      {
+        status: 200,
+        body: JSON.stringify({ ok: true }),
+        headers: {
+          "content-type": "application/json",
+          Deprecation: "@1796083200",
+          Sunset: "Sun, 11 Nov 2030 23:59:59 GMT",
+          Link: '<https://x/upgrade>; rel="deprecation"',
+        },
+      },
+    ]);
+    const onDeprecated = vi.fn(
+      (_info: V1Deprecation, _ctx: V1DeprecationContext) => undefined,
+    );
+    const client = new V1Client({
+      baseUrl: "https://api.example.com",
+      apiKey: "k",
+      fetch: fetchSpy as unknown as typeof fetch,
+      onDeprecated,
+    });
+    await client.health();
+    await client.health();
+    expect(onDeprecated).toHaveBeenCalledTimes(1);
+    const [info, ctx] = onDeprecated.mock.calls[0]!;
+    expect(info.deprecatedAt.toISOString()).toBe("2026-12-01T00:00:00.000Z");
+    expect(info.infoUrl).toBe("https://x/upgrade");
+    expect(ctx.method).toBe("GET");
+    expect(ctx.path).toBe("/api/v1/health");
+    expect(ctx.status).toBe(200);
+  });
+
+  it("V1Client surfaces Deprecation on V1ApiError when a deprecated op errors", async () => {
+    const fetchSpy = makeFetch([
+      {
+        status: 401,
+        body: JSON.stringify({
+          error: { code: "missing_authorization", message: "no key" },
+        }),
+        headers: {
+          "content-type": "application/json",
+          Deprecation: "@1796083200",
+          Sunset: "Sun, 11 Nov 2030 23:59:59 GMT",
+          Link: '<https://x/upgrade>; rel="deprecation"',
+        },
+      },
+    ]);
+    const onDeprecated = vi.fn();
+    const client = new V1Client({
+      baseUrl: "https://api.example.com",
+      apiKey: "k",
+      fetch: fetchSpy as unknown as typeof fetch,
+      onDeprecated,
+    });
+    try {
+      await client.health();
+      throw new Error("expected V1ApiError");
+    } catch (e) {
+      const err = e as V1ApiError;
+      expect(err.deprecation).toBeDefined();
+      expect(err.deprecation!.infoUrl).toBe("https://x/upgrade");
+    }
+    expect(onDeprecated).toHaveBeenCalledTimes(1);
+  });
+
+  it("conditionalGetWith forwards a parsed deprecation envelope on 200 + 304", async () => {
+    const headers = {
+      "content-type": "application/json",
+      Deprecation: "@1796083200",
+      Sunset: "Sun, 11 Nov 2030 23:59:59 GMT",
+      Link: '<https://x/upgrade>; rel="deprecation"',
+    };
+    const fetchSpy = makeFetch([
+      { status: 200, body: JSON.stringify({ ok: true }), headers },
+      { status: 304, headers },
+    ]);
+    const client = new V1Client({
+      baseUrl: "https://api.example.com",
+      apiKey: "k",
+      fetch: fetchSpy as unknown as typeof fetch,
+      onDeprecated: () => undefined,
+    });
+    const fresh = await conditionalGetWith<{ ok: boolean }>(
+      client,
+      "/api/v1/health",
+      undefined,
+    );
+    expect(fresh.deprecation?.infoUrl).toBe("https://x/upgrade");
+    const cached = await conditionalGetWith<{ ok: boolean }>(
+      client,
+      "/api/v1/health",
+      'W/"x"',
+    );
+    expect(cached.status).toBe("not-modified");
+    expect(cached.deprecation?.infoUrl).toBe("https://x/upgrade");
   });
 
   it("falls back to a generic error message when body is non-JSON", async () => {

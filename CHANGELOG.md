@@ -7,6 +7,162 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sem
 ## [Unreleased]
 
 ### Added
+- **Wave 18 — Deprecation + Sunset header machinery
+  (RFC 9745 / RFC 8594 / RFC 5829 / RFC 8288)
+  (1.6.0 -> 1.7.0) (2026-04-19):** Seventh exercise of the
+  versioning machinery. Ships the wire-format and the SDK
+  observation path before we need them, so that the first
+  real deprecation is a one-line registry append rather than
+  a multi-week feature ship. The `DEPRECATION_REGISTRY` is
+  intentionally empty today; the helper, the route wrappers,
+  the OpenAPI documentation, and the SDK callback are all in
+  place and unit-tested.
+  - `src/lib/api/deprecation.ts`: new helper module exporting
+    `DeprecationPolicy` (typed registry row with `path`,
+    `method`, `deprecatedAt`, optional `sunsetAt`, optional
+    `infoUrl`, optional `successor`),
+    `DEPRECATION_REGISTRY: DeprecationPolicy[]` (single source
+    of truth — empty by design),
+    `findDeprecation(method, path, registry?)` (matches
+    `*` wildcard methods and `{id}`-style path placeholders),
+    `formatDeprecationValue(date)` (RFC 9745 structured-fields
+    integer form, `@<unix-seconds>`),
+    `formatHttpDate(date)` (RFC 9110 §5.6.7 IMF-fixdate),
+    `parseDeprecationValue(value)` and `parseSunset(value)`
+    (defensive parsers that tolerate null/empty/malformed
+    input),
+    `applyDeprecationHeaders(response, policy)` (no-op when
+    policy is undefined; otherwise attaches `Deprecation`,
+    `Sunset`, and `Link: rel="deprecation"` + `rel="sunset"`
+    + optional `rel="successor-version"` headers; merges into
+    any existing `Link` value emitted by pagination), and the
+    convenience wrapper
+    `applyDeprecationByRoute(response, method, path, registry?)`
+    that does lookup + apply in one call. Path templates
+    compile via a sentinel-stamping technique (`{id}` first
+    replaced with `\u0000PARAM\u0000`, then the template is
+    regex-escaped, then the sentinel is expanded to `[^/]+`)
+    to avoid the trap of escaping curly braces before
+    placeholder substitution.
+  - Wired into 6 JSON GET endpoints. Each route now defines a
+    `ROUTE_PATH` constant and wraps its final responses (200,
+    304, 401, 403, 404, 410-future, 429, 5xx) with
+    `applyDeprecationByRoute`. With an empty registry the
+    helper is a no-op (~0.5µs per response measured in unit
+    tests), so the wrapping is free until a deprecation lights
+    it up:
+    - `src/app/api/v1/health/route.ts` (`API_VERSION` bumped
+      to `"1.7.0"`)
+    - `src/app/api/v1/me/route.ts`
+    - `src/app/api/v1/providers/route.ts`
+    - `src/app/api/v1/providers/[id]/route.ts`
+    - `src/app/api/v1/sanctions/route.ts`
+    - `src/app/api/v1/enrollments/route.ts`
+  - OpenAPI spec `docs/api/openapi-v1.yaml` bumped from
+    `1.6.0` to `1.7.0`:
+    - `info.description` gains a "Deprecation contract (since
+      v1.7.0)" section documenting the conditional emission
+      rule ("absent unless this operation is on a deprecation
+      path"), the header values, the `Link` `rel` vocabulary,
+      and the SDK integration points.
+    - `components.headers.Deprecation` added (description,
+      `pattern: ^@\\d+$`, example `@1796083200`).
+    - `components.headers.Sunset` added (description,
+      example `Sun, 11 Nov 2030 23:59:59 GMT`).
+    - `components.headers.Link` description extended to cover
+      the new `rel` values: `deprecation`, `sunset`,
+      `successor-version` (existing pagination `first`/`prev`/
+      `next`/`last` rels remain unchanged).
+    - All JSON GET 200 responses, the reusable `NotModified`
+      (304), `Unauthorized` (401), `Forbidden` (403),
+      `NotFound` (404), and `RateLimited` (429) responses now
+      reference `Deprecation`, `Sunset`, and `Link` headers.
+    - `Health.apiVersion` example bumped to `"1.7.0"`.
+  - SDK `src/lib/api-client/v1.ts` extended:
+    - New types `V1Deprecation` (`deprecatedAt: Date`,
+      optional `sunsetAt: Date`, optional `infoUrl: string`,
+      optional `successorUrl: string`) and
+      `V1DeprecationContext` (`method`, `path`).
+    - `V1ApiError` constructor + properties extended with an
+      optional `deprecation` field so failed requests still
+      surface the advisory (a 401 from a deprecated endpoint
+      MUST NOT hide the deprecation signal).
+    - `V1ClientOptions.onDeprecated?: (info, ctx) => void`
+      callback. The default is `defaultDeprecationWarn` which
+      emits a single `console.warn` per operation. A
+      `warnedOperations: Set<string>` on the client
+      deduplicates by `${method} ${path}` so long-lived
+      servers don't spam logs.
+    - New private helper `maybeWarnDeprecation(headers, ctx)`
+      called from both `request()` and `getProviderCv()`.
+      Errors thrown inside the user callback are swallowed by
+      design — the callback is observability, not control flow.
+    - New exported helper `parseDeprecation(headers): V1Deprecation | undefined`
+      for ad-hoc parsing in raw `fetch` flows.
+    - `conditionalGetWith` return type extended:
+      `{ status: "fresh", etag, data, deprecation? }` and
+      `{ status: "not-modified", etag, deprecation? }` — both
+      success and 304 surface the advisory uniformly.
+  - Unit tests: 27 new tests in
+    `tests/unit/api/deprecation.test.ts` covering exact-path
+    + wildcard-method + parameterised matching, format
+    emission for `@<unix-seconds>` and IMF-fixdate, defensive
+    parsers, no-op-when-no-policy behaviour, header merging
+    into existing `Link` values, and `applyDeprecationByRoute`
+    end-to-end with both empty and populated test registries.
+  - SDK tests in `tests/unit/lib/api-client/v1-client.test.ts`
+    cover `parseDeprecation` (undefined for missing header,
+    structured-fields parsing, malformed-input rejection,
+    partial-info tolerance), `V1Client.onDeprecated` (called
+    once per operation, dedup behaviour), `V1ApiError.deprecation`
+    propagation, and `conditionalGetWith` deprecation
+    forwarding on both 200 and 304 responses.
+  - Contract tests in `tests/contract/pillar-j-openapi.spec.ts`
+    extended to assert that every 2xx response and every
+    reusable error response in the spec references the
+    `Deprecation`, `Sunset`, and `Link` headers — future spec
+    edits cannot silently drop the contract.
+  - Drift gates: `npm run sdk:check` and `npm run postman:check`
+    pass; the regenerated `src/lib/api-client/v1-types.ts` and
+    `public/api/v1/postman.json` match the bumped spec.
+  - Public changelog: `docs/changelog/public.md` ships a
+    `v1.12.0 (API)` entry covering the wire-format, the SDK
+    helpers, and the conditional-emission contract.
+  - Versioning policy: `docs/api/versioning.md` updated to
+    `Status: spec 1.7.0`, `Last reviewed: 2026-04-19 (Wave 18)`.
+    §3 (deprecation lifecycle) rewritten from aspirational to
+    backed-by-machinery — explicit pseudo-timeline (T+0, T+180d,
+    T+Sunset), explicit header contract table, explicit
+    OpenAPI spec contract block. New §3.3 (SDK observation
+    contract) added with worked-example showing the
+    `onDeprecated` callback wired to a metrics counter and
+    the `parseDeprecation` helper used in raw fetch. §4
+    (major-version overlap window) updated to use the new
+    `Deprecation: @<unix-seconds>` + `Sunset: <HTTP-date>`
+    bulk-emission pattern. §3 minimum sunset window raised
+    from 90 days to 180 days to align with enterprise
+    procurement cycles and SOC 2 evidence collection;
+    anti-weakening rule §6 explicitly forbids relaxing this
+    under internal roadmap pressure. All sub-section numbering
+    re-flowed to absorb the new §3.3 (rate-limit became §3.4,
+    request-id §3.5, pagination §3.6, ETag §3.7); quick
+    reference table re-pointed.
+  - Sandbox page `src/app/sandbox/page.tsx` ships a new
+    "Deprecation + Sunset headers (RFC 9745 / RFC 8594)"
+    section with worked `curl -i` example showing all three
+    headers + `Link` rels and a TypeScript SDK pointer.
+  - ADR `docs/dev/adr/0024-deprecation-sunset-headers.md`
+    captures the decision rationale, the alternatives
+    considered (per-route inline writes, middleware-only
+    emission, boolean-form `Deprecation: ?1`, defer-to-0023),
+    the consequences (positive / negative / neutral), and the
+    verification matrix.
+  - Net diff: 1 new helper module, 1 new ADR, 6 routes
+    updated, 1 spec bumped to `1.7.0`, 27 new helper unit
+    tests + 6 new SDK tests + 4 extended contract tests, full
+    test suite green at 1680 tests across 62 files. No prod
+    deploy.
+
 - **Wave 17 — Conditional GETs: ETag + If-None-Match
   (1.5.0 -> 1.6.0) (2026-04-18):** Sixth exercise of the
   versioning machinery. Adds the canonical REST cache-validation

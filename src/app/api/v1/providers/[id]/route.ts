@@ -8,7 +8,10 @@ import {
   evaluateConditionalGet,
   notModifiedResponse,
 } from "@/lib/api/etag";
+import { applyDeprecationByRoute } from "@/lib/api/deprecation";
 import { auditApiRequest } from "@/lib/api/audit-api";
+
+const ROUTE_PATH = "/api/v1/providers/{id}";
 
 export async function GET(
   request: Request,
@@ -16,10 +19,22 @@ export async function GET(
 ) {
   const requestId = resolveRequestId(request);
   const auth = await authenticateApiKey(request);
-  if (!auth.valid) return applyRequestIdHeader(auth.error!, requestId);
+  if (!auth.valid) {
+    return applyDeprecationByRoute(
+      applyRequestIdHeader(auth.error!, requestId),
+      "GET",
+      ROUTE_PATH,
+    );
+  }
 
   const scopeError = requireScope(auth, "providers:read");
-  if (scopeError) return applyRequestIdHeader(scopeError, requestId);
+  if (scopeError) {
+    return applyDeprecationByRoute(
+      applyRequestIdHeader(scopeError, requestId),
+      "GET",
+      ROUTE_PATH,
+    );
+  }
 
   const { id } = await params;
   const provider = await db.provider.findUnique({
@@ -67,15 +82,19 @@ export async function GET(
       status: 404,
       requestId,
     });
-    return applyRequestIdHeader(
-      applyRateLimitHeaders(
-        NextResponse.json(
-          { error: { code: "not_found", message: "Provider not found" } },
-          { status: 404 },
+    return applyDeprecationByRoute(
+      applyRequestIdHeader(
+        applyRateLimitHeaders(
+          NextResponse.json(
+            { error: { code: "not_found", message: "Provider not found" } },
+            { status: 404 },
+          ),
+          auth.rateLimit,
         ),
-        auth.rateLimit,
+        requestId,
       ),
-      requestId,
+      "GET",
+      ROUTE_PATH,
     );
   }
 
@@ -91,10 +110,14 @@ export async function GET(
       resultCount: 0,
       requestId,
     });
-    return notModifiedResponse(conditional.etag, {
-      requestId,
-      rateLimit: auth.rateLimit,
-    });
+    return applyDeprecationByRoute(
+      notModifiedResponse(conditional.etag, {
+        requestId,
+        rateLimit: auth.rateLimit,
+      }),
+      "GET",
+      ROUTE_PATH,
+    );
   }
 
   void auditApiRequest({
@@ -106,14 +129,18 @@ export async function GET(
     requestId,
   });
 
-  return applyRequestIdHeader(
-    applyRateLimitHeaders(
-      applyEtagHeader(
-        NextResponse.json(responseBody),
-        conditional.etag,
+  return applyDeprecationByRoute(
+    applyRequestIdHeader(
+      applyRateLimitHeaders(
+        applyEtagHeader(
+          NextResponse.json(responseBody),
+          conditional.etag,
+        ),
+        auth.rateLimit,
       ),
-      auth.rateLimit,
+      requestId,
     ),
-    requestId,
+    "GET",
+    ROUTE_PATH,
   );
 }

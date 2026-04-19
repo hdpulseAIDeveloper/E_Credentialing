@@ -1,7 +1,7 @@
 # Public REST API — Versioning, Deprecation, and Sunset Policy
 
-- **Status:** v1 — current stable (spec `1.6.0`)
-- **Last reviewed:** 2026-04-18 (Wave 17)
+- **Status:** v1 — current stable (spec `1.7.0`)
+- **Last reviewed:** 2026-04-19 (Wave 18)
 - **Related:**
   ADR [0020](../dev/adr/0020-openapi-v1-spec.md) (OpenAPI spec),
   ADR [0022](../dev/adr/0022-public-rest-v1-sdk.md) (TypeScript SDK),
@@ -20,7 +20,7 @@ customers, and how the wire-format signals deprecation.
 | How is a version named? | URL prefix: `/api/v1/...`. No header negotiation. |
 | When does a new major version ship? | When we'd otherwise need a breaking change. |
 | How long do we run two majors in parallel? | **At least 12 months** after the new major is generally available. |
-| How do we tell customers something is going away? | `Deprecation: true` + `Sunset: <RFC 9745 date>` + `Link: <new>; rel="successor-version"` headers + a `/changelog` entry **at least 90 days** before sunset. |
+| How do we tell customers something is going away? | `Deprecation: @<unix-seconds>` (RFC 9745) + `Sunset: <HTTP-date>` (RFC 8594) + `Link: <new>; rel="successor-version"` headers (since spec v1.7.0) + a `/changelog` entry **at least 180 days** before sunset. |
 | What's a breaking change? | See [§2](#2-what-counts-as-a-breaking-change). |
 
 ## 1. Versioning model
@@ -99,35 +99,47 @@ When we decide to remove something:
 ```
 T = decision-to-deprecate
 
-T + 0      Deprecation header starts on responses to that endpoint
-           Public /changelog entry under category "deprecation"
-           OpenAPI spec adds `deprecated: true` on the operation/property
+T + 0      Add an entry to DEPRECATION_REGISTRY in
+           src/lib/api/deprecation.ts. Headers fire on every
+           response (200, 304, 4xx, 5xx) from the matched op.
+           Public /changelog entry under category "deprecation".
+           OpenAPI spec adds `deprecated: true` on the operation,
+           and the endpoint description gains the deprecation
+           context block (see §3.2).
 
-T + 90d    Earliest possible Sunset date (RFC 9745)
-           If sunset shipping, response includes:
-             Deprecation: true
-             Sunset: Wed, 17 Jul 2026 00:00:00 GMT
-             Link: </api/v2/...>; rel="successor-version"
+T + 180d   Earliest possible Sunset date. The `Sunset` header
+           value (HTTP-date) is the wall-clock at which the
+           operation will start returning `410 Gone`.
 
-T + Sunset Endpoint returns 410 Gone for at least 30 days,
-           then is fully removed.
+T + Sunset Endpoint returns `410 Gone` for at least 30 days,
+           then is fully removed in the next minor bump.
 ```
 
-### 3.1 Header contract
+### 3.1 Header contract (live since spec v1.7.0)
 
-When an endpoint is deprecated, every successful response from it
-MUST include:
+When an endpoint is on the deprecation path, **every** response
+from it (2xx success, 304 not-modified, 4xx auth/scope/not-found,
+429 rate-limit, 5xx server error) carries the advisory headers.
+Operations that are NOT on the deprecation path do NOT emit
+these headers — their absence is the contract signal.
 
 | Header | Value | Reference |
 |---|---|---|
-| `Deprecation` | `true` | [RFC 9745](https://www.rfc-editor.org/rfc/rfc9745) |
-| `Sunset` | RFC 7231 date — when the endpoint will start returning 410 | [RFC 8594](https://www.rfc-editor.org/rfc/rfc8594) |
-| `Link` | `<successor-url>; rel="successor-version"` | [RFC 8288](https://www.rfc-editor.org/rfc/rfc8288) |
-| `Link` | `<changelog-url>; rel="deprecation"; type="text/html"` | RFC 8288 |
+| `Deprecation` | `@<unix-seconds>` (structured-fields integer; e.g. `@1796083200`) | [RFC 9745](https://www.rfc-editor.org/rfc/rfc9745) |
+| `Sunset` | IMF-fixdate per RFC 9110 §5.6.7 (e.g. `Sun, 11 Nov 2030 23:59:59 GMT`) | [RFC 8594](https://www.rfc-editor.org/rfc/rfc8594) |
+| `Link` | `<upgrade-guide-url>; rel="deprecation"` | [RFC 8288](https://www.rfc-editor.org/rfc/rfc8288) |
+| `Link` | `<upgrade-guide-url>; rel="sunset"` | RFC 8288 |
+| `Link` | `<successor-url>; rel="successor-version"` (optional, when a direct replacement exists) | [RFC 5829](https://www.rfc-editor.org/rfc/rfc5829) |
 
-Exactly one `Sunset`, exactly one `successor-version` link. If the
-successor lives in a future major (`/api/v2/...`), the URL there.
-If the successor is just another v1 endpoint, that URL.
+If the operation also emits pagination links (RFC 8288 `first` /
+`prev` / `next` / `last`) those entries are merged into the same
+`Link` header value, comma-separated.
+
+The `Deprecation` value uses RFC 9745's structured-fields integer
+form (`@<unix-seconds>`) rather than the alternate boolean form
+(`?1`). The integer carries the wall-clock when deprecation took
+effect, so customers can compute remaining-days locally without
+parsing `Sunset`.
 
 ### 3.2 OpenAPI spec contract
 
@@ -135,19 +147,66 @@ The same operation in `docs/api/openapi-v1.yaml` MUST get:
 
 ```yaml
 get:
-  summary: List providers
+  summary: List legacy things
   deprecated: true
   description: |
-    **Deprecated 2026-04-18, sunset 2026-07-17.** Use
-    `/api/v2/providers` (`GET`) instead. See the
-    public changelog (`/changelog`) for migration guidance.
+    **Deprecated 2026-06-01, sunset 2026-12-01.** Use
+    `/api/v1/new-things` (`GET`) instead. See
+    `/changelog#v1.12.0-legacy-things` for migration guidance.
 ```
 
-A future contract test (Wave 12 candidate) will assert that any
-operation marked `deprecated: true` in the spec also serves the
-required headers at runtime.
+The runtime headers and the spec `deprecated: true` flag MUST
+ship together — adding one without the other is a contract
+violation. The OpenAPI `components.headers.Deprecation` and
+`components.headers.Sunset` definitions are attached to every
+2xx, 304, and reusable error response in the spec; their
+description explicitly notes "absent unless this operation is
+on a deprecation path".
 
-## 3.3 Standard rate-limit response headers (since spec v1.2.0)
+### 3.3 SDK observation contract
+
+The TypeScript SDK reads the headers and surfaces the advisory
+through two integration points:
+
+```ts
+import { V1Client, parseDeprecation } from "@e-credentialing/api-client";
+
+// 1) Per-client callback — fires once per (method, path) per process.
+const client = new V1Client({
+  baseUrl,
+  apiKey,
+  onDeprecated: (info, ctx) => {
+    metrics.increment("v1.deprecation_seen", {
+      method: ctx.method,
+      path: ctx.path,
+    });
+    console.warn(
+      `${ctx.method} ${ctx.path} sunsets at ${info.sunsetAt?.toISOString()} — see ${info.infoUrl}`,
+    );
+  },
+});
+
+// 2) Per-call ad-hoc inspection — useful in raw fetch flows.
+const res = await fetch(`${baseUrl}/api/v1/legacy-thing`, { headers: { Authorization: `Bearer ${apiKey}` } });
+const info = parseDeprecation(res.headers);
+if (info) {
+  // info.deprecatedAt: Date    — when deprecation took effect
+  // info.sunsetAt:    Date|undef — when 410 Gone starts
+  // info.infoUrl:     string|undef — Link rel="deprecation"
+  // info.successorUrl: string|undef — Link rel="successor-version"
+}
+```
+
+The default `onDeprecated` callback emits a single `console.warn`.
+Callers wanting a different policy (metrics, structured logs,
+silent) supply their own; failures inside the callback are
+swallowed so they cannot break the request path.
+
+`V1ApiError.deprecation` is also populated when a deprecated
+operation returns a non-2xx status — failures don't hide the
+warning.
+
+### 3.4 Standard rate-limit response headers (since spec v1.2.0)
 
 Every successful 2xx response from `/api/v1/*` carries three
 standard headers that describe the caller's per-key budget:
@@ -181,7 +240,7 @@ These headers were added in spec `1.2.0` (additive, non-breaking).
 Removing them, renaming them, or changing their semantics would be
 a breaking change and require a `/api/v2/`.
 
-## 3.4 Request correlation header (since spec v1.3.0)
+### 3.5 Request correlation header (since spec v1.3.0)
 
 Every `/api/v1/*` request carries an `X-Request-Id` header on
 **both** the request and the response. The header lets customers
@@ -217,7 +276,7 @@ the header, renaming it, relaxing the format gate, or skipping it
 on any response status would be a breaking change and require a
 `/api/v2/`.
 
-## 3.5 Pagination Link header (since spec v1.5.0)
+### 3.6 Pagination Link header (since spec v1.5.0)
 
 Every paginated list endpoint (`GET /api/v1/providers`,
 `GET /api/v1/sanctions`, `GET /api/v1/enrollments`) returns an
@@ -264,7 +323,7 @@ Removing the header, renaming any `rel` value, dropping query
 parameters from link targets, or emitting non-absolute URLs would
 be a breaking change and require a `/api/v2/`.
 
-## 3.6 Conditional GETs — ETag + If-None-Match (since spec v1.6.0)
+### 3.7 Conditional GETs — ETag + If-None-Match (since spec v1.6.0)
 
 Every read endpoint emits a weak `ETag` response header (per
 [RFC 9110 §8.8.3](https://www.rfc-editor.org/rfc/rfc9110#section-8.8.3))
@@ -337,10 +396,14 @@ When `/api/v2` ships:
 - `/api/v1` operations remain in the OpenAPI spec for the full
   overlap window. The spec gains `info.x-version-status: "supported"`
   on v1 and `"current"` on v2 during the overlap.
-- All `/api/v1/*` responses gain a `Deprecation: true` header on
-  day one of the overlap, even if the specific endpoint hasn't
-  changed semantics. Customers MUST take this as the migration
-  signal.
+- All `/api/v1/*` responses gain `Deprecation: @<unix-seconds>`
+  + `Sunset: <HTTP-date>` headers on day one of the overlap, even
+  if the specific endpoint hasn't changed semantics. The
+  `Deprecation` value carries the v2-GA timestamp; the `Sunset`
+  value is the v1 removal date (≥ 12 months later). Customers
+  MUST take this as the migration signal. Operationally this is
+  one bulk `DEPRECATION_REGISTRY` entry per surface, applied via
+  `applyDeprecationByRoute` in middleware.
 - We commit to a **migration runbook** in
   `docs/dev/runbooks/api-migration-v1-to-v2.md` published on day
   one of the overlap.
@@ -378,13 +441,14 @@ The following invariants MUST be preserved:
 ## 7. Quick reference for engineers
 
 - "Is this change breaking?" → §2.
-- "How long until I can delete this endpoint?" → §3 (90 days
+- "How long until I can delete this endpoint?" → §3 (180 days
   minimum after `Deprecation`-header-on date).
 - "What headers do I need on a deprecated endpoint?" → §3.1.
-- "What rate-limit headers must I emit?" → §3.3.
-- "What request-id headers must I emit?" → §3.4.
-- "How do I emit pagination Link headers?" → §3.5.
-- "How do I add ETag support to a new endpoint?" → §3.6.
+- "How do I observe deprecations from the SDK?" → §3.3.
+- "What rate-limit headers must I emit?" → §3.4.
+- "What request-id headers must I emit?" → §3.5.
+- "How do I emit pagination Link headers?" → §3.6.
+- "How do I add ETag support to a new endpoint?" → §3.7.
 - "How do I document this deprecation in the spec?" → §3.2.
 - "When can I ship `/api/v2`?" → After at least one of:
   - Required customer feature that can't ship in v1, OR

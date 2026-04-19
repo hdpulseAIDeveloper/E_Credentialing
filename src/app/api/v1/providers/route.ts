@@ -10,15 +10,30 @@ import {
   evaluateConditionalGet,
   notModifiedResponse,
 } from "@/lib/api/etag";
+import { applyDeprecationByRoute } from "@/lib/api/deprecation";
 import { auditApiRequest } from "@/lib/api/audit-api";
+
+const ROUTE_PATH = "/api/v1/providers";
 
 export async function GET(request: Request) {
   const requestId = resolveRequestId(request);
   const auth = await authenticateApiKey(request);
-  if (!auth.valid) return applyRequestIdHeader(auth.error!, requestId);
+  if (!auth.valid) {
+    return applyDeprecationByRoute(
+      applyRequestIdHeader(auth.error!, requestId),
+      "GET",
+      ROUTE_PATH,
+    );
+  }
 
   const scopeError = requireScope(auth, "providers:read");
-  if (scopeError) return applyRequestIdHeader(scopeError, requestId);
+  if (scopeError) {
+    return applyDeprecationByRoute(
+      applyRequestIdHeader(scopeError, requestId),
+      "GET",
+      ROUTE_PATH,
+    );
+  }
 
   const url = new URL(request.url);
   const status = url.searchParams.get("status");
@@ -67,10 +82,14 @@ export async function GET(request: Request) {
       query: { status, npi, page: String(page), limit: String(limit) },
       requestId,
     });
-    return notModifiedResponse(conditional.etag, {
-      requestId,
-      rateLimit: auth.rateLimit,
-    });
+    return applyDeprecationByRoute(
+      notModifiedResponse(conditional.etag, {
+        requestId,
+        rateLimit: auth.rateLimit,
+      }),
+      "GET",
+      ROUTE_PATH,
+    );
   }
 
   void auditApiRequest({
@@ -83,18 +102,22 @@ export async function GET(request: Request) {
     requestId,
   });
 
-  return applyRequestIdHeader(
-    applyPaginationLinkHeader(
-      applyRateLimitHeaders(
-        applyEtagHeader(
-          NextResponse.json(responseBody),
-          conditional.etag,
+  return applyDeprecationByRoute(
+    applyRequestIdHeader(
+      applyPaginationLinkHeader(
+        applyRateLimitHeaders(
+          applyEtagHeader(
+            NextResponse.json(responseBody),
+            conditional.etag,
+          ),
+          auth.rateLimit,
         ),
-        auth.rateLimit,
+        request.url,
+        { page, limit, total, totalPages },
       ),
-      request.url,
-      { page, limit, total, totalPages },
+      requestId,
     ),
-    requestId,
+    "GET",
+    ROUTE_PATH,
   );
 }

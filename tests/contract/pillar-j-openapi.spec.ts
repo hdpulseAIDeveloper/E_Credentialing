@@ -346,6 +346,76 @@ describe("pillar-J: OpenAPI 3.1 contract", () => {
     });
   });
 
+  describe("Wave 18: Deprecation + Sunset header contract (RFC 9745 / RFC 8594)", () => {
+    it("declares components.headers.Deprecation with the @<unix-seconds> pattern", () => {
+      const headers = (SPEC as { components?: { headers?: Record<string, unknown> } })
+        .components?.headers ?? {};
+      const dep = headers.Deprecation as { schema?: { pattern?: string } } | undefined;
+      expect(dep, "missing components.headers.Deprecation").toBeTruthy();
+      expect(dep?.schema?.pattern).toBe("^@[0-9]+$");
+    });
+
+    it("declares components.headers.Sunset", () => {
+      const headers = (SPEC as { components?: { headers?: Record<string, unknown> } })
+        .components?.headers ?? {};
+      expect(headers.Sunset, "missing components.headers.Sunset").toBeTruthy();
+    });
+
+    it("Link header description references rel=deprecation/sunset/successor-version (Wave 18 widening)", () => {
+      const link = (SPEC as { components?: { headers?: Record<string, { description?: string }> } })
+        .components?.headers?.Link;
+      const desc = link?.description ?? "";
+      expect(desc).toMatch(/deprecation/i);
+      expect(desc).toMatch(/sunset/i);
+      expect(desc).toMatch(/successor-version/i);
+    });
+
+    it("attaches Deprecation + Sunset + Link headers to every JSON 200 response", () => {
+      const failures: string[] = [];
+      for (const [path, ops] of Object.entries(SPEC.paths)) {
+        for (const [method, op] of Object.entries(ops)) {
+          const operation = op as {
+            responses?: Record<
+              string,
+              { content?: Record<string, unknown>; headers?: Record<string, unknown> }
+            >;
+          };
+          const r200 = operation?.responses?.["200"];
+          if (!r200?.content?.["application/json"]) continue;
+          const headers = r200.headers ?? {};
+          for (const h of ["Deprecation", "Sunset", "Link"]) {
+            if (!headers[h]) {
+              failures.push(`${method.toUpperCase()} ${path} 200 missing ${h} header`);
+            }
+          }
+        }
+      }
+      expect(failures, failures.join("\n")).toEqual([]);
+    });
+
+    it("attaches Deprecation/Sunset/Link headers to every reusable error response", () => {
+      const responses = (SPEC as {
+        components?: {
+          responses?: Record<string, { headers?: Record<string, unknown> }>;
+        };
+      }).components?.responses ?? {};
+      const failures: string[] = [];
+      for (const name of ["Unauthorized", "Forbidden", "NotFound", "RateLimited", "NotModified"]) {
+        const r = responses[name];
+        if (!r) {
+          failures.push(`components.responses.${name} missing`);
+          continue;
+        }
+        for (const h of ["Deprecation", "Sunset", "Link"]) {
+          if (!r.headers?.[h]) {
+            failures.push(`components.responses.${name} missing ${h} header`);
+          }
+        }
+      }
+      expect(failures, failures.join("\n")).toEqual([]);
+    });
+  });
+
   describe("anti-PHI guard", () => {
     /**
      * Walks the spec and collects every property name that appears

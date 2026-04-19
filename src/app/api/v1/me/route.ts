@@ -44,12 +44,21 @@ import {
   evaluateConditionalGet,
   notModifiedResponse,
 } from "@/lib/api/etag";
+import { applyDeprecationByRoute } from "@/lib/api/deprecation";
 import { db } from "@/server/db";
+
+const ROUTE_PATH = "/api/v1/me";
 
 export async function GET(request: Request): Promise<NextResponse> {
   const requestId = resolveRequestId(request);
   const auth = await authenticateApiKey(request);
-  if (!auth.valid) return applyRequestIdHeader(auth.error!, requestId);
+  if (!auth.valid) {
+    return applyDeprecationByRoute(
+      applyRequestIdHeader(auth.error!, requestId),
+      "GET",
+      ROUTE_PATH,
+    );
+  }
 
   // Re-fetch the row so we can surface name/createdAt/expiresAt/lastUsedAt.
   // authenticateApiKey already validated the key and the row exists; this
@@ -67,12 +76,16 @@ export async function GET(request: Request): Promise<NextResponse> {
   });
 
   if (!row) {
-    return applyRequestIdHeader(
-      NextResponse.json(
-        { error: { code: "not_found", message: "API key not found" } },
-        { status: 404 },
+    return applyDeprecationByRoute(
+      applyRequestIdHeader(
+        NextResponse.json(
+          { error: { code: "not_found", message: "API key not found" } },
+          { status: 404 },
+        ),
+        requestId,
       ),
-      requestId,
+      "GET",
+      ROUTE_PATH,
     );
   }
 
@@ -108,10 +121,14 @@ export async function GET(request: Request): Promise<NextResponse> {
       resultCount: 0,
       requestId,
     });
-    return notModifiedResponse(conditional.etag, {
-      requestId,
-      rateLimit: auth.rateLimit,
-    });
+    return applyDeprecationByRoute(
+      notModifiedResponse(conditional.etag, {
+        requestId,
+        rateLimit: auth.rateLimit,
+      }),
+      "GET",
+      ROUTE_PATH,
+    );
   }
 
   const body = {
@@ -135,20 +152,24 @@ export async function GET(request: Request): Promise<NextResponse> {
     requestId,
   });
 
-  return applyRequestIdHeader(
-    applyRateLimitHeaders(
-      applyEtagHeader(
-        NextResponse.json(body, {
-          status: 200,
-          headers: {
-            "Cache-Control": "no-store",
-            "X-Content-Type-Options": "nosniff",
-          },
-        }),
-        conditional.etag,
+  return applyDeprecationByRoute(
+    applyRequestIdHeader(
+      applyRateLimitHeaders(
+        applyEtagHeader(
+          NextResponse.json(body, {
+            status: 200,
+            headers: {
+              "Cache-Control": "no-store",
+              "X-Content-Type-Options": "nosniff",
+            },
+          }),
+          conditional.etag,
+        ),
+        auth.rateLimit,
       ),
-      auth.rateLimit,
+      requestId,
     ),
-    requestId,
+    "GET",
+    ROUTE_PATH,
   );
 }

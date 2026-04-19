@@ -251,7 +251,7 @@ export interface components {
             keyId: string;
             /**
              * @description Semver version of the v1 surface (matches `info.version`).
-             * @example 1.6.0
+             * @example 1.7.0
              */
             apiVersion: string;
             /**
@@ -455,6 +455,9 @@ export interface components {
         Unauthorized: {
             headers: {
                 "X-Request-Id": components["headers"]["RequestId"];
+                Deprecation: components["headers"]["Deprecation"];
+                Sunset: components["headers"]["Sunset"];
+                Link: components["headers"]["Link"];
                 [name: string]: unknown;
             };
             content: {
@@ -465,6 +468,9 @@ export interface components {
         Forbidden: {
             headers: {
                 "X-Request-Id": components["headers"]["RequestId"];
+                Deprecation: components["headers"]["Deprecation"];
+                Sunset: components["headers"]["Sunset"];
+                Link: components["headers"]["Link"];
                 [name: string]: unknown;
             };
             content: {
@@ -475,6 +481,9 @@ export interface components {
         NotFound: {
             headers: {
                 "X-Request-Id": components["headers"]["RequestId"];
+                Deprecation: components["headers"]["Deprecation"];
+                Sunset: components["headers"]["Sunset"];
+                Link: components["headers"]["Link"];
                 [name: string]: unknown;
             };
             content: {
@@ -486,7 +495,11 @@ export interface components {
          *     `If-None-Match` with an ETag that matches the current
          *     representation. The response body is empty (zero bytes per
          *     RFC 9110 §15.4.5); the `ETag`, `X-Request-Id`, and
-         *     rate-limit headers are still present.
+         *     rate-limit headers are still present, and (since v1.7.0)
+         *     any `Deprecation` / `Sunset` / `Link` advisory headers
+         *     applicable to the operation also fire on the 304 — a
+         *     client polling on `If-None-Match` must still find out
+         *     about deprecation.
          */
         NotModified: {
             headers: {
@@ -495,6 +508,9 @@ export interface components {
                 "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                 "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
                 "X-Request-Id": components["headers"]["RequestId"];
+                Deprecation: components["headers"]["Deprecation"];
+                Sunset: components["headers"]["Sunset"];
+                Link: components["headers"]["Link"];
                 [name: string]: unknown;
             };
             content?: never;
@@ -513,6 +529,9 @@ export interface components {
                 "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                 "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
                 "X-Request-Id": components["headers"]["RequestId"];
+                Deprecation: components["headers"]["Deprecation"];
+                Sunset: components["headers"]["Sunset"];
+                Link: components["headers"]["Link"];
                 [name: string]: unknown;
             };
             content: {
@@ -580,13 +599,27 @@ export interface components {
          */
         RetryAfter: number;
         /**
-         * @description RFC 8288 pagination links. Present on every paginated list
-         *     response (since v1.5.0) when the result set has at least
-         *     one page. Always emits `first` and `last`; emits `prev`
-         *     when `page > 1` and `next` when `page < totalPages`.
-         *     Comma-separated, single-line value with quoted `rel`
-         *     tokens. Use the SDK's `parseLinkHeader(headers.get("Link"))`
-         *     helper to turn it into a `{ rel: url }` map.
+         * @description RFC 8288 web links, comma-separated. Carries up to three
+         *     independent classes of entries; **only the entries that
+         *     apply to a given response are emitted**. Use the SDK's
+         *     `parseLinkHeader(headers.get("Link"))` helper to turn it
+         *     into a `{ rel: url }` map.
+         *
+         *       1. **Pagination** (since v1.5.0). Present on every
+         *          paginated list response when the result set has at
+         *          least one page. Always emits `first` and `last`;
+         *          emits `prev` when `page > 1` and `next` when
+         *          `page < totalPages`.
+         *       2. **Deprecation pointers** (since v1.7.0). When the
+         *          current operation is on a deprecation path, emits
+         *          `rel="deprecation"` and `rel="sunset"` entries
+         *          pointing at the upgrade guide, plus an optional
+         *          `rel="successor-version"` entry pointing at the
+         *          replacement endpoint when one exists.
+         *
+         *     The pagination + deprecation entries are independent: a
+         *     deprecated paginated endpoint emits BOTH classes of links
+         *     in the same `Link` header.
          */
         Link: string;
         /**
@@ -600,6 +633,32 @@ export interface components {
          *     is stable across cosmetic refreshes. Available since v1.6.0.
          */
         ETag: string;
+        /**
+         * @description RFC 9745 advisory header. **Present only when this operation
+         *     has entered its deprecation window** — its absence means the
+         *     operation is on the supported path. Value is the
+         *     structured-fields integer form: an `@`-prefixed Unix-seconds
+         *     timestamp recording when deprecation took effect (e.g.
+         *     `@1796083200` is `2026-12-01T00:00:00Z`).
+         *
+         *     When `Deprecation` is present, `Sunset` is also present, and
+         *     the `Link` header carries `rel="deprecation"` (and where
+         *     applicable `rel="sunset"`, `rel="successor-version"`)
+         *     entries pointing at the upgrade guide and replacement
+         *     endpoint. Available since v1.7.0.
+         */
+        Deprecation: string;
+        /**
+         * @description RFC 8594 advisory header. **Present only when this operation
+         *     has entered its deprecation window** — pairs with the
+         *     `Deprecation` header. Value is an HTTP-date (IMF-fixdate per
+         *     RFC 9110 §5.6.7) marking the wall-clock at which the
+         *     operation will start returning `410 Gone`. Always at least
+         *     180 days in the future at first publication; the policy
+         *     lives in `docs/api/versioning.md` §4. Available since
+         *     v1.7.0.
+         */
+        Sunset: string;
     };
     pathItems: never;
 }
@@ -644,6 +703,9 @@ export interface operations {
                     "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
                     "X-Request-Id": components["headers"]["RequestId"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -654,6 +716,10 @@ export interface operations {
             /** @description Missing, invalid, expired, or revoked API key. */
             401: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -702,6 +768,9 @@ export interface operations {
                     "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
                     "X-Request-Id": components["headers"]["RequestId"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -761,6 +830,8 @@ export interface operations {
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
                     Link: components["headers"]["Link"];
                     "X-Request-Id": components["headers"]["RequestId"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -814,6 +885,9 @@ export interface operations {
                     "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
                     "X-Request-Id": components["headers"]["RequestId"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -858,6 +932,9 @@ export interface operations {
                     "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
                     "X-Request-Id": components["headers"]["RequestId"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -917,6 +994,8 @@ export interface operations {
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
                     "X-Request-Id": components["headers"]["RequestId"];
                     Link: components["headers"]["Link"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -977,6 +1056,8 @@ export interface operations {
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
                     "X-Request-Id": components["headers"]["RequestId"];
                     Link: components["headers"]["Link"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
                     [name: string]: unknown;
                 };
                 content: {

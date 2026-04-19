@@ -42,13 +42,21 @@ import {
   evaluateConditionalGet,
   notModifiedResponse,
 } from "@/lib/api/etag";
+import { applyDeprecationByRoute } from "@/lib/api/deprecation";
 
-const API_VERSION = "1.6.0";
+const API_VERSION = "1.7.0";
+const ROUTE_PATH = "/api/v1/health";
 
 export async function GET(request: Request): Promise<NextResponse> {
   const requestId = resolveRequestId(request);
   const auth = await authenticateApiKey(request);
-  if (!auth.valid) return applyRequestIdHeader(auth.error!, requestId);
+  if (!auth.valid) {
+    return applyDeprecationByRoute(
+      applyRequestIdHeader(auth.error!, requestId),
+      "GET",
+      ROUTE_PATH,
+    );
+  }
 
   // ETag is computed over the *cacheable* subset of the body — the
   // per-request `time` field would otherwise force a cache miss on
@@ -72,10 +80,14 @@ export async function GET(request: Request): Promise<NextResponse> {
       resultCount: 0,
       requestId,
     });
-    return notModifiedResponse(conditional.etag, {
-      requestId,
-      rateLimit: auth.rateLimit,
-    });
+    return applyDeprecationByRoute(
+      notModifiedResponse(conditional.etag, {
+        requestId,
+        rateLimit: auth.rateLimit,
+      }),
+      "GET",
+      ROUTE_PATH,
+    );
   }
 
   const body = {
@@ -92,20 +104,24 @@ export async function GET(request: Request): Promise<NextResponse> {
     requestId,
   });
 
-  return applyRequestIdHeader(
-    applyRateLimitHeaders(
-      applyEtagHeader(
-        NextResponse.json(body, {
-          status: 200,
-          headers: {
-            "Cache-Control": "no-store",
-            "X-Content-Type-Options": "nosniff",
-          },
-        }),
-        conditional.etag,
+  return applyDeprecationByRoute(
+    applyRequestIdHeader(
+      applyRateLimitHeaders(
+        applyEtagHeader(
+          NextResponse.json(body, {
+            status: 200,
+            headers: {
+              "Cache-Control": "no-store",
+              "X-Content-Type-Options": "nosniff",
+            },
+          }),
+          conditional.etag,
+        ),
+        auth.rateLimit,
       ),
-      auth.rateLimit,
+      requestId,
     ),
-    requestId,
+    "GET",
+    ROUTE_PATH,
   );
 }

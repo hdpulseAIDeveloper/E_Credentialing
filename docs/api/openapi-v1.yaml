@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: E-Credentialing CVO Platform — Public REST API v1
-  version: "1.6.0"
+  version: "1.7.0"
   summary: Read-only public REST API for the E-Credentialing CVO platform.
   description: |
     The v1 surface is intentionally read-only. Every request requires
@@ -43,6 +43,22 @@ info:
     (zero JSON bytes). Saves bandwidth, DB round-trips, and your
     rate-limit budget. The 304 still carries `X-Request-Id` and
     the rate-limit headers.
+
+    Deprecation contract (since v1.7.0): an operation that has
+    entered its deprecation window emits the standard advisory
+    headers — `Deprecation` (RFC 9745) carrying the `@unix-seconds`
+    structured-fields integer when deprecation took effect,
+    `Sunset` (RFC 8594) carrying the IMF-fixdate when the operation
+    will start returning `410 Gone`, and `Link` entries with
+    `rel="deprecation"`, `rel="sunset"`, and (where one exists)
+    `rel="successor-version"` pointing at the upgrade guide and
+    replacement endpoint. **The headers are absent from operations
+    that are not on a deprecation path** — their presence is the
+    signal. The full lifecycle policy lives in
+    `docs/api/versioning.md` §4. The TypeScript SDK parses these
+    headers via `parseDeprecation(headers)` and emits a one-time
+    `console.warn` per process so customers find out before the
+    sunset wall-clock fires.
 
     Wave 8 (2026-04-18). See ADR 0020 and `docs/qa/per-pillar/pillar-j-api.md`.
   contact:
@@ -106,12 +122,23 @@ paths:
               $ref: "#/components/headers/RateLimitReset"
             X-Request-Id:
               $ref: "#/components/headers/RequestId"
+            Deprecation:
+              $ref: "#/components/headers/Deprecation"
+            Sunset:
+              $ref: "#/components/headers/Sunset"
+            Link:
+              $ref: "#/components/headers/Link"
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Health" }
         "304": { $ref: "#/components/responses/NotModified" }
         "401":
           description: Missing, invalid, expired, or revoked API key.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+            Deprecation: { $ref: "#/components/headers/Deprecation" }
+            Sunset: { $ref: "#/components/headers/Sunset" }
+            Link: { $ref: "#/components/headers/Link" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
@@ -154,6 +181,9 @@ paths:
             X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
             X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
             X-Request-Id: { $ref: "#/components/headers/RequestId" }
+            Deprecation: { $ref: "#/components/headers/Deprecation" }
+            Sunset: { $ref: "#/components/headers/Sunset" }
+            Link: { $ref: "#/components/headers/Link" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Me" }
@@ -191,6 +221,8 @@ paths:
             X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
             Link: { $ref: "#/components/headers/Link" }
             X-Request-Id: { $ref: "#/components/headers/RequestId" }
+            Deprecation: { $ref: "#/components/headers/Deprecation" }
+            Sunset: { $ref: "#/components/headers/Sunset" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ProvidersPage" }
@@ -220,6 +252,9 @@ paths:
             X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
             X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
             X-Request-Id: { $ref: "#/components/headers/RequestId" }
+            Deprecation: { $ref: "#/components/headers/Deprecation" }
+            Sunset: { $ref: "#/components/headers/Sunset" }
+            Link: { $ref: "#/components/headers/Link" }
           content:
             application/json:
               schema:
@@ -262,6 +297,9 @@ paths:
             X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
             X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
             X-Request-Id: { $ref: "#/components/headers/RequestId" }
+            Deprecation: { $ref: "#/components/headers/Deprecation" }
+            Sunset: { $ref: "#/components/headers/Sunset" }
+            Link: { $ref: "#/components/headers/Link" }
           content:
             application/pdf:
               schema: { type: string, format: binary }
@@ -296,6 +334,8 @@ paths:
             X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
             X-Request-Id: { $ref: "#/components/headers/RequestId" }
             Link: { $ref: "#/components/headers/Link" }
+            Deprecation: { $ref: "#/components/headers/Deprecation" }
+            Sunset: { $ref: "#/components/headers/Sunset" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/SanctionsPage" }
@@ -331,6 +371,8 @@ paths:
             X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
             X-Request-Id: { $ref: "#/components/headers/RequestId" }
             Link: { $ref: "#/components/headers/Link" }
+            Deprecation: { $ref: "#/components/headers/Deprecation" }
+            Sunset: { $ref: "#/components/headers/Sunset" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/EnrollmentsPage" }
@@ -400,6 +442,9 @@ components:
       description: Missing or invalid API key.
       headers:
         X-Request-Id: { $ref: "#/components/headers/RequestId" }
+        Deprecation: { $ref: "#/components/headers/Deprecation" }
+        Sunset: { $ref: "#/components/headers/Sunset" }
+        Link: { $ref: "#/components/headers/Link" }
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -407,6 +452,9 @@ components:
       description: API key valid but lacks the required scope.
       headers:
         X-Request-Id: { $ref: "#/components/headers/RequestId" }
+        Deprecation: { $ref: "#/components/headers/Deprecation" }
+        Sunset: { $ref: "#/components/headers/Sunset" }
+        Link: { $ref: "#/components/headers/Link" }
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -414,6 +462,9 @@ components:
       description: Resource not found.
       headers:
         X-Request-Id: { $ref: "#/components/headers/RequestId" }
+        Deprecation: { $ref: "#/components/headers/Deprecation" }
+        Sunset: { $ref: "#/components/headers/Sunset" }
+        Link: { $ref: "#/components/headers/Link" }
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -423,7 +474,11 @@ components:
         `If-None-Match` with an ETag that matches the current
         representation. The response body is empty (zero bytes per
         RFC 9110 §15.4.5); the `ETag`, `X-Request-Id`, and
-        rate-limit headers are still present.
+        rate-limit headers are still present, and (since v1.7.0)
+        any `Deprecation` / `Sunset` / `Link` advisory headers
+        applicable to the operation also fire on the 304 — a
+        client polling on `If-None-Match` must still find out
+        about deprecation.
       headers:
         ETag:
           $ref: "#/components/headers/ETag"
@@ -435,6 +490,12 @@ components:
           $ref: "#/components/headers/RateLimitReset"
         X-Request-Id:
           $ref: "#/components/headers/RequestId"
+        Deprecation:
+          $ref: "#/components/headers/Deprecation"
+        Sunset:
+          $ref: "#/components/headers/Sunset"
+        Link:
+          $ref: "#/components/headers/Link"
     RateLimited:
       description: |
         Too many requests for this key. The body is a
@@ -453,6 +514,12 @@ components:
           $ref: "#/components/headers/RateLimitReset"
         X-Request-Id:
           $ref: "#/components/headers/RequestId"
+        Deprecation:
+          $ref: "#/components/headers/Deprecation"
+        Sunset:
+          $ref: "#/components/headers/Sunset"
+        Link:
+          $ref: "#/components/headers/Link"
       content:
         application/json:
           schema: { $ref: "#/components/schemas/RateLimitProblem" }
@@ -490,17 +557,31 @@ components:
       schema: { type: integer, minimum: 1, example: 7 }
     Link:
       description: |
-        RFC 8288 pagination links. Present on every paginated list
-        response (since v1.5.0) when the result set has at least
-        one page. Always emits `first` and `last`; emits `prev`
-        when `page > 1` and `next` when `page < totalPages`.
-        Comma-separated, single-line value with quoted `rel`
-        tokens. Use the SDK's `parseLinkHeader(headers.get("Link"))`
-        helper to turn it into a `{ rel: url }` map.
+        RFC 8288 web links, comma-separated. Carries up to three
+        independent classes of entries; **only the entries that
+        apply to a given response are emitted**. Use the SDK's
+        `parseLinkHeader(headers.get("Link"))` helper to turn it
+        into a `{ rel: url }` map.
+
+          1. **Pagination** (since v1.5.0). Present on every
+             paginated list response when the result set has at
+             least one page. Always emits `first` and `last`;
+             emits `prev` when `page > 1` and `next` when
+             `page < totalPages`.
+          2. **Deprecation pointers** (since v1.7.0). When the
+             current operation is on a deprecation path, emits
+             `rel="deprecation"` and `rel="sunset"` entries
+             pointing at the upgrade guide, plus an optional
+             `rel="successor-version"` entry pointing at the
+             replacement endpoint when one exists.
+
+        The pagination + deprecation entries are independent: a
+        deprecated paginated endpoint emits BOTH classes of links
+        in the same `Link` header.
       schema:
         type: string
         example: |-
-          <https://api.example.com/api/v1/providers?page=1&limit=25>; rel="first", <https://api.example.com/api/v1/providers?page=2&limit=25>; rel="next", <https://api.example.com/api/v1/providers?page=4&limit=25>; rel="last"
+          <https://api.example.com/api/v1/providers?page=1&limit=25>; rel="first", <https://api.example.com/api/v1/providers?page=2&limit=25>; rel="next", <https://api.example.com/api/v1/providers?page=4&limit=25>; rel="last", <https://app.example.com/changelog#legacy-thing>; rel="deprecation"
     ETag:
       description: |
         Weak entity-tag for the response body, derived from a stable
@@ -515,6 +596,37 @@ components:
         type: string
         pattern: '^W/"[a-f0-9]{40}"$'
         example: 'W/"deadbeefcafebabe1234567890abcdef12345678"'
+    Deprecation:
+      description: |
+        RFC 9745 advisory header. **Present only when this operation
+        has entered its deprecation window** — its absence means the
+        operation is on the supported path. Value is the
+        structured-fields integer form: an `@`-prefixed Unix-seconds
+        timestamp recording when deprecation took effect (e.g.
+        `@1796083200` is `2026-12-01T00:00:00Z`).
+
+        When `Deprecation` is present, `Sunset` is also present, and
+        the `Link` header carries `rel="deprecation"` (and where
+        applicable `rel="sunset"`, `rel="successor-version"`)
+        entries pointing at the upgrade guide and replacement
+        endpoint. Available since v1.7.0.
+      schema:
+        type: string
+        pattern: '^@[0-9]+$'
+        example: "@1796083200"
+    Sunset:
+      description: |
+        RFC 8594 advisory header. **Present only when this operation
+        has entered its deprecation window** — pairs with the
+        `Deprecation` header. Value is an HTTP-date (IMF-fixdate per
+        RFC 9110 §5.6.7) marking the wall-clock at which the
+        operation will start returning `410 Gone`. Always at least
+        180 days in the future at first publication; the policy
+        lives in `docs/api/versioning.md` §4. Available since
+        v1.7.0.
+      schema:
+        type: string
+        example: "Sun, 11 Nov 2030 23:59:59 GMT"
 
   schemas:
     Error:
@@ -606,7 +718,7 @@ components:
         apiVersion:
           type: string
           description: Semver version of the v1 surface (matches `info.version`).
-          example: "1.6.0"
+          example: "1.7.0"
         time:
           type: string
           format: date-time

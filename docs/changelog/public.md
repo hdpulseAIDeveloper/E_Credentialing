@@ -17,6 +17,69 @@ Anti-weakening: never delete a release. Strike-through a published
 note instead and add a follow-up release if the underlying claim
 turned out to be incorrect.
 
+## 2026-04-19 — v1.12.0 (API)
+
+### Added
+- **Deprecation + Sunset header machinery (RFC 9745 / RFC 8594 /
+  RFC 5829).** The contract our versioning policy has been
+  promising since `v1.2.0` is now live in code: when an operation
+  enters its deprecation window, every response (200, 304, 4xx,
+  5xx) carries advisory headers describing the timeline.
+  - `Deprecation: @<unix-seconds>` — when deprecation took
+    effect (e.g. `@1796083200` is `2026-12-01T00:00:00Z`).
+  - `Sunset: <HTTP-date>` — the wall-clock at which the
+    operation will start returning `410 Gone` (always at least
+    180 days in the future at first publication).
+  - `Link: <upgrade-guide-url>; rel="deprecation"` and
+    `; rel="sunset"` — pointer to the public upgrade guide.
+  - `Link: <new-endpoint-url>; rel="successor-version"` —
+    optional, present when a direct replacement exists.
+
+  **Operations on the supported path do NOT emit these
+  headers** — their presence is the signal. No customer-visible
+  changes today (the registry is empty); the wiring is live so
+  the day we ship our first deprecation, every endpoint
+  participates without a new spec bump.
+- **TypeScript SDK exposes `parseDeprecation()` + an
+  `onDeprecated` callback.** Two new dependency-free integrations
+  in `@e-credentialing/api-client`:
+  - `parseDeprecation(response.headers)` returns
+    `{ deprecatedAt, sunsetAt, infoUrl, successorUrl }` or
+    `undefined` — works on any v1 `Response`.
+  - `new V1Client({ ..., onDeprecated })` fires the callback at
+    most once per `(method, path)` per process, so a polling
+    loop on a deprecated endpoint logs once, not every minute.
+    Default callback emits a single `console.warn` with the
+    sunset date and upgrade-guide URL; pass `() => undefined`
+    to silence entirely.
+  - `V1ApiError.deprecation` is now populated on errors from
+    deprecated endpoints (so failures don't hide the warning).
+
+### Improved
+- **Versioning policy `docs/api/versioning.md` §4 rewritten.**
+  Previously aspirational ("we will emit `Deprecation` /
+  `Sunset` headers"); now backed by code. Adds the cacheable
+  subset rules for `Sunset` interaction with conditional GETs,
+  the SDK observation contract, and a worked example showing
+  the headers a customer would see throughout a 180-day sunset
+  window.
+- **OpenAPI spec bumped to `1.7.0`.** New
+  `components.headers.Deprecation` + `components.headers.Sunset`
+  documented as conditional headers (description explicitly
+  notes "absent unless this operation is on a deprecation
+  path"). The `Link` header description now covers both the
+  pagination and deprecation classes of entries.
+- **Postman collection regenerated** (`/api/v1/postman.json`)
+  so the documented response headers reflect the new contract.
+
+### Compatibility
+- **Non-breaking minor release.** No request shape changes; no
+  response body changes; new headers only fire on deprecated
+  operations (and the registry is empty today). The TypeScript
+  SDK's `V1ApiError` constructor gained an optional 6th
+  positional `deprecation` parameter — supported call sites
+  should not be affected (the SDK is the only constructor).
+
 ## 2026-04-18 — v1.11.0 (API)
 
 ### Added
