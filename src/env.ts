@@ -1,6 +1,37 @@
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
+/**
+ * Optional URL env var that tolerates operator placeholders.
+ *
+ * Why this exists (DEF-0016): production `.env` files in the wild
+ * routinely contain literal placeholder strings ("placeholder",
+ * "changeme", "TBD", "null") for optional integrations that haven't
+ * been wired up yet. With a plain `z.string().url().optional()`, those
+ * non-empty-but-not-a-URL values fail validation at `next build` page
+ * data collection time and break the entire production image build —
+ * even though the field is supposed to be *optional* and the runtime
+ * code already handles `undefined` via the `.optional()` contract.
+ *
+ * This helper preserves strict URL validation when the operator has
+ * actually entered a URL ("https://…" / "http://…"), but coerces
+ * any non-URL value (including `"placeholder"`) to `undefined` so
+ * the optional contract is honored end-to-end.
+ *
+ * Anti-weakening: this does NOT relax validation for *required*
+ * URL fields (`DATABASE_URL`, `NEXT_PUBLIC_APP_URL`); those keep
+ * the strict `z.string().url()` shape. It only widens the
+ * already-`.optional()` URL fields, which is the contract the
+ * application code was already coded against.
+ */
+const optionalUrl = z.preprocess((v) => {
+  if (typeof v !== "string") return v;
+  const trimmed = v.trim();
+  if (trimmed === "") return undefined;
+  if (!/^https?:\/\//i.test(trimmed)) return undefined;
+  return trimmed;
+}, z.string().url().optional());
+
 export const env = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -11,12 +42,12 @@ export const env = createEnv({
     AZURE_AD_CLIENT_ID: z.string().min(1),
     AZURE_AD_CLIENT_SECRET: z.string().min(1),
     NEXTAUTH_SECRET: z.string().min(1),
-    NEXTAUTH_URL: z.string().url().optional(),
-    AZURE_KEY_VAULT_URL: z.string().url().optional(),
-    AZURE_BLOB_ACCOUNT_URL: z.string().url().optional(),
+    NEXTAUTH_URL: optionalUrl,
+    AZURE_KEY_VAULT_URL: optionalUrl,
+    AZURE_BLOB_ACCOUNT_URL: optionalUrl,
     AZURE_BLOB_CONTAINER: z.string().default("essen-credentialing"),
-    AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: z.string().url().optional(),
-    AZURE_COMMUNICATION_SERVICES_ENDPOINT: z.string().url().optional(),
+    AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: optionalUrl,
+    AZURE_COMMUNICATION_SERVICES_ENDPOINT: optionalUrl,
     SENDGRID_API_KEY: z.string().optional(),
     SENDGRID_FROM_EMAIL: z.string().email().default("cred_onboarding@essenmed.com"),
     ENCRYPTION_KEY: z.string().min(1),
@@ -31,7 +62,7 @@ export const env = createEnv({
     STRIPE_PRICE_STARTER: z.string().optional(),
     STRIPE_PRICE_GROWTH: z.string().optional(),
     STRIPE_PRICE_ENTERPRISE: z.string().optional(),
-    STRIPE_BILLING_PORTAL_RETURN_URL: z.string().url().optional(),
+    STRIPE_BILLING_PORTAL_RETURN_URL: optionalUrl,
   },
   client: {
     NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:6015"),
