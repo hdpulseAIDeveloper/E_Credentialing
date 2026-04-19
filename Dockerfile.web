@@ -9,12 +9,18 @@ WORKDIR /app
 # Install dependencies for Prisma and native modules
 RUN apk add --no-cache libc6-compat openssl
 
-# Copy package files and install dependencies
+# Copy package files
 COPY package*.json ./
+# Copy prisma schema BEFORE npm install so the `postinstall: prisma generate`
+# hook in package.json can find prisma/schema.prisma. Without this, the
+# postinstall fails with "Could not find Prisma Schema". The explicit
+# `npx prisma generate` below is left as a belt-and-suspenders step that
+# matches Dockerfile.web.prod's builder stage.
+COPY prisma ./prisma
 RUN npm install --legacy-peer-deps
 
-# Copy Prisma schema and generate client before copying full source
-COPY prisma ./prisma
+# Re-run prisma generate explicitly (no-op after the postinstall above,
+# but kept for parity with Dockerfile.web.prod).
 RUN npx prisma generate
 
 # Copy source (overridden by volume mounts in dev)

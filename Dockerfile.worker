@@ -6,12 +6,18 @@ FROM mcr.microsoft.com/playwright:v1.50.0-jammy
 
 WORKDIR /app
 
-# Copy package files and install dependencies
+# Copy package files
 COPY package*.json ./
+# Copy prisma schema BEFORE npm install so the `postinstall: prisma generate`
+# hook in package.json can find prisma/schema.prisma. Without this, the
+# postinstall fails with "Could not find Prisma Schema". The explicit
+# `npx prisma generate` below is left as a belt-and-suspenders step that
+# matches Dockerfile.worker.prod.
+COPY prisma ./prisma
 RUN npm install --legacy-peer-deps
 
-# Copy Prisma schema and generate client
-COPY prisma ./prisma
+# Re-run prisma generate explicitly (no-op after the postinstall above,
+# but kept for parity with Dockerfile.worker.prod).
 RUN npx prisma generate
 
 # Install Playwright Chromium browser
