@@ -14,10 +14,15 @@ to every change you produce in this repo.
 
 - Add or update at least one spec under the relevant pillar folder
   (`tests/e2e/<smoke|rbac|phi-scope|flows|a11y|visual|responsive|security|
-  contract|external|time|concurrency|files|compliance|observability>/**`,
+  contract|external|time|concurrency|files|compliance|observability|live-stack>/**`,
   `tests/contract/**`, `tests/perf/**`, `tests/security/**`, `tests/data/**`,
   `tests/observability/**`, or `tests/docs/**`). Pillars are listed in
-  `docs/qa/STANDARD.md` §2 (A–R).
+  `docs/qa/STANDARD.md` §2 (A–S, version 1.2.0+). **Pillar S — Live-Stack
+  Reality Gate** (added 2026-04-19, [ADR 0028](mdc:docs/dev/adr/0028-live-stack-reality-gate.md))
+  is REQUIRED for every PR that touches `src/server/auth.ts`,
+  `src/middleware.ts`, `prisma/**`, `Dockerfile.*`, `docker-compose.*.yml`,
+  `.env*`, `scripts/web-entrypoint.sh`, `src/lib/api/error-catalog.ts`, or
+  any `src/app/api/auth/**` route.
 - Run `npm run qa:inventory` if you added a route, link, REST endpoint, tRPC
   procedure, bot, webhook, scheduled job, or form. Commit the regenerated
   inventories under `docs/qa/inventories/`.
@@ -38,22 +43,38 @@ to every change you produce in this repo.
 5. Any axe-core `serious`/`critical` violation on a touched route.
 6. Any PHI field appearing in a response served to a role that should not see
    it (Operations, RCM/Billing, providers viewing other providers, public API).
+7. **(STANDARD.md §4 (11), added 1.2.0)** Any pending Prisma migration or
+   schema drift against the deployed database
+   (`npm run qa:migrations` red).
+8. **(STANDARD.md §4 (12), added 1.2.0)** Any seeded staff role failing
+   the live CSRF + `/api/auth/callback/credentials` round-trip on the
+   deployed stack (`npm run qa:live-stack` red).
+9. **(STANDARD.md §4 (13), added 1.2.0)** Any cold Dockerfile rebuild
+   failure across any compose file
+   (`npm run qa:dockerfile -- --cold` red).
+10. **(STANDARD.md §4 (14), added 1.2.0)** Stale named-volume contents
+    shadowing the deployed image (Pillar S `--volume-probe` red).
 
 ## You MUST report results using the headline block (coverage FIRST)
 
 ```
 Routes covered:    X of Y
 Roles exercised:   X of N
-Pillars touched:   <A–R IDs>
-Pillars green:     <A–R IDs>
-Pillars not run:   <A–R IDs>      (must be empty for release)
+Pillars touched:   <A–S IDs>
+Pillars green:     <A–S IDs>
+Pillars not run:   <A–S IDs>      (must be empty for release)
+Live stack:        <commit SHA running in container> | migrations: 0 pending | sign-in matrix: ADMIN/MANAGER/SPECIALIST/COMMITTEE_MEMBER all green
 Pass / Fail / Skip: P / F / S
 ```
 
 A pass/fail count without coverage is **not** a valid report. Any "Not Run"
 entry for a covered pillar counts as a **fail** of the gate, not a pass. The
 legacy report shape `Pass: 33, Fail: 0, Not Run: 223` is explicitly forbidden
-(see `STANDARD.md` §10).
+(see `STANDARD.md` §10.1). The newer "all green static gates while sign-in
+is broken on the deployed stack" report shape is also forbidden (see
+`STANDARD.md` §10.2 / DEF-0009 / ADR 0028) — every release report MUST
+include the `Live stack:` line and that line MUST reflect a real
+`npm run qa:live-stack` run, not a hand-edit.
 
 ## You MUST NOT
 

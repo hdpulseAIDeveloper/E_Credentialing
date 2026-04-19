@@ -100,6 +100,7 @@ export default async function HomePage() {
         </div>
       </nav>
 
+      <main id="main">
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-12 text-center">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-full text-blue-700 text-sm font-medium mb-8">
           <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
@@ -179,6 +180,7 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+      </main>
 
       <footer className="border-t border-gray-200 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row justify-between items-center gap-3">

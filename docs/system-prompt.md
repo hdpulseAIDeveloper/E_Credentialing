@@ -43,27 +43,50 @@ Follow this prompt top to bottom. When in doubt:
    actor owns the resource. Every API response strips PHI fields by default.
 6. **Quality bar (binding).** Every change you ship MUST satisfy the
    **HDPulseAI QA Standard — Comprehensive QA Test Layer** at
-   [docs/qa/STANDARD.md](qa/STANDARD.md), including the per-PR Definition of
-   Done at [docs/qa/definition-of-done.md](qa/definition-of-done.md). The
-   18 testing pillars (A–R) are not optional. The hard-fail conditions in
-   `STANDARD.md` §4 (browser console errors, hydration warnings, uncaught
-   exceptions, 5xx, axe serious/critical, PHI leakage, broken links, contract
-   drift, compliance regressions, orphaned inventories) MUST fail the build,
-   the PR check, and the deploy gate — never a warning. Reports MUST lead with
-   the coverage headline from `STANDARD.md` §3 (Routes covered: X of Y; Roles
-   exercised: X of N) before any pass/fail count. The legacy report shape
-   "Pass: 33, Fail: 0, Not Run: 223" is explicitly forbidden by `STANDARD.md`
-   §10 — it is the failure mode this standard exists to prevent.
+   [docs/qa/STANDARD.md](qa/STANDARD.md) (version 1.2.0+, 2026-04-19),
+   including the per-PR Definition of Done at
+   [docs/qa/definition-of-done.md](qa/definition-of-done.md). The
+   **19 testing pillars (A–S)** are not optional. **Pillar S — Live-Stack
+   Reality Gate** ([ADR 0028](dev/adr/0028-live-stack-reality-gate.md))
+   was added 2026-04-19 in response to DEF-0009 (sign-in dead on the
+   deployed stack while every static gate was green); it probes the
+   deployed running system (HTTP-only, no browser required) for
+   bring-up health, schema/migration parity, role-by-role real CSRF
+   sign-in matrix, authenticated session probe, anonymous public-surface
+   invariants, Dockerfile cold-build sanity, and named-volume
+   staleness. The hard-fail conditions in `STANDARD.md` §4 (browser
+   console errors, hydration warnings, uncaught exceptions, 5xx, axe
+   serious/critical, PHI leakage, broken links, contract drift,
+   compliance regressions, orphaned inventories, **pending Prisma
+   migrations, dead seed-account login, cold Dockerfile build
+   regression, stale named-volume contents**) MUST fail the build, the
+   PR check, and the deploy gate — never a warning. Reports MUST lead
+   with the coverage headline from `STANDARD.md` §3 (Routes covered:
+   X of Y; Roles exercised: X of N; **Live stack: <commit SHA> |
+   migrations: N pending | sign-in matrix: …**) before any pass/fail
+   count. The legacy report shape "Pass: 33, Fail: 0, Not Run: 223" is
+   explicitly forbidden by `STANDARD.md` §10.1; the newer "all static
+   gates green while the deployed app is broken" report shape is
+   explicitly forbidden by `STANDARD.md` §10.2 / DEF-0009 / ADR 0028.
+   `npm run qa:gate` is the entry point and it now includes
+   `qa:migrations` + `qa:live-stack` — green on the static path is
+   no longer green overall.
 
 When you finish a module, also produce:
 
 - A migration in `prisma/migrations/`.
 - Vitest unit tests, integration tests against an ephemeral Postgres, and a
   Playwright happy-path E2E.
-- At least one spec under each pillar (A–R from `qa/STANDARD.md` §2) the
+- At least one spec under each pillar (A–S from `qa/STANDARD.md` §2) the
   module touches; per-screen card under `docs/qa/per-screen/<slug>.md` for
   every new route; per-flow card under `docs/qa/per-flow/<slug>.md` for every
-  new flow.
+  new flow. Pillar S (`scripts/qa/live-stack-smoke.mjs` +
+  `scripts/qa/check-migration-drift.mjs` +
+  `scripts/qa/check-dockerfile-build.mjs` + `tests/e2e/live-stack/**`) is
+  REQUIRED for any module that touches `src/server/auth.ts`,
+  `src/middleware.ts`, `prisma/**`, `Dockerfile.*`, `docker-compose.*.yml`,
+  `.env*`, `scripts/web-entrypoint.sh`, `src/lib/api/error-catalog.ts`, or
+  any `src/app/api/auth/**` route.
 - Regenerated inventories under `docs/qa/inventories/` (`npm run qa:inventory`)
   with `scripts/qa/check-coverage.ts` green.
 - For pillars that cover the full surface (A — functional smoke,

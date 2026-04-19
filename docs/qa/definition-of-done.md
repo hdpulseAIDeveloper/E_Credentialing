@@ -14,10 +14,14 @@ not apply, write `n/a — <reason>` next to it; do not silently skip.
 - [ ] `node scripts/forbidden-terms.mjs` is clean.
 - [ ] `npm run build` succeeds (web).
 - [ ] If the worker changed: `npm run build:worker` succeeds.
+- [ ] `npm run qa:gate` is green end-to-end (includes the new Pillar S
+      members `qa:migrations` and `qa:live-stack`). A green static gate
+      with a red live-stack gate is **not** done. (Per
+      [STANDARD.md §8 (11)](STANDARD.md#8-definition-of-done-binding-for-every-pr).)
 
 ## 2. QA pillars touched (mark all that apply)
 
-Pillar IDs are defined in [STANDARD.md §2](STANDARD.md#2-the-18-testing-pillars-ar).
+Pillar IDs are defined in [STANDARD.md §2](STANDARD.md#2-the-19-testing-pillars-as).
 
 - [ ] A — Functional smoke
 - [ ] B — RBAC matrix
@@ -37,6 +41,14 @@ Pillar IDs are defined in [STANDARD.md §2](STANDARD.md#2-the-18-testing-pillars
 - [ ] P — Compliance controls
 - [ ] Q — Documentation integrity
 - [ ] R — Observability
+- [ ] **S — Live-Stack Reality Gate** (deployed-stack bring-up, migration
+      parity, role-by-role real sign-in matrix, anonymous public-surface
+      invariants, Dockerfile cold-build sanity). REQUIRED for every PR
+      that touches `src/server/auth.ts`, `src/middleware.ts`,
+      `prisma/**`, `Dockerfile.*`, `docker-compose.*.yml`, `.env*`,
+      `scripts/web-entrypoint.sh`, `src/lib/api/error-catalog.ts`, or
+      any `src/app/api/auth/**` route. (Per
+      [STANDARD.md §2.S](STANDARD.md#2s-pillar-s--live-stack-reality-gate-binding).)
 
 For every box checked above, at least one new or updated spec MUST live under
 the corresponding folder (see STANDARD.md §2). Paste the spec paths here:
@@ -72,6 +84,24 @@ Confirm none of the following tripped on the smoke run for this PR
 - [ ] Zero broken first-party links on touched routes.
 - [ ] OpenAPI / tRPC contract snapshots match the shipped surface.
 - [ ] No regression on `@hipaa`, `@ncqa`, `@cms-0057-f`, `@jc-npg-12` specs.
+- [ ] **Zero pending Prisma migrations** against the dev database
+      (`npm run qa:migrations` green). (Per
+      [STANDARD.md §4 (11)](STANDARD.md#4-hard-fail-conditions-no-exceptions).)
+- [ ] **Every seeded staff role can sign in** via the live CSRF +
+      `/api/auth/callback/credentials` round-trip on the deployed
+      stack (`npm run qa:live-stack` green for `ADMIN`, `MANAGER`,
+      `SPECIALIST`, `COMMITTEE_MEMBER`). (Per
+      [STANDARD.md §4 (12)](STANDARD.md#4-hard-fail-conditions-no-exceptions).)
+- [ ] **Cold Dockerfile rebuild succeeds** for every app service in
+      every compose file (`npm run qa:dockerfile -- --cold` green).
+      Required when this PR touches `Dockerfile.*`, `package.json`,
+      `prisma/**`, or any postinstall hook. (Per
+      [STANDARD.md §4 (13)](STANDARD.md#4-hard-fail-conditions-no-exceptions).)
+- [ ] **Named-volume staleness probe** green (Prisma client schema in
+      `node_modules/.prisma/client/schema.prisma` matches on-disk
+      `prisma/schema.prisma`; `.next/build-manifest.json` newer than
+      latest `master` commit). (Per
+      [STANDARD.md §4 (14)](STANDARD.md#4-hard-fail-conditions-no-exceptions).)
 
 ## 5. PHI / security
 
@@ -159,11 +189,15 @@ patience: that is **not** a legitimate exit. Escalate per §7 step 6.
 ```
 Routes covered:    X of Y
 Roles exercised:   X of N
-Pillars touched:   <A–R IDs>
-Pillars green:     <A–R IDs>
-Pillars not run:   <A–R IDs — must be empty for release PRs>
+Pillars touched:   <A–S IDs>
+Pillars green:     <A–S IDs>
+Pillars not run:   <A–S IDs — must be empty for release PRs>
+Live stack:        <commit SHA running in container> | migrations: 0 pending | sign-in matrix: ADMIN/MANAGER/SPECIALIST/COMMITTEE_MEMBER all green
 Pass / Fail / Skip: P / F / S
 ```
 
 A PR description without this block is incomplete and will be requested for
-revision by `CODEOWNERS`.
+revision by `CODEOWNERS`. The `Live stack:` line is mandatory on every release
+PR (and on every PR that touches the §2.S trigger files); a missing or
+"Not Run" `Live stack:` line is a §3 violation per
+[STANDARD.md §3](STANDARD.md#3-headline-reporting-rule).

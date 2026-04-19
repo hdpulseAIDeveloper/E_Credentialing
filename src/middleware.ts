@@ -14,6 +14,7 @@
  */
 
 import { authMiddleware } from "@/server/auth.edge";
+import { isPublicRoute, isProviderPortalRoute } from "@/lib/public-routes";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -69,35 +70,14 @@ export default authMiddleware((req) => {
   const { pathname } = req.nextUrl;
   const session = req.auth;
 
-  // Allow public routes.
-  //
-  // `/errors` and `/errors/<code>` (Wave 21, DEF-0007 fix) are the public,
-  // human-readable HTML faces of the v1 error catalog — every Problem body's
-  // `type` URI resolves here, and RFC 9457 §3.1.1 requires the URI be
-  // dereferencable to a human-readable description by *anyone* who has the
-  // URI, not just authenticated callers. The JSON sibling at
-  // `/api/v1/errors[...]` keeps its Bearer-key requirement (already covered
-  // by the `/api/v1/` clause above) — only the HTML faces are public.
-  // See `docs/qa/defects/DEF-0007.md` for the captured 307-evidence and
-  // `docs/qa/defects/DEF-0008.md` for the broader middleware/route-inventory
-  // drift that this entry does NOT yet close (escalated, separate PR).
-  if (
-    pathname === "/" ||
-    pathname.startsWith("/auth/") ||
-    pathname.startsWith("/api/auth/") ||
-    pathname.startsWith("/api/webhooks/") ||
-    pathname.startsWith("/api/health") ||
-    pathname.startsWith("/api/live") ||
-    pathname.startsWith("/api/ready") ||
-    pathname.startsWith("/api/metrics") ||
-    pathname.startsWith("/api/v1/") ||
-    pathname.startsWith("/api/fhir/") ||
-    pathname.startsWith("/api/application/") ||
-    pathname.startsWith("/api/attestation") ||
-    pathname.startsWith("/verify/") ||
-    pathname === "/errors" ||
-    pathname.startsWith("/errors/")
-  ) {
+  // Allow public routes. The allow-list is the single source of truth at
+  // `src/lib/public-routes.ts` — both this file and
+  // `scripts/qa/build-route-inventory.ts` derive from it, so the
+  // middleware and the inventory CANNOT disagree about which routes are
+  // public. See `docs/qa/defects/DEF-0008.md` (middleware lagging
+  // inventory) and `docs/qa/defects/DEF-0011.md` (inventory ahead of
+  // middleware) for the structural defect this design closes.
+  if (isPublicRoute(pathname)) {
     const res = NextResponse.next();
     res.headers.set("x-request-id", reqId);
     logAccess(req, 200, startedAt, reqId);
@@ -105,7 +85,7 @@ export default authMiddleware((req) => {
   }
 
   // Provider application routes — handled by token validation in the page
-  if (pathname.startsWith("/application") || pathname === "/application") {
+  if (isProviderPortalRoute(pathname)) {
     const res = NextResponse.next();
     res.headers.set("x-request-id", reqId);
     logAccess(req, 200, startedAt, reqId);

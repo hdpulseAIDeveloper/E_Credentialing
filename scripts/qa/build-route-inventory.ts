@@ -18,6 +18,37 @@ import {
   pageFileToRoute,
   type RouteInventoryEntry,
 } from "./lib";
+import { isPublicRoute, isProviderPortalRoute } from "../../src/lib/public-routes";
+
+/**
+ * Classify a route into a single inventory `group` label.
+ *
+ * Precedence (per ADR 0028, DEF-0008/0011):
+ *   1. Explicit Next.js `(group)/` segment in the on-disk path wins —
+ *      it expresses authorial intent (e.g. `(staff)/dashboard`,
+ *      `(provider)/application`).
+ *   2. Otherwise, the SAME predicate the middleware uses at runtime
+ *      (`isPublicRoute` from `src/lib/public-routes.ts`) decides
+ *      whether the route is public. Drift between middleware and
+ *      inventory is structurally impossible because both sides
+ *      import the same module.
+ *   3. Otherwise, default to `staff` — the middleware's behaviour
+ *      for any path not in the public allow-list is to redirect
+ *      anonymous callers to `/auth/signin`, so `staff` is the
+ *      truthful classification for the inventory.
+ *
+ * The OLD implementation defaulted ALL ungrouped pages to `public`,
+ * which silently mis-classified `/settings/billing` and
+ * `/settings/compliance` (DEF-0011) and any future page added
+ * outside a route-group folder.
+ */
+function classifyGroup(route: string, relFile: string): string {
+  const groupMatch = /\(([^)]+)\)/.exec(relFile);
+  if (groupMatch) return groupMatch[1]!;
+  if (isPublicRoute(route)) return "public";
+  if (isProviderPortalRoute(route)) return "provider";
+  return "staff";
+}
 
 async function main(): Promise<void> {
   const pages = await fg("**/page.tsx", { cwd: APP_DIR, absolute: true, dot: false });
@@ -25,12 +56,11 @@ async function main(): Promise<void> {
   const entries: RouteInventoryEntry[] = pages.map((file) => {
     const route = pageFileToRoute(file);
     const rel = path.relative(REPO_ROOT, file).replaceAll("\\", "/");
-    const groupMatch = /\(([^)]+)\)/.exec(rel);
     return {
       route,
       file: rel,
       dynamic: /\[[^\]]+\]/.test(route),
-      group: groupMatch?.[1] ?? "public",
+      group: classifyGroup(route, rel),
     };
   });
 

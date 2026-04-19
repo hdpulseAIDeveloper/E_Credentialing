@@ -3,19 +3,47 @@
 **Status:** BINDING. This document is the canonical, versioned testing standard for
 the ESSEN Credentialing Platform and for every future HDPulseAI product unless an
 explicit ADR supersedes a clause.
-**Version:** 1.1.0 (2026-04-17)
+**Version:** 1.2.0 (2026-04-19)
 **Owner:** QA Standard Owner (see `## 9. Roles & governance`)
 **Audience:** every human and AI agent that writes, reviews, or merges code into
 this repository, plus any future repository that adopts this standard.
 
-> **Why this exists.** A previous round of testing reported "all 500+ test
-> conditions Pass" while the application's first post-login screen failed to
-> render at all. That happened because the prior layer was an HTTP-only Python
-> probe, ran no JavaScript, opened no browser, and marked unexecuted cases as
-> "Not Run" without failing the headline. This standard exists to make that
-> class of failure structurally impossible going forward: coverage is reported
-> before pass/fail, browser console errors are hard failures, and "Not Run" is
-> never a passing outcome.
+> **Why this exists.** Two prior rounds of testing have shipped reports of
+> "everything green" while the deployed application failed at first
+> interactive use:
+>
+> - **2026-04-17 — Hydration / webpack regression.** A report claimed
+>   `Pass: 33, Fail: 0, Not Run: 223` while the first authenticated screen
+>   failed to mount due to a hydration mismatch in
+>   `src/components/layout/sidebar.tsx` and a webpack factory error. Closed
+>   by §3 (coverage-first reporting), §4.1–§4.3 (browser console / hydration
+>   / uncaught exception are hard fails), §5 (per-screen card per route),
+>   §6 (inventory + `check-coverage.ts` gate).
+> - **2026-04-19 — Sign-in dead on the deployed dev stack (DEF-0009).**
+>   A subsequent report claimed `npm run qa:gate` green, 1865 vitests
+>   green, typecheck clean, lint clean, all per-screen cards green — yet
+>   the user could not sign in at all on the running container. Three
+>   stacked root causes: (a) `docker-compose.dev.yml` named volumes
+>   shadowed the freshly-rebuilt image with a stale Prisma client and
+>   stale webpack-compiled `src/server/auth.ts`; (b) three Prisma
+>   migrations had never been applied to the live database
+>   (`organization_id` column missing); (c) `Dockerfile.web` /
+>   `Dockerfile.worker` copied `prisma/` AFTER `npm install`, so even a
+>   `--no-cache` rebuild died at the postinstall hook. The miss was
+>   structural: `qa:gate` ran ZERO specs (only inventory + coverage
+>   gates + SDK/Postman drift), and the Pillar A smoke that DOES drive a
+>   real CSRF + credentials sign-in was honestly reported as "Not Run"
+>   because Docker was not available — yet that was treated as
+>   informational rather than a fail of the gate. Closed by Pillar S (§2),
+>   §4 hard-fails (11)–(14), §8 DoD additions, and the cited gate-script
+>   wiring.
+>
+> This standard exists to make those classes of failure structurally
+> impossible going forward: coverage is reported before pass/fail,
+> browser console errors are hard failures, "Not Run" is never a passing
+> outcome, **the gate exercises the deployed stack and not just the
+> source tree**, and **schema drift / dead seed accounts / cold-build
+> regressions fail the gate explicitly.**
 
 ---
 
@@ -36,9 +64,9 @@ automation date.
 
 ---
 
-## 2. The 18 testing pillars (A–R)
+## 2. The 19 testing pillars (A–S)
 
-Every change MUST be analyzed against all 18 pillars. The relevant pillar(s)
+Every change MUST be analyzed against all 19 pillars. The relevant pillar(s)
 MUST be exercised before the change merges.
 
 | ID  | Pillar                                                   | Lives under                       |
@@ -61,9 +89,83 @@ MUST be exercised before the change merges.
 | P   | Compliance controls (HIPAA, NCQA CVO, CMS-0057-F, JC)    | `tests/e2e/compliance/**`         |
 | Q   | Documentation integrity (links, OpenAPI↔code, ADRs)      | `tests/docs/**`                   |
 | R   | Observability (`/api/metrics`, structured logs, alerts)  | `tests/observability/**`          |
+| S   | **Live-Stack Reality Gate** — bring-up smoke, schema/migration parity, role-by-role real sign-in matrix, anonymous public-surface invariants, Dockerfile cold-build sanity (HTTP-only; runs WITHOUT a browser so it always runs even when Playwright cannot) | `scripts/qa/live-stack-smoke.mjs` + `scripts/qa/check-migration-drift.mjs` + `scripts/qa/check-dockerfile-build.mjs` + `tests/e2e/live-stack/**` |
 
 The pillar inventory is canonical. Adding or removing a pillar requires an ADR
-and a bump of this document's `Version` line.
+and a bump of this document's `Version` line. Pillar S was added in version
+1.2.0 by [ADR 0028](../dev/adr/0028-live-stack-reality-gate.md) in response
+to the 2026-04-19 sign-in regression (DEF-0009).
+
+### 2.S Pillar S — Live-Stack Reality Gate (BINDING)
+
+Pillars A–R validate the source tree. Pillar S validates the **deployed
+running system**. It exists because the source tree can be 100% green
+while the deployed stack is broken in ways the source tree cannot see:
+stale named-volume contents, unapplied migrations, dead seed accounts,
+broken Dockerfiles, drifted environment variables, missing middleware
+allow-list entries.
+
+Pillar S MUST run on every release-shaped change and on every PR that
+touches any of: `src/server/auth.ts`, `src/middleware.ts`, `prisma/**`,
+`Dockerfile.*`, `docker-compose.*.yml`, `.env*`, `scripts/web-entrypoint.sh`,
+`src/lib/api/error-catalog.ts`, or any `src/app/api/auth/**` route.
+
+#### 2.S.1 What Pillar S MUST cover
+
+1. **Bring-up health** — `GET /api/health` returns 200 with
+   `services.database === "ok"` against the deployed stack.
+2. **Schema / migration parity** — `prisma migrate status` against the
+   live database reports zero pending and zero drift. Hard-fails (4).11.
+3. **Role-by-role real sign-in matrix** — for every entry in
+   `tests/e2e/roles.ts` `STAFF_ROLES`, perform the production CSRF +
+   `/api/auth/callback/credentials` round-trip and assert: 302 redirect
+   to a non-`/auth/signin` URL, `authjs.session-token` cookie issued,
+   `GET /api/auth/session` returns a populated session with the
+   expected `user.role`. Hard-fails (4).12.
+4. **Authenticated session probe** — at least one authenticated tRPC
+   procedure (or App Router page) returns 200 for the admin role,
+   proving the session actually authorizes against the API and not just
+   against `/api/auth/session`.
+5. **Anonymous public-surface invariants** — every entry in
+   `route-inventory.json` with `group === "public"` returns 200
+   anonymously (no redirect, no auth wall) AND its rendered HTML
+   contains a visible `<main>` / `<h1>` / `<h2>`. Closes the DEF-0007 /
+   DEF-0008 class of regressions.
+6. **Dockerfile cold-build sanity** — `docker compose ... config -q`
+   validates compose; in `--cold` mode, `docker compose build --no-cache`
+   for every app service must complete. Hard-fails (4).13.
+7. **Stack-version pin** — the running container's commit SHA / image
+   digest is recorded in the report. Drift between "what `master` says"
+   and "what the running container is" is itself a finding.
+
+#### 2.S.2 Anti-weakening for Pillar S
+
+The temptation to silence Pillar S is greater than for any other pillar
+because it requires a live stack to run. The following count as §4.2
+violations:
+
+1. Skipping Pillar S because "Docker isn't available" without filing the
+   honest "Pillars not run: S" headline AND a defect card AND failing
+   the gate.
+2. Replacing the live HTTP probe with an in-process Next.js spawn that
+   does NOT use the same env / volumes / network as the deployed stack.
+3. Catching `prisma migrate status` failures and reporting "no pending
+   migrations" because the script could not connect to the database.
+   No connection = "Not Run" = §3 fail.
+4. Hard-coding the role matrix instead of reading
+   `tests/e2e/roles.ts` (drift between the two would mask a missing
+   role).
+5. Replacing the real CSRF round-trip with a mocked session cookie.
+
+#### 2.S.3 Where Pillar S lives
+
+| Surface                     | File                                            |
+|-----------------------------|-------------------------------------------------|
+| HTTP-only smoke (no browser)| `scripts/qa/live-stack-smoke.mjs`               |
+| Migration parity gate       | `scripts/qa/check-migration-drift.mjs`          |
+| Cold Dockerfile build gate  | `scripts/qa/check-dockerfile-build.mjs`         |
+| Browser-driven role matrix  | `tests/e2e/live-stack/role-login-matrix.spec.ts`|
+| npm-script entry points     | `qa:live-stack`, `qa:migrations`, `qa:dockerfile`, included in `qa:gate` |
 
 ---
 
@@ -75,15 +177,19 @@ A test report or PR comment is only considered valid if it leads with
 ```
 Routes covered:    X of Y      (must be 100% before release)
 Roles exercised:   X of N      (must be 100% before release)
-Pillars touched:   <list of A–R IDs>
-Pillars green:     <list of A–R IDs that ran AND passed>
+Pillars touched:   <list of A–S IDs>
+Pillars green:     <list of A–S IDs that ran AND passed>
 Pillars not run:   <list>      (NOT-RUN ≠ PASS — counts as failure for the gate)
+Live stack:        <commit SHA running in the container> | migrations: 0 pending | sign-in matrix: ADMIN/MANAGER/SPECIALIST/COMMITTEE_MEMBER all green
 Pass / Fail / Skip: P / F / S
 ```
 
 The legacy report format (`Pass: 33, Fail: 0, Not Run: 223`) is explicitly
 forbidden. A run with any "Not Run" case for a covered pillar is reported as a
-**fail** of the gate, not a pass.
+**fail** of the gate, not a pass. **Pillar S is a covered pillar on every
+release-shaped change** (per §2.S); a release report missing the `Live stack:`
+line, or showing it as "Not Run", is a §3 violation regardless of the rest of
+the suite.
 
 ---
 
@@ -110,6 +216,37 @@ None of them may be downgraded to a warning, screenshot, or "known issue":
 10. `scripts/qa/check-coverage.ts` reporting any inventoried route, link, API,
     tRPC procedure, bot, webhook, job, or form without at least one assigned
     spec.
+11. **Schema / migration drift** — `prisma migrate status` against the
+    target database reports any pending migration, any "drift detected",
+    any "database schema is not in sync", or any failure to connect.
+    Enforced by `scripts/qa/check-migration-drift.mjs`. (Added in 1.2.0;
+    closes the column-`organization_id`-missing root cause of DEF-0009.)
+12. **Dead seed account / role-by-role sign-in regression** — any seeded
+    staff role from `tests/e2e/roles.ts` `STAFF_ROLES` failing the live
+    CSRF + `/api/auth/callback/credentials` round-trip on the deployed
+    stack. The credentials must come from `tests/e2e/roles.ts` (single
+    source of truth — `prisma/seed.ts` is its sibling). Enforced by
+    `scripts/qa/live-stack-smoke.mjs`. (Added in 1.2.0; closes the
+    user-reported "Sign In is not working. Nothing happens" of DEF-0009.)
+13. **Cold Dockerfile build regression** — `docker compose build
+    --no-cache` failing on any app service in any compose file. Catches
+    package.json/Dockerfile ordering bugs (the `prisma generate`
+    postinstall finding a schema that has not been copied yet, missing
+    runtime dependencies, etc.) that named-volume-shadowed dev rebuilds
+    can hide for weeks. Enforced by
+    `scripts/qa/check-dockerfile-build.mjs --cold`. (Added in 1.2.0;
+    closes the dev Dockerfile root cause of DEF-0009.)
+14. **Stale named-volume contents shadowing the deployed image** — the
+    Pillar S smoke includes a `volume-staleness` probe that asserts the
+    Prisma client schema in the running container's
+    `node_modules/.prisma/client/schema.prisma` matches the on-disk
+    `prisma/schema.prisma`, AND that the running container's
+    `/app/.next/build-manifest.json` (when present) was written after
+    the most recent `git log` commit on `master`. Either mismatch is a
+    hard fail — the operator must `docker volume rm` the stale volume
+    and recreate. (Added in 1.2.0; closes the
+    `ecred_web_node_modules` / `ecred_web_next_cache` root cause of
+    DEF-0009.)
 
 ---
 
@@ -378,11 +515,26 @@ The compressed version is:
 4. `scripts/qa/check-coverage.ts` is green.
 5. Any new route has a per-screen card under `docs/qa/per-screen/`.
 6. Any new flow has a per-flow card under `docs/qa/per-flow/`.
-7. PR description includes the headline reporting block from §3.
+7. PR description includes the headline reporting block from §3 (including
+   the new `Live stack:` line).
 8. None of the §4 hard-fail conditions tripped on the smoke run.
 9. Any new PHI field is encrypted at rest (`encrypt`/`encryptOptional`),
    redacted in logs, and excluded from public-API responses.
 10. `CHANGELOG.md` updated under `## [Unreleased]`.
+11. **`npm run qa:gate` is green end-to-end** — including the new
+    Pillar S members (`qa:migrations`, `qa:live-stack`). Static-only
+    gates (inventory, coverage, SDK drift, Postman drift) are
+    necessary but no longer sufficient. (Added in 1.2.0.)
+12. **For PRs touching auth / schema / middleware / Dockerfile /
+    compose / env / entrypoint / error catalog**: the live stack was
+    rebuilt from this branch (`docker compose down -v && build && up -d`)
+    AND `npm run qa:live-stack` was run against it AND its output is
+    pasted into the PR description's `Live stack:` line. (Added in 1.2.0.)
+13. **For PRs adding a Prisma schema field**: the matching
+    `migration.sql` exists under `prisma/migrations/` AND has been
+    applied to the dev database AND `prisma migrate status` reports
+    zero pending. (Added in 1.2.0; closes the column-missing root
+    cause of DEF-0009.)
 
 A PR that ships behavior without satisfying §8 may not be merged, regardless of
 who wrote it (human or agent).
@@ -407,9 +559,13 @@ spec or a new pillar entry.
 
 ---
 
-## 10. Failure mode that this standard explicitly prevents
+## 10. Failure modes this standard explicitly prevents
 
-The 2026-04-17 failure mode is named here so it cannot recur silently:
+Each failure mode is named here so it cannot recur silently. A future
+report that matches the **symptom shape** of any entry below is a
+violation of this standard even if every spec is green.
+
+### 10.1 2026-04-17 — Hydration / webpack regression
 
 - **Symptom:** Test report claimed `Pass: 33, Fail: 0, Not Run: 223` while the
   first authenticated screen failed to mount due to a hydration mismatch in
@@ -421,8 +577,58 @@ The 2026-04-17 failure mode is named here so it cannot recur silently:
   console, hydration, uncaught exception are hard fails), §5 (per-screen card
   for every route), §6 (inventory + `check-coverage.ts` gate).
 
-A future report that matches the symptom shape is a violation of this standard
-even if every spec is green.
+### 10.2 2026-04-19 — Dead sign-in on the deployed dev stack (DEF-0009)
+
+- **Symptom:** Test report claimed `npm run qa:gate` green, 1865 vitests
+  green, typecheck clean, lint clean, all per-screen cards green — yet
+  the user reported "Sign In is not working. Nothing happens" on the
+  running container.
+- **Root cause (three stacked):**
+  1. `docker-compose.dev.yml` named volumes `ecred_web_node_modules`
+     and `ecred_web_next_cache` (lines 56–62) survive container
+     recreation and shadowed the freshly-rebuilt image with a stale
+     Prisma client (no `User.organizationId` field) and a stale
+     webpack-compiled `src/server/auth.ts` (still carrying the old
+     multi-tenant query).
+  2. Three Prisma migrations (`20260418000000_add_telehealth_expirable_types`,
+     `20260418100000_multitenancy_shim`,
+     `20260418130000_billing_subscription_state`) had never been
+     applied to the live database, so the `organization_id` column did
+     not exist on `users` even after the volume was cleaned and the
+     fresh client was loaded.
+  3. `Dockerfile.web` and `Dockerfile.worker` copied `prisma/` AFTER
+     `npm install`, so even a `--no-cache` rebuild died at the
+     `postinstall: prisma generate` hook with
+     `Could not find Prisma Schema`. The prod Dockerfiles were already
+     fixed; the dev pair was missed when the postinstall hook was added.
+- **Why the existing pillars did not catch it:**
+  - `npm run qa:gate` ran ZERO specs — only inventory + coverage gates
+    + SDK drift + Postman drift. None of those probe the running stack.
+  - Pillar A's `tests/e2e/global-setup.ts` DOES run the exact CSRF +
+    credentials sign-in matrix that would have failed loudly, but it
+    runs only under `npm run test:e2e` / `npm run qa:smoke`, not under
+    `qa:gate`. It was honestly reported as "Not Run" because Docker
+    was not available for the prior loop. Per §3 that should have
+    failed the gate, but the headline was treated as informational.
+  - No pillar probed `prisma migrate status` against the live database.
+  - No pillar attempted a cold Dockerfile rebuild.
+- **Standard response (this version, 1.2.0):**
+  - **Pillar S — Live-Stack Reality Gate** (§2 / §2.S) added as a
+    19th pillar. Browserless HTTP-only smoke that runs against the
+    deployed stack: bring-up health, schema/migration parity, role-by-role
+    real CSRF sign-in matrix, authenticated session probe, anonymous
+    public-surface invariants, Dockerfile cold-build sanity,
+    stack-version pin.
+  - **§4 hard-fail conditions (11)–(14)** added for schema/migration
+    drift, dead seed-account login, cold Dockerfile build regression,
+    and stale named-volume contents.
+  - **§3 reporting** now requires a `Live stack:` line on every release
+    report.
+  - **§8 DoD additions (11)–(13)** wire the new gates into the per-PR
+    checklist.
+  - **`npm run qa:gate`** is now `qa:inventory && qa:cards:check &&
+    qa:coverage && qa:migrations && qa:live-stack && sdk:check &&
+    postman:check`. The static-only path is no longer green by itself.
 
 ---
 

@@ -363,13 +363,13 @@
     "route": "/settings/billing",
     "file": "src/app/settings/billing/page.tsx",
     "dynamic": false,
-    "group": "public"
+    "group": "staff"
   },
   {
     "route": "/settings/compliance",
     "file": "src/app/settings/compliance/page.tsx",
     "dynamic": false,
-    "group": "public"
+    "group": "staff"
   },
   {
     "route": "/telehealth",

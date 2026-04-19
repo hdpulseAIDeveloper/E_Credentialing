@@ -6,7 +6,256 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sem
 
 ## [Unreleased]
 
+### Fixed
+- **Single source of truth for public routes — closes DEF-0008
+  (middleware lagging route-inventory) and DEF-0011 (route-inventory
+  ahead of middleware) (2026-04-19):** Both defects were the SAME
+  structural drift seen from opposite ends. The middleware
+  (`src/middleware.ts`) and the route-inventory builder
+  (`scripts/qa/build-route-inventory.ts`) each carried their own
+  hand-maintained idea of "is this route public" and disagreed in
+  both directions: anonymous customers were silently redirected to
+  `/auth/signin` from `/cvo`, `/pricing`, `/sandbox`, `/changelog`,
+  `/legal/cookies`, `/legal/hipaa`, `/legal/privacy`, `/legal/terms`
+  (DEF-0008), AND `/settings/billing` + `/settings/compliance` were
+  declared `group:public` in `route-inventory.json` while the
+  middleware correctly redirected them to signin (DEF-0011). Both
+  defects were deterministically reproduced by the first run of
+  `npm run qa:live-stack` after Pillar S landed.
+  - `src/lib/public-routes.ts` (new): single source of truth.
+    Exports `PUBLIC_PATH_PREFIXES` (14 alphabetised path prefixes
+    the middleware allows without a session: `/auth/`, `/api/auth/`,
+    `/api/webhooks/`, `/api/health`, `/api/live`, `/api/ready`,
+    `/api/metrics`, `/api/v1/`, `/api/fhir/`, `/api/application/`,
+    `/api/attestation`, `/verify/`, `/errors/`, `/legal/`),
+    `PUBLIC_EXACT_PATHS` (7 leaf marketing paths: `/`, `/changelog`,
+    `/changelog.rss`, `/cvo`, `/errors`, `/pricing`, `/sandbox`),
+    `isPublicRoute(pathname): boolean`, `isProviderPortalRoute(pathname): boolean`,
+    and `PROVIDER_PORTAL_PREFIX` constant. The file is dual-consumable
+    from the Edge runtime AND from Node. Anti-weakening rules baked
+    into the TSDoc forbid hand-maintained duplicates anywhere else
+    (re-introducing inline `pathname.startsWith("/legal/")` checks
+    in middleware, hard-coding "public" in the inventory builder,
+    etc.) — each is a §4.2 violation and grounds for revert.
+  - `src/middleware.ts`: replaced the 14-line hand-maintained inline
+    `pathname === "/" || pathname.startsWith("/auth/") || …` allow-list
+    with a single `if (isPublicRoute(pathname)) { … }` branch. Same
+    for the provider portal: `if (isProviderPortalRoute(pathname)) { … }`.
+    The middleware now has zero hand-maintained route knowledge.
+  - `scripts/qa/build-route-inventory.ts`: replaced the
+    `groupMatch?.[1] ?? "public"` default with a 3-tier
+    `classifyGroup(route, relFile)` helper: (1) explicit `(group)/`
+    segment wins, (2) `isPublicRoute(route)` → `public`, (3)
+    `isProviderPortalRoute(route)` → `provider`, (4) default →
+    **`staff`** (the truthful default, since the middleware
+    redirects everything not in the public allow-list to signin).
+    The OLD code defaulted ALL ungrouped pages to `public`, which
+    was the DEF-0011 root cause: `/settings/billing` and
+    `/settings/compliance` live directly under `src/app/settings/...`
+    (not inside `(staff)/`), so they hit the default branch and were
+    silently mis-classified.
+  - `docs/qa/inventories/route-inventory.{md,json}`: regenerated. The
+    `public` set now matches the runtime middleware exactly (16
+    routes). `/settings/billing` and `/settings/compliance` correctly
+    classify as `staff`.
+  - **Verification (post-fix `npm run qa:live-stack`):** 8 of 9
+    DEF-0008-affected routes now PASS (`/`, `/cvo`, `/pricing`,
+    `/sandbox`, `/legal/{cookies,hipaa,privacy,terms}`, plus the
+    pre-existing `/auth/register`, `/auth/signin`, `/errors`,
+    `/errors/insufficient-scope`, `/errors/insufficient_scope`).
+    The 9th route, `/changelog`, exposed a NEW root cause:
+    `.dockerignore` excludes the entire `docs/` tree, so the
+    runtime markdown loader at `src/lib/changelog/loader.ts`
+    cannot read `docs/changelog/public.md` from the deployed
+    image and returns 500. Filed as **DEF-0012** (separate root
+    cause per STANDARD.md §4.1.1; will land as a separate
+    1-3-line `.dockerignore` fix). `/settings/billing` and
+    `/settings/compliance` no longer appear in the Pillar S §5
+    iteration because they correctly classify as `staff`, so
+    DEF-0011 is structurally closed by the same commit.
+  - `docs/qa/defects/DEF-0008.md`, `docs/qa/defects/DEF-0011.md`:
+    closed with full anti-weakening attestation per STANDARD.md §4.2.
+  - **Why the same commit closes BOTH:** The user explicitly
+    asked for the all-inclusive structural fix rather than two
+    separate one-side patches. Closing DEF-0008 alone (extending
+    the middleware allow-list to match the inventory) would have
+    moved the drift from middleware-side to inventory-side.
+    Closing DEF-0011 alone (correcting the inventory classifier)
+    would have left DEF-0008's eight broken anonymous routes
+    broken. The single-source-of-truth approach makes future drift
+    in either direction structurally impossible — the middleware
+    and the inventory cannot disagree because they import the same
+    module.
+
+- **Marketing homepage `/` now wraps content in `<main>` — closes
+  DEF-0010 (2026-04-19):** Pillar S's §5 page-shape invariant
+  surfaced that `/` returned 200 with at least one `<h1>`/`<h2>`
+  (so it was not a hard-blank-shell) but was missing the `<main>`
+  landmark. WCAG 2.1 SC 1.3.1 / 2.4.1 violation: screen-reader
+  users could not use the "skip to main content" shortcut on the
+  marketing page — the very page most likely to be the first
+  impression for new prospects.
+  - `src/app/page.tsx`: wrapped the three content sections (hero,
+    features grid, stats strip) in a single `<main id="main">`
+    element, kept BETWEEN the `<nav>` and the `<footer>` per WAI-ARIA
+    Landmarks (so the skip-link lands at the hero heading, not at
+    the brand link).
+  - **Verification:** post-fix `npm run qa:live-stack` reports
+    `PASS [S.5.public] /  — 200 + page shape ok`. Pillar E axe-core
+    matrix re-runs on the next CI cycle and is expected to lose the
+    associated SC 1.3.1 / 2.4.1 violation.
+  - `docs/qa/defects/DEF-0010.md`: closed with full anti-weakening
+    attestation.
+
+- **`.cursor/rules/qa-standard-global.mdc` mirrored to match the
+  workspace QA standard (2026-04-19):** The global Cursor rule (used
+  across every HDPulseAI repo on this developer machine) was still
+  citing 18 pillars (A–R) and missing the four new hard-fail
+  conditions (pending Prisma migrations, dead seed-account login,
+  cold Dockerfile build regression, named-volume staleness) added
+  by Pillar S. Brought it to parity with the workspace mirror at
+  `.cursor/rules/qa-standard.mdc` so every Cursor session — not
+  just the one open in this workspace — defaults to the post-DEF-0009
+  standard. Adds the Pillar S anti-weakening rule (forbidding
+  `qa:live-stack` removal from `qa:gate`, `optional: true` flags,
+  hard-coded role lists inside the smoke, "skip if Docker not
+  running" branches without exiting non-zero).
+
+### Filed (open)
+- **DEF-0012 — `/changelog` returns 500 because `.dockerignore`
+  excludes `docs/` (2026-04-19):** Pre-existing since Wave 5.5
+  (Q4 2025), hidden in production by DEF-0008's blanket redirect
+  from `/changelog` → `/auth/signin`. Closing DEF-0008 lifted the
+  redirect and made the 500 visible to the gate on the very first
+  run. Same root cause likely affects `/api/v1/openapi.json` (reads
+  `docs/api/openapi-v1.yaml`) and the AI knowledge-base loader
+  (`src/lib/ai/knowledge-base.ts`). Recommended fix is a 1-3 line
+  narrowing of `.dockerignore` (keep excluding `docs/qa/`,
+  `docs/dev/`, `docs/functional/` etc., un-exclude
+  `docs/changelog/` and `docs/api/`). Filed as a separate card per
+  STANDARD.md §4.1.1 ("one root cause per commit") so the
+  structural single-source-of-truth review stays clean.
+
 ### Added
+- **Pillar S — Live-Stack Reality Gate (QA Standard 1.1.0 → 1.2.0)
+  (2026-04-19):** A nineteenth testing pillar that probes the
+  **deployed running system** rather than the source tree. Added in
+  response to DEF-0009 — the user reported "Sign In is not working.
+  Nothing happens" while every existing gate (`npm run qa:gate`,
+  1865 vitests, typecheck, lint, every per-screen card) was reporting
+  green. Root-cause analysis revealed a structural class of miss the
+  existing 18 pillars (A–R) could not catch from a static repository
+  check: `qa:gate` was running zero specs (only inventory + coverage
+  + SDK/Postman drift), Pillar A's `globalSetup` would have caught it
+  but ran only under `npm run test:e2e` and was honestly reported as
+  "Not Run" because Docker wasn't available, no script wrapped
+  `prisma migrate status` against the live DB, no script attempted a
+  cold Dockerfile rebuild. Pillar S closes the gap.
+  - `docs/qa/STANDARD.md` bumped from version 1.1.0 (2026-04-17) to
+    **1.2.0 (2026-04-19)**. Pillar inventory expanded from "18
+    pillars (A–R)" to "19 pillars (A–S)". New §2.S documents the six
+    required surfaces (bring-up health, schema/migration parity,
+    role-by-role real CSRF sign-in matrix, authenticated session
+    probe, anonymous public-surface invariants, Dockerfile cold-build
+    sanity, stack-version pin) and the eight anti-weakening rules
+    that prevent silently skipping the gate. New §4 hard-fail
+    conditions (11)–(14) added: pending Prisma migrations, dead
+    seed-account login, cold Dockerfile build regression, stale
+    named-volume contents shadowing the deployed image. New §3
+    `Live stack:` line required on every release report. New §8 DoD
+    items (11)–(13) wire the new gates into the per-PR checklist.
+    New §10.2 names the DEF-0009 regression so it cannot recur
+    silently.
+  - `docs/qa/definition-of-done.md` updated: §1 adds an
+    `npm run qa:gate` check that includes the new Pillar S members;
+    §2 adds Pillar S to the touched-pillars matrix with explicit
+    trigger files; §4 adds four new hard-fail boxes (zero pending
+    migrations, every seeded staff role can sign in, cold Dockerfile
+    rebuild succeeds, named-volume staleness probe green); §8
+    headline reporting block adds the `Live stack:` line.
+  - `docs/dev/adr/0028-live-stack-reality-gate.md` (new ADR):
+    captures the decision, the four alternatives that were rejected
+    (make Pillar A's globalSetup part of qa:gate; bake migration
+    deploy into the dev entrypoint as the only fix; only run Pillar
+    S in CI; replace named volumes with bind mounts), and the eight
+    anti-weakening rules.
+  - `scripts/qa/live-stack-smoke.mjs` (new): HTTP-only smoke that
+    drives the deployed stack via `BASE_URL`. Reads the role
+    registry from `tests/e2e/roles.ts` at runtime (anti-weakening
+    rule 4 — single source of truth), performs the production
+    CSRF + `/api/auth/callback/credentials` round-trip for every
+    `STAFF_ROLES` entry, asserts a 302 to a non-`/auth/signin` URL,
+    asserts the `authjs.session-token` cookie is set, asserts
+    `/api/auth/session` returns the expected `user.role`. Also
+    probes `/api/health`, an authenticated `/dashboard` shape
+    check, every `route-inventory.json` `group:public` entry's
+    first-response status (no redirect-following), and the
+    `/errors/insufficient-scope` and `/errors/insufficient_scope`
+    spot-checks (DEF-0007 invariant). Optional `--volume-probe`
+    introspects the running container's
+    `node_modules/.prisma/client/schema.prisma` and compares its
+    SHA-1 to the on-disk `prisma/schema.prisma`, surfacing the
+    named-volume staleness root cause of DEF-0009.
+  - `scripts/qa/check-migration-drift.mjs` (new): wraps
+    `prisma migrate status`, fails on any pending migration, drift,
+    or failure-to-connect (per ADR 0028 §Anti-weakening 3,
+    no-connection ≠ no-pending — exits non-zero in both cases).
+  - `scripts/qa/check-dockerfile-build.mjs` (new): default mode
+    runs `docker compose ... config -q` for every compose file;
+    `--cold` mode additionally runs `docker compose build
+    --no-cache <service>` for every app service, catching ordering
+    bugs (the prisma-postinstall finding a schema that hasn't been
+    copied yet) that named-volume-shadowed dev rebuilds can hide
+    for weeks.
+  - `tests/e2e/live-stack/role-login-matrix.spec.ts` (new):
+    browser-driven supplement to the .mjs script — iterates the
+    same `STAFF_ROLES` registry, fills the signin form by
+    accessible label, asserts post-login URL is not
+    `/auth/signin`, asserts `<main>` and `<h1>/<h2>` are visible
+    (no blank-shell), cross-checks `/api/auth/session` returns
+    the right `user.role`. Also includes a registry-consistency
+    test that guarantees `STAFF_ROLES ⊆ ROLES` and every
+    STAFF_ROLES entry has email + password.
+  - `package.json` scripts: added `qa:migrations`, `qa:live-stack`,
+    `qa:live-stack:full` (with `--volume-probe`), `qa:dockerfile`,
+    `qa:dockerfile:cold`. **`qa:gate` rewritten** to include
+    `qa:migrations` + `qa:live-stack` so the green-light path now
+    actually probes the running system. The previous static-only
+    body is preserved as `qa:gate:static` for the lint-only CI
+    shard.
+  - `docs/qa/defects/DEF-0009.md` (new defect card): full root
+    cause for the sign-in regression (three stacked: stale named
+    volumes shadowing the fresh image, three unapplied Prisma
+    migrations including `20260418100000_multitenancy_shim`, and
+    the dev Dockerfile postinstall ordering bug fixed in commit
+    `e9c0fc2`); the structural-miss analysis ("which pillar should
+    have caught it and why didn't it"); the operational fix
+    already applied; the structural fix landed in this commit; and
+    a forward-looking demo of the gate output that would have
+    caught DEF-0009 day-one.
+  - `.cursor/rules/qa-standard.mdc` updated: pillar count A–R
+    → A–S, new hard-fail conditions (7)–(10), Live-stack line
+    added to the headline reporting template, `STANDARD.md` §10.1
+    vs §10.2 distinguished.
+  - `docs/system-prompt.md` quality-bar paragraph updated to cite
+    19 pillars, Pillar S, ADR 0028, and the new headline shape.
+  - **Gate-execution proof:** the new `npm run qa:live-stack`
+    against the post-fix dev stack shows 4-of-4 staff roles signing
+    in cleanly (`admin`/`manager`/`specialist`/`committee_member`,
+    all landing on `/dashboard` with the expected `user.role`),
+    `/dashboard` rendering with `<main>` + `<h1|h2>`, both
+    `/errors/insufficient-scope` and `/errors/insufficient_scope`
+    returning 200 (DEF-0007 invariant), AND **immediately surfaces
+    11 previously-hidden defects** the prior "all green" gate did
+    not see: DEF-0008's still-unfixed `/cvo`/`/pricing`/
+    `/changelog`/`/legal/*`/`/sandbox` middleware allow-list miss
+    (auto-reproduced now), `/` blank-shell shape (no `<main>`
+    landmark), and `/settings/billing` + `/settings/compliance`
+    inventory mis-classification (`route-inventory.json` declares
+    `group:public` but middleware redirects to signin). These are
+    the structural exits Pillar S exists to catch; their open
+    state is by design (one root cause per commit per
+    STANDARD.md §4.1.1).
 - **Wave 21 — Public, machine-readable error catalog
   (1.9.0 -> 1.10.0) (2026-04-19):** Tenth exercise of the
   versioning machinery, and the resolver every Problem body's
