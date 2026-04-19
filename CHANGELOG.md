@@ -7,6 +7,61 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sem
 ## [Unreleased]
 
 ### Added
+- **Wave 16 — Standard pagination Link headers (RFC 8288)
+  (1.4.0 -> 1.5.0) (2026-04-18):** Fifth exercise of the
+  versioning machinery. Adds the conventional REST pagination
+  contract on top of the existing JSON envelope so SDKs can
+  iterate through result sets without doing arithmetic on
+  `page`/`totalPages`.
+  - `src/lib/api/pagination-links.ts`: new helper module
+    exporting `buildPaginationLinkHeader(requestUrl, pagination)`
+    (returns the RFC 8288 `Link` value with `first`/`prev`/
+    `next`/`last` rels, preserving inbound query parameters and
+    forcing absolute URLs), `applyPaginationLinkHeader(response,
+    requestUrl, pagination)` (attaches the header to a
+    `NextResponse`, no-op for empty result sets), and
+    `parseLinkHeader(value)` (decoder used by both the SDK and
+    its unit tests). Pure function, dependency-free, no side
+    effects on the request URL.
+  - `src/app/api/v1/providers/route.ts`,
+    `src/app/api/v1/sanctions/route.ts`,
+    `src/app/api/v1/enrollments/route.ts`: every paginated list
+    handler now wraps its 200 response with
+    `applyPaginationLinkHeader` so the `Link` header is emitted
+    alongside `X-Request-Id`, the rate-limit headers, and the
+    JSON envelope. Passing the original request URL means
+    filters and `limit` survive into the link targets.
+  - `docs/api/openapi-v1.yaml`: bumped `info.version` to `1.5.0`.
+    Added `components.headers.Link` describing the RFC 8288
+    contract. Attached the `Link` header to the 200 response of
+    each list operation. Bumped the `Health.apiVersion` example
+    to `"1.5.0"` so spec/runtime stay aligned.
+  - `src/app/api/v1/health/route.ts`: bumped `API_VERSION`
+    constant to `"1.5.0"` so `/health` reports the matching
+    version.
+  - `src/lib/api-client/v1-types.ts`,
+    `public/api/v1/postman.json`: regenerated from the spec; both
+    drift gates pass.
+  - `src/lib/api-client/v1.ts`: re-exports
+    `parseLinkHeader` (and the matching `V1PaginationLinks`
+    type) so SDK consumers can decode the header without pulling
+    in a separate dep. The SDK does not auto-walk pages —
+    callers stay in control of when to fetch the next page.
+  - `tests/unit/api/pagination-links.test.ts`: 14 unit tests
+    covering all helper functions (interior page, first/last
+    page, single page, empty set, query-param preservation,
+    absolute URLs, syntax compliance, parser symmetry, null
+    input, unknown rels, lowercased rels).
+  - `tests/unit/lib/api-client/v1-client.test.ts`: 2 new tests
+    for `parseLinkHeader` re-export (decoded map and `null`
+    fallthrough).
+  - `tests/contract/pillar-j-openapi.spec.ts`: new "Wave 16"
+    block asserting `components.headers.Link` exists and is
+    attached to every paginated list operation's 200 response.
+  - `docs/changelog/public.md`: published as v1.10.0 (API).
+  - **Non-breaking.** Existing JSON envelope pagination metadata
+    is unchanged; the `Link` header is purely additive.
+
 - **Wave 15 — API key introspection endpoint `GET /api/v1/me`
   (1.3.0 -> 1.4.0) (2026-04-18):** Fourth exercise of the
   versioning machinery. Pairs with `/health` so customers can

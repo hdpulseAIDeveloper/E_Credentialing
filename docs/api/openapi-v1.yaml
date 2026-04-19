@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: E-Credentialing CVO Platform — Public REST API v1
-  version: "1.4.0"
+  version: "1.5.0"
   summary: Read-only public REST API for the E-Credentialing CVO platform.
   description: |
     The v1 surface is intentionally read-only. Every request requires
@@ -29,6 +29,11 @@ info:
     current API key's name, granted scopes, lifecycle timestamps,
     and current rate-limit budget. Pairs with `/health` to make
     "is my key configured correctly?" a one-call answer.
+
+    Pagination links (since v1.5.0): every paginated list response
+    carries an RFC 8288 `Link` header listing `first`, `prev`,
+    `next`, and `last` page URLs. Clients can navigate the result
+    set without parsing the JSON envelope.
 
     Wave 8 (2026-04-18). See ADR 0020 and `docs/qa/per-pillar/pillar-j-api.md`.
   contact:
@@ -166,6 +171,7 @@ paths:
             X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
             X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
             X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
+            Link: { $ref: "#/components/headers/Link" }
             X-Request-Id: { $ref: "#/components/headers/RequestId" }
           content:
             application/json:
@@ -265,6 +271,7 @@ paths:
             X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
             X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
             X-Request-Id: { $ref: "#/components/headers/RequestId" }
+            Link: { $ref: "#/components/headers/Link" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/SanctionsPage" }
@@ -296,6 +303,7 @@ paths:
             X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
             X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
             X-Request-Id: { $ref: "#/components/headers/RequestId" }
+            Link: { $ref: "#/components/headers/Link" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/EnrollmentsPage" }
@@ -418,6 +426,19 @@ components:
         Seconds the client should wait before retrying. Always >= 1.
         Present only on `429` responses.
       schema: { type: integer, minimum: 1, example: 7 }
+    Link:
+      description: |
+        RFC 8288 pagination links. Present on every paginated list
+        response (since v1.5.0) when the result set has at least
+        one page. Always emits `first` and `last`; emits `prev`
+        when `page > 1` and `next` when `page < totalPages`.
+        Comma-separated, single-line value with quoted `rel`
+        tokens. Use the SDK's `parseLinkHeader(headers.get("Link"))`
+        helper to turn it into a `{ rel: url }` map.
+      schema:
+        type: string
+        example: |-
+          <https://api.example.com/api/v1/providers?page=1&limit=25>; rel="first", <https://api.example.com/api/v1/providers?page=2&limit=25>; rel="next", <https://api.example.com/api/v1/providers?page=4&limit=25>; rel="last"
 
   schemas:
     Error:
@@ -509,7 +530,7 @@ components:
         apiVersion:
           type: string
           description: Semver version of the v1 surface (matches `info.version`).
-          example: "1.4.0"
+          example: "1.5.0"
         time:
           type: string
           format: date-time

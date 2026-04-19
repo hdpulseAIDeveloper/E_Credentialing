@@ -4,6 +4,7 @@ import { db } from "@/server/db";
 import { authenticateApiKey, requireScope } from "../middleware";
 import { applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { applyRequestIdHeader, resolveRequestId } from "@/lib/api/request-id";
+import { applyPaginationLinkHeader } from "@/lib/api/pagination-links";
 import { auditApiRequest } from "@/lib/api/audit-api";
 
 export async function GET(request: Request) {
@@ -53,13 +54,18 @@ export async function GET(request: Request) {
     requestId,
   });
 
+  const totalPages = Math.ceil(total / limit);
   return applyRequestIdHeader(
-    applyRateLimitHeaders(
-      NextResponse.json({
-        data: enrollments,
-        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-      }),
-      auth.rateLimit,
+    applyPaginationLinkHeader(
+      applyRateLimitHeaders(
+        NextResponse.json({
+          data: enrollments,
+          pagination: { page, limit, total, totalPages },
+        }),
+        auth.rateLimit,
+      ),
+      request.url,
+      { page, limit, total, totalPages },
     ),
     requestId,
   );

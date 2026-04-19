@@ -251,7 +251,7 @@ export interface components {
             keyId: string;
             /**
              * @description Semver version of the v1 surface (matches `info.version`).
-             * @example 1.4.0
+             * @example 1.5.0
              */
             apiVersion: string;
             /**
@@ -548,6 +548,16 @@ export interface components {
          *     Present only on `429` responses.
          */
         RetryAfter: number;
+        /**
+         * @description RFC 8288 pagination links. Present on every paginated list
+         *     response (since v1.5.0) when the result set has at least
+         *     one page. Always emits `first` and `last`; emits `prev`
+         *     when `page > 1` and `next` when `page < totalPages`.
+         *     Comma-separated, single-line value with quoted `rel`
+         *     tokens. Use the SDK's `parseLinkHeader(headers.get("Link"))`
+         *     helper to turn it into a `{ rel: url }` map.
+         */
+        Link: string;
     };
     pathItems: never;
 }
@@ -663,6 +673,7 @@ export interface operations {
                     "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
                     "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
+                    Link: components["headers"]["Link"];
                     "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
@@ -789,6 +800,7 @@ export interface operations {
                     "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
                     "X-Request-Id": components["headers"]["RequestId"];
+                    Link: components["headers"]["Link"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -833,6 +845,7 @@ export interface operations {
                     "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
                     "X-Request-Id": components["headers"]["RequestId"];
+                    Link: components["headers"]["Link"];
                     [name: string]: unknown;
                 };
                 content: {

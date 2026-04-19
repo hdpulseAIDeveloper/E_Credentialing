@@ -187,6 +187,37 @@ describe("pillar-J: OpenAPI 3.1 contract", () => {
     });
   });
 
+  describe("Wave 16: RFC 8288 pagination Link header contract", () => {
+    it("declares components.headers.Link", () => {
+      const headers = (SPEC as { components?: { headers?: Record<string, unknown> } })
+        .components?.headers ?? {};
+      expect(headers.Link, "missing components.headers.Link").toBeTruthy();
+    });
+
+    it("attaches Link to every paginated list operation 200", () => {
+      const failures: string[] = [];
+      const PAGINATED_LISTS: Array<[string, string]> = [
+        ["/api/v1/providers", "get"],
+        ["/api/v1/sanctions", "get"],
+        ["/api/v1/enrollments", "get"],
+      ];
+      for (const [path, method] of PAGINATED_LISTS) {
+        const op = (SPEC.paths[path] as Record<string, unknown> | undefined)?.[method] as
+          | { responses?: Record<string, { headers?: Record<string, unknown> }> }
+          | undefined;
+        const r200 = op?.responses?.["200"];
+        if (!r200) {
+          failures.push(`${method.toUpperCase()} ${path} missing 200 response`);
+          continue;
+        }
+        if (!r200.headers?.Link) {
+          failures.push(`${method.toUpperCase()} ${path} 200 missing Link header`);
+        }
+      }
+      expect(failures, failures.join("\n")).toEqual([]);
+    });
+  });
+
   describe("Wave 14: X-Request-Id correlation contract", () => {
     it("declares components.headers.RequestId", () => {
       const headers = (SPEC as { components?: { headers?: Record<string, unknown> } })

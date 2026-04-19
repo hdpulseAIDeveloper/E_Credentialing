@@ -298,3 +298,39 @@ export class V1Client {
 }
 
 export type { paths, components, operations } from "./v1-types";
+
+/**
+ * Decoded RFC 8288 `Link` header from any paginated v1 list
+ * response. Maps each `rel` token (`first | prev | next | last`)
+ * to the absolute URL the server emitted. Available since spec
+ * v1.5.0.
+ */
+export type V1PaginationLinks = {
+  first?: string;
+  prev?: string;
+  next?: string;
+  last?: string;
+  /** Tolerant of forward-compat additions; unknown rels appear here. */
+  [rel: string]: string | undefined;
+};
+
+/**
+ * Parse an inbound RFC 8288 `Link` header value back into a
+ * `{ rel: url }` map. Tolerant of whitespace, mixed case `rel`
+ * tokens, and unknown `rel` values. Returns an empty object for
+ * `null`/empty input. Mirrors the server-side helper at
+ * `src/lib/api/pagination-links.ts` byte-for-byte so client-side
+ * navigation never disagrees with what the server emitted.
+ */
+export function parseLinkHeader(value: string | null | undefined): V1PaginationLinks {
+  const out: V1PaginationLinks = {};
+  if (!value) return out;
+  for (const segment of value.split(",")) {
+    const m = segment.match(/^\s*<([^>]+)>\s*;\s*rel=("([^"]+)"|([^;\s]+))\s*$/);
+    if (!m) continue;
+    const url = m[1]!;
+    const rel = (m[3] ?? m[4] ?? "").toLowerCase();
+    if (rel) out[rel] = url;
+  }
+  return out;
+}

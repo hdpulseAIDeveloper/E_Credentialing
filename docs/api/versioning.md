@@ -1,7 +1,7 @@
 # Public REST API — Versioning, Deprecation, and Sunset Policy
 
-- **Status:** v1 — current stable (spec `1.3.0`)
-- **Last reviewed:** 2026-04-18 (Wave 14)
+- **Status:** v1 — current stable (spec `1.5.0`)
+- **Last reviewed:** 2026-04-18 (Wave 16)
 - **Related:**
   ADR [0020](../dev/adr/0020-openapi-v1-spec.md) (OpenAPI spec),
   ADR [0022](../dev/adr/0022-public-rest-v1-sdk.md) (TypeScript SDK),
@@ -217,6 +217,53 @@ the header, renaming it, relaxing the format gate, or skipping it
 on any response status would be a breaking change and require a
 `/api/v2/`.
 
+## 3.5 Pagination Link header (since spec v1.5.0)
+
+Every paginated list endpoint (`GET /api/v1/providers`,
+`GET /api/v1/sanctions`, `GET /api/v1/enrollments`) returns an
+[RFC 8288](https://datatracker.ietf.org/doc/html/rfc8288) `Link`
+response header alongside the existing JSON envelope. This is the
+conventional REST pagination contract (also used by GitHub,
+Stripe, Atlassian) and it lets SDKs walk the result set without
+arithmetic on `page`/`totalPages`.
+
+| `rel` value | When emitted | Notes |
+|---|---|---|
+| `first` | Always (when results exist) | Page 1 of the current query. |
+| `prev` | When `page > 1` | Previous page. Omitted on page 1. |
+| `next` | When `page < totalPages` | Next page. Omitted on the last page. |
+| `last` | Always (when results exist) | `totalPages` of the current query. |
+
+Empty result sets (`total === 0`) emit **no** `Link` header — there
+is nothing to link to. The JSON envelope's `pagination` block is
+unchanged and remains the source of truth for `total`,
+`totalPages`, etc.
+
+All link targets are absolute URLs that **preserve every inbound
+query parameter** (filters, `limit`, future query params). Clients
+can follow `next` blindly and inherit their existing filters.
+
+The TypeScript SDK exposes a tiny helper for clients that want to
+decode the header without re-implementing RFC 8288:
+
+```ts
+import { parseLinkHeader } from "@e-credentialing/api-client";
+
+const res = await fetch(`${baseUrl}/api/v1/providers?page=2&limit=25`, {
+  headers: { Authorization: `Bearer ${apiKey}` },
+});
+const links = parseLinkHeader(res.headers.get("Link"));
+// → { first: "...", prev: "...", next: "...", last: "..." }
+
+if (links.next) {
+  const nextRes = await fetch(links.next, { headers: ... });
+}
+```
+
+Removing the header, renaming any `rel` value, dropping query
+parameters from link targets, or emitting non-absolute URLs would
+be a breaking change and require a `/api/v2/`.
+
 ## 4. Major-version overlap window
 
 When `/api/v2` ships:
@@ -272,6 +319,7 @@ The following invariants MUST be preserved:
 - "What headers do I need on a deprecated endpoint?" → §3.1.
 - "What rate-limit headers must I emit?" → §3.3.
 - "What request-id headers must I emit?" → §3.4.
+- "How do I emit pagination Link headers?" → §3.5.
 - "How do I document this deprecation in the spec?" → §3.2.
 - "When can I ship `/api/v2`?" → After at least one of:
   - Required customer feature that can't ship in v1, OR

@@ -12,6 +12,7 @@ import {
   V1Client,
   V1ApiError,
   parseRateLimit,
+  parseLinkHeader,
 } from "../../../../src/lib/api-client/v1";
 
 interface MockResponse {
@@ -347,6 +348,22 @@ describe("V1Client", () => {
       const err = e as V1ApiError;
       expect(err.requestId).toBe("req_server_assigned_999");
     }
+  });
+
+  it("parseLinkHeader returns the decoded {rel: url} map (v1.5.0)", () => {
+    const v =
+      '<https://x/api/v1/providers?page=1&limit=25>; rel="first", ' +
+      '<https://x/api/v1/providers?page=2&limit=25>; rel="next", ' +
+      '<https://x/api/v1/providers?page=4&limit=25>; rel="last"';
+    expect(parseLinkHeader(v)).toEqual({
+      first: "https://x/api/v1/providers?page=1&limit=25",
+      next: "https://x/api/v1/providers?page=2&limit=25",
+      last: "https://x/api/v1/providers?page=4&limit=25",
+    });
+  });
+
+  it("parseLinkHeader returns an empty object for null (older deployments)", () => {
+    expect(parseLinkHeader(null)).toEqual({});
   });
 
   it("falls back to a generic error message when body is non-JSON", async () => {

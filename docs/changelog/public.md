@@ -17,6 +17,42 @@ Anti-weakening: never delete a release. Strike-through a published
 note instead and add a follow-up release if the underlying claim
 turned out to be incorrect.
 
+## 2026-04-18 — v1.10.0 (API)
+
+### Added
+- **Standard pagination links — RFC 8288 `Link` header.** Every
+  paginated list endpoint (`GET /api/v1/providers`,
+  `GET /api/v1/sanctions`, `GET /api/v1/enrollments`) now returns
+  a `Link` response header with `rel="first"`, `rel="prev"`,
+  `rel="next"`, and `rel="last"` URLs that preserve all of your
+  existing query parameters (filters, `limit`, etc.). Clients can
+  walk the whole result set without doing arithmetic on `page`
+  and `totalPages`, which is the conventional REST pattern (also
+  used by GitHub, Stripe, and Atlassian). Empty result sets emit
+  no `Link` header — there's nothing to link to. Documented in
+  the OpenAPI 3.1 spec at `/api/v1/openapi.yaml` (apiVersion
+  `1.5.0`) and reflected in the regenerated Postman collection
+  at `/api/v1/postman.json`.
+
+### Improved
+- **TypeScript SDK exposes `parseLinkHeader`.** The SDK now
+  re-exports a tiny, dependency-free helper:
+  `import { parseLinkHeader } from "@e-credentialing/api-client";`
+  → `parseLinkHeader(response.headers.get("Link"))` returns a
+  `{ first, prev, next, last }` map of absolute URLs (or `{}` for
+  older deployments). Useful for building "Load more" buttons or
+  cursor-style pagers without re-implementing RFC 8288 parsing.
+- **OpenAPI spec bumped 1.4.0 → 1.5.0** (additive minor bump per
+  our [versioning policy](../api/versioning.md)). The `Health`
+  schema's `apiVersion` example now reads `1.5.0` so health-check
+  consumers see the matching version string.
+
+### Compatibility
+- **Non-breaking.** Existing pagination metadata (`page`,
+  `limit`, `total`, `totalPages` in the JSON envelope) is
+  unchanged — the new `Link` header is purely additive. Clients
+  that ignore response headers are unaffected.
+
 ## 2026-04-18 — v1.9.0 (API)
 
 ### Added

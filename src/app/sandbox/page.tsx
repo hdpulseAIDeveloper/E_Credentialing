@@ -153,6 +153,43 @@ curl -L https://your-host/api/v1/postman.json \\
           </p>
         </section>
 
+        <section className="mt-12 rounded-xl border border-amber-200 bg-amber-50 p-6">
+          <h2 className="text-xl font-bold text-gray-900">
+            Pagination Link headers (RFC 8288)
+          </h2>
+          <p className="mt-2 text-sm text-gray-700">
+            Every paginated list endpoint (
+            <code className="font-mono">/providers</code>,{" "}
+            <code className="font-mono">/sanctions</code>,{" "}
+            <code className="font-mono">/enrollments</code>) returns a{" "}
+            <code className="font-mono">Link</code> response header with{" "}
+            <code className="font-mono">first</code>,{" "}
+            <code className="font-mono">prev</code>,{" "}
+            <code className="font-mono">next</code>, and{" "}
+            <code className="font-mono">last</code> URLs (since spec{" "}
+            <code className="font-mono">1.5.0</code>). Filters and{" "}
+            <code className="font-mono">limit</code> are preserved in every
+            link target so you don't have to re-build the query string.
+          </p>
+          <pre className="mt-3 overflow-x-auto rounded bg-white border border-amber-200 p-3 text-xs">
+            <code>{`curl -i "https://your-host/api/v1/providers?page=2&limit=25" \\
+  -H "Authorization: Bearer $ECRED_API_KEY"
+
+# Link: <https://your-host/api/v1/providers?page=1&limit=25>; rel="first",
+#       <https://your-host/api/v1/providers?page=1&limit=25>; rel="prev",
+#       <https://your-host/api/v1/providers?page=3&limit=25>; rel="next",
+#       <https://your-host/api/v1/providers?page=4&limit=25>; rel="last"`}</code>
+          </pre>
+          <p className="mt-3 text-xs text-gray-600">
+            TypeScript SDK:{" "}
+            <code className="font-mono">parseLinkHeader(response.headers.get("Link"))</code>{" "}
+            returns a typed{" "}
+            <code className="font-mono">{`{ first?, prev?, next?, last? }`}</code>{" "}
+            map. Empty result sets emit no{" "}
+            <code className="font-mono">Link</code> header.
+          </p>
+        </section>
+
         <section className="mt-12 rounded-xl border border-cyan-200 bg-cyan-50 p-6">
           <h2 className="text-xl font-bold text-gray-900">
             API key introspection (GET /api/v1/me)
