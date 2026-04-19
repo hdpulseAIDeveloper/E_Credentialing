@@ -37,18 +37,49 @@ import { authenticateApiKey } from "../middleware";
 import { applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { applyRequestIdHeader, resolveRequestId } from "@/lib/api/request-id";
 import { auditApiRequest } from "@/lib/api/audit-api";
+import {
+  applyEtagHeader,
+  evaluateConditionalGet,
+  notModifiedResponse,
+} from "@/lib/api/etag";
 
-const API_VERSION = "1.5.0";
+const API_VERSION = "1.6.0";
 
 export async function GET(request: Request): Promise<NextResponse> {
   const requestId = resolveRequestId(request);
   const auth = await authenticateApiKey(request);
   if (!auth.valid) return applyRequestIdHeader(auth.error!, requestId);
 
-  const body = {
+  // ETag is computed over the *cacheable* subset of the body — the
+  // per-request `time` field would otherwise force a cache miss on
+  // every poll, defeating the conditional-GET contract. Customers
+  // who do get a 200 still see the freshest timestamp; clients
+  // relying on the timestamp for clock-skew detection should not
+  // use `If-None-Match` on this endpoint.
+  const cacheable = {
     ok: true,
     keyId: auth.keyId!,
     apiVersion: API_VERSION,
+  };
+  const conditional = evaluateConditionalGet(request, cacheable);
+
+  if (conditional.status === "not-modified") {
+    void auditApiRequest({
+      apiKeyId: auth.keyId!,
+      method: "GET",
+      path: "/api/v1/health",
+      status: 304,
+      resultCount: 0,
+      requestId,
+    });
+    return notModifiedResponse(conditional.etag, {
+      requestId,
+      rateLimit: auth.rateLimit,
+    });
+  }
+
+  const body = {
+    ...cacheable,
     time: new Date().toISOString(),
   };
 
@@ -63,13 +94,16 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   return applyRequestIdHeader(
     applyRateLimitHeaders(
-      NextResponse.json(body, {
-        status: 200,
-        headers: {
-          "Cache-Control": "no-store",
-          "X-Content-Type-Options": "nosniff",
-        },
-      }),
+      applyEtagHeader(
+        NextResponse.json(body, {
+          status: 200,
+          headers: {
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+          },
+        }),
+        conditional.etag,
+      ),
       auth.rateLimit,
     ),
     requestId,

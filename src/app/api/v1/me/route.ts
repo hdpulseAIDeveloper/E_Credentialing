@@ -39,6 +39,11 @@ import { authenticateApiKey, API_SCOPES } from "../middleware";
 import { applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { applyRequestIdHeader, resolveRequestId } from "@/lib/api/request-id";
 import { auditApiRequest } from "@/lib/api/audit-api";
+import {
+  applyEtagHeader,
+  evaluateConditionalGet,
+  notModifiedResponse,
+} from "@/lib/api/etag";
 import { db } from "@/server/db";
 
 export async function GET(request: Request): Promise<NextResponse> {
@@ -78,12 +83,39 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   const rl = auth.rateLimit;
 
-  const body = {
+  // ETag is computed over the *cacheable* subset of the body. We
+  // exclude `lastUsedAt` (mutates on every authenticated call —
+  // including the call that produced *this* response) and the
+  // `rateLimit` snapshot (mutates as the budget window decays).
+  // The remaining fields - keyId, name, scopes, createdAt,
+  // expiresAt - capture the only metadata a caller would actually
+  // poll for.
+  const cacheable = {
     keyId: row.id,
     name: row.name,
     scopes,
     createdAt: row.createdAt.toISOString(),
     expiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
+  };
+  const conditional = evaluateConditionalGet(request, cacheable);
+
+  if (conditional.status === "not-modified") {
+    void auditApiRequest({
+      apiKeyId: auth.keyId!,
+      method: "GET",
+      path: "/api/v1/me",
+      status: 304,
+      resultCount: 0,
+      requestId,
+    });
+    return notModifiedResponse(conditional.etag, {
+      requestId,
+      rateLimit: auth.rateLimit,
+    });
+  }
+
+  const body = {
+    ...cacheable,
     lastUsedAt: row.lastUsedAt ? row.lastUsedAt.toISOString() : null,
     rateLimit: rl
       ? {
@@ -105,13 +137,16 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   return applyRequestIdHeader(
     applyRateLimitHeaders(
-      NextResponse.json(body, {
-        status: 200,
-        headers: {
-          "Cache-Control": "no-store",
-          "X-Content-Type-Options": "nosniff",
-        },
-      }),
+      applyEtagHeader(
+        NextResponse.json(body, {
+          status: 200,
+          headers: {
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+          },
+        }),
+        conditional.etag,
+      ),
       auth.rateLimit,
     ),
     requestId,

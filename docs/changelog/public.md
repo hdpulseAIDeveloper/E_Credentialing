@@ -17,6 +17,59 @@ Anti-weakening: never delete a release. Strike-through a published
 note instead and add a follow-up release if the underlying claim
 turned out to be incorrect.
 
+## 2026-04-18 — v1.11.0 (API)
+
+### Added
+- **Conditional GETs — `ETag` + `If-None-Match`.** Every read
+  endpoint now emits a weak `ETag` response header derived from a
+  stable hash of the cacheable subset of the response body
+  (excluding per-request fields like timestamps, rate-limit
+  snapshots, and last-used markers). Echo the value back as
+  `If-None-Match: "<etag>"` on the next poll and the API replies
+  `304 Not Modified` with an empty body — saving bandwidth, DB
+  round-trips, and your rate-limit budget. Wired into:
+  `GET /health`, `GET /me`, `GET /providers`,
+  `GET /providers/{id}`, `GET /sanctions`, `GET /enrollments`,
+  plus the spec-delivery endpoints (`/openapi.yaml`,
+  `/openapi.json`, `/postman.json`). `GET /providers/{id}/cv.pdf`
+  is intentionally excluded this release (binary streams have a
+  different caching strategy). Documented in the OpenAPI 3.1
+  spec at `/api/v1/openapi.yaml` (apiVersion `1.6.0`) and
+  reflected in the regenerated Postman collection at
+  `/api/v1/postman.json`.
+
+### Improved
+- **Polling integrations cost less.** A typical "is anything new
+  in /providers?" poll loop drops from ~5 KB/response to ~80
+  bytes when nothing has changed (a 304 is just headers).
+  Independent of the body size — works the same way for our
+  largest payloads.
+- **TypeScript SDK exposes `parseEtag()` + `conditionalGetWith()`.**
+  Two new dependency-free helpers in `@e-credentialing/api-client`:
+  - `parseEtag(response.headers)` reads the raw `ETag` token
+    (e.g. `W/"deadbeef"`) off any v1 response.
+  - `conditionalGetWith(client, path, ifNoneMatch)` performs a
+    conditional GET in one call and returns either
+    `{ status: "fresh", etag, data }` or
+    `{ status: "not-modified", etag }`. Throws `V1ApiError` for
+    auth/rate-limit failures so you don't need to special-case
+    errors.
+- **OpenAPI spec bumped 1.5.0 → 1.6.0** (additive minor bump per
+  our [versioning policy](../api/versioning.md)). New
+  `components.headers.ETag`, `components.parameters.IfNoneMatchHeader`,
+  and `components.responses.NotModified` definitions, attached to
+  every cacheable GET operation. `Health.apiVersion` example
+  bumped to `1.6.0` so health-check consumers see the matching
+  version string.
+
+### Compatibility
+- **Non-breaking.** The `ETag` header is purely additive on 200
+  responses. Clients that don't send `If-None-Match` are
+  unaffected — they continue to receive full bodies with the new
+  header attached. The `304 Not Modified` response only fires
+  when the client explicitly opts in by sending
+  `If-None-Match`.
+
 ## 2026-04-18 — v1.10.0 (API)
 
 ### Added

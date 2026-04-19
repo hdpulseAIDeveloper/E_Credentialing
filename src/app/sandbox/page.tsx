@@ -153,6 +153,51 @@ curl -L https://your-host/api/v1/postman.json \\
           </p>
         </section>
 
+        <section className="mt-12 rounded-xl border border-emerald-200 bg-emerald-50 p-6">
+          <h2 className="text-xl font-bold text-gray-900">
+            Conditional GETs (ETag + If-None-Match)
+          </h2>
+          <p className="mt-2 text-sm text-gray-700">
+            Every read endpoint emits a weak{" "}
+            <code className="font-mono">ETag</code> response header
+            (since spec <code className="font-mono">1.6.0</code>).
+            Echo it back as{" "}
+            <code className="font-mono">If-None-Match</code> on the
+            next poll and the API replies{" "}
+            <code className="font-mono">304 Not Modified</code> with
+            an empty body when nothing has changed. Saves bandwidth,
+            DB round-trips, and your rate-limit budget. Cached
+            requests still count against the budget — the{" "}
+            <code className="font-mono">X-RateLimit-*</code> headers
+            are present on the 304.
+          </p>
+          <pre className="mt-3 overflow-x-auto rounded bg-white border border-emerald-200 p-3 text-xs">
+            <code>{`curl -i https://your-host/api/v1/providers \\
+  -H "Authorization: Bearer $ECRED_API_KEY"
+# HTTP/1.1 200 OK
+# ETag: W/"deadbeefcafebabe1234567890abcdef12345678"
+# ...
+
+curl -i https://your-host/api/v1/providers \\
+  -H "Authorization: Bearer $ECRED_API_KEY" \\
+  -H 'If-None-Match: W/"deadbeefcafebabe1234567890abcdef12345678"'
+# HTTP/1.1 304 Not Modified
+# ETag: W/"deadbeefcafebabe1234567890abcdef12345678"
+# (empty body)`}</code>
+          </pre>
+          <p className="mt-3 text-xs text-gray-600">
+            TypeScript SDK:{" "}
+            <code className="font-mono">conditionalGetWith(client, path, etag)</code>{" "}
+            returns either{" "}
+            <code className="font-mono">{`{ status: "fresh", etag, data }`}</code>{" "}
+            or{" "}
+            <code className="font-mono">{`{ status: "not-modified", etag }`}</code>.
+            Throws{" "}
+            <code className="font-mono">V1ApiError</code> on auth /
+            rate-limit failures.
+          </p>
+        </section>
+
         <section className="mt-12 rounded-xl border border-amber-200 bg-amber-50 p-6">
           <h2 className="text-xl font-bold text-gray-900">
             Pagination Link headers (RFC 8288)

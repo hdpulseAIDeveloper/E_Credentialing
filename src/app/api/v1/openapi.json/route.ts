@@ -19,27 +19,44 @@ import { join } from "node:path";
 import { NextResponse } from "next/server";
 import { load as loadYaml } from "js-yaml";
 
+import {
+  applyEtagHeader,
+  computeWeakEtagFromBytes,
+  matchesEtag,
+  notModifiedResponse,
+  parseIfNoneMatch,
+} from "@/lib/api/etag";
+
 export const runtime = "nodejs";
 
 let cachedJson: string | null = null;
+let cachedEtag: string | null = null;
 
-async function loadSpecAsJson(): Promise<string> {
-  if (cachedJson) return cachedJson;
+async function loadSpecAsJson(): Promise<{ json: string; etag: string }> {
+  if (cachedJson && cachedEtag) return { json: cachedJson, etag: cachedEtag };
   const path = join(process.cwd(), "docs", "api", "openapi-v1.yaml");
   const yaml = await readFile(path, "utf-8");
   const parsed = loadYaml(yaml);
   cachedJson = JSON.stringify(parsed, null, 2);
-  return cachedJson;
+  cachedEtag = computeWeakEtagFromBytes(cachedJson);
+  return { json: cachedJson, etag: cachedEtag };
 }
 
-export async function GET(): Promise<NextResponse> {
-  const json = await loadSpecAsJson();
-  return new NextResponse(json, {
-    status: 200,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "public, max-age=300, s-maxage=3600",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
+export async function GET(request: Request): Promise<NextResponse> {
+  const { json, etag } = await loadSpecAsJson();
+  const tokens = parseIfNoneMatch(request.headers.get("If-None-Match"));
+  if (matchesEtag(etag, tokens)) {
+    return notModifiedResponse(etag);
+  }
+  return applyEtagHeader(
+    new NextResponse(json, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "public, max-age=300, s-maxage=3600",
+        "X-Content-Type-Options": "nosniff",
+      },
+    }),
+    etag,
+  );
 }

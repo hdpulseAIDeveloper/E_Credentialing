@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: E-Credentialing CVO Platform — Public REST API v1
-  version: "1.5.0"
+  version: "1.6.0"
   summary: Read-only public REST API for the E-Credentialing CVO platform.
   description: |
     The v1 surface is intentionally read-only. Every request requires
@@ -34,6 +34,15 @@ info:
     carries an RFC 8288 `Link` header listing `first`, `prev`,
     `next`, and `last` page URLs. Clients can navigate the result
     set without parsing the JSON envelope.
+
+    Conditional GETs (since v1.6.0): every read endpoint emits a
+    weak `ETag` response header derived from a stable hash of the
+    cacheable subset of the response body. Send the value back as
+    `If-None-Match: "<etag>"` on the next poll; if nothing has
+    changed the API replies `304 Not Modified` with an empty body
+    (zero JSON bytes). Saves bandwidth, DB round-trips, and your
+    rate-limit budget. The 304 still carries `X-Request-Id` and
+    the rate-limit headers.
 
     Wave 8 (2026-04-18). See ADR 0020 and `docs/qa/per-pillar/pillar-j-api.md`.
   contact:
@@ -82,10 +91,13 @@ paths:
       operationId: getHealth
       parameters:
         - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IfNoneMatchHeader"
       responses:
         "200":
           description: Healthy.
           headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
             X-RateLimit-Limit:
               $ref: "#/components/headers/RateLimitLimit"
             X-RateLimit-Remaining:
@@ -97,6 +109,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Health" }
+        "304": { $ref: "#/components/responses/NotModified" }
         "401":
           description: Missing, invalid, expired, or revoked API key.
           content:
@@ -131,10 +144,12 @@ paths:
       operationId: getMe
       parameters:
         - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IfNoneMatchHeader"
       responses:
         "200":
           description: API key introspection result.
           headers:
+            ETag: { $ref: "#/components/headers/ETag" }
             X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
             X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
             X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
@@ -142,6 +157,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Me" }
+        "304": { $ref: "#/components/responses/NotModified" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "429": { $ref: "#/components/responses/RateLimited" }
 
@@ -155,6 +171,7 @@ paths:
       operationId: listProviders
       parameters:
         - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IfNoneMatchHeader"
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Limit"
         - in: query
@@ -168,6 +185,7 @@ paths:
         "200":
           description: Page of providers.
           headers:
+            ETag: { $ref: "#/components/headers/ETag" }
             X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
             X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
             X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
@@ -176,6 +194,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ProvidersPage" }
+        "304": { $ref: "#/components/responses/NotModified" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/RateLimited" }
@@ -187,6 +206,7 @@ paths:
       operationId: getProvider
       parameters:
         - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IfNoneMatchHeader"
         - in: path
           name: id
           required: true
@@ -195,6 +215,7 @@ paths:
         "200":
           description: Provider envelope.
           headers:
+            ETag: { $ref: "#/components/headers/ETag" }
             X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
             X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
             X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
@@ -206,6 +227,7 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/ProviderDetail" }
+        "304": { $ref: "#/components/responses/NotModified" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -255,6 +277,7 @@ paths:
       operationId: listSanctions
       parameters:
         - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IfNoneMatchHeader"
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Limit"
         - in: query
@@ -267,6 +290,7 @@ paths:
         "200":
           description: Page of sanctions checks.
           headers:
+            ETag: { $ref: "#/components/headers/ETag" }
             X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
             X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
             X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
@@ -275,6 +299,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/SanctionsPage" }
+        "304": { $ref: "#/components/responses/NotModified" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/RateLimited" }
@@ -286,6 +311,7 @@ paths:
       operationId: listEnrollments
       parameters:
         - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IfNoneMatchHeader"
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Limit"
         - in: query
@@ -299,6 +325,7 @@ paths:
         "200":
           description: Page of enrollments.
           headers:
+            ETag: { $ref: "#/components/headers/ETag" }
             X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
             X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
             X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
@@ -307,6 +334,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/EnrollmentsPage" }
+        "304": { $ref: "#/components/responses/NotModified" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/RateLimited" }
@@ -340,6 +368,22 @@ components:
         generates one. Pair this with your client-side log lines for
         end-to-end tracing. Available since v1.3.0.
       schema: { type: string, pattern: "^[A-Za-z0-9_\\-]{8,128}$" }
+    IfNoneMatchHeader:
+      in: header
+      name: If-None-Match
+      required: false
+      description: |
+        Conditional GET — supply the `ETag` value the server returned
+        on a previous response and, if nothing has changed, the
+        server replies `304 Not Modified` with an empty body. Either
+        the literal `*` (wildcard, always matches a current
+        representation) or one or more quoted ETag tokens
+        (`W/"<hex>"` or `"<hex>"`), comma-separated. Weak
+        comparison per RFC 9110 §13.1.2 — a strong-form token
+        (`"abc"`) matches the corresponding weak-form ETag
+        (`W/"abc"`). Available since v1.6.0.
+      schema: { type: string }
+      example: 'W/"deadbeefcafebabe1234567890abcdef12345678"'
     Page:
       in: query
       name: page
@@ -373,6 +417,24 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
+    NotModified:
+      description: |
+        Conditional GET cache hit (since v1.6.0). The caller sent
+        `If-None-Match` with an ETag that matches the current
+        representation. The response body is empty (zero bytes per
+        RFC 9110 §15.4.5); the `ETag`, `X-Request-Id`, and
+        rate-limit headers are still present.
+      headers:
+        ETag:
+          $ref: "#/components/headers/ETag"
+        X-RateLimit-Limit:
+          $ref: "#/components/headers/RateLimitLimit"
+        X-RateLimit-Remaining:
+          $ref: "#/components/headers/RateLimitRemaining"
+        X-RateLimit-Reset:
+          $ref: "#/components/headers/RateLimitReset"
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
     RateLimited:
       description: |
         Too many requests for this key. The body is a
@@ -439,6 +501,20 @@ components:
         type: string
         example: |-
           <https://api.example.com/api/v1/providers?page=1&limit=25>; rel="first", <https://api.example.com/api/v1/providers?page=2&limit=25>; rel="next", <https://api.example.com/api/v1/providers?page=4&limit=25>; rel="last"
+    ETag:
+      description: |
+        Weak entity-tag for the response body, derived from a stable
+        SHA-1 hash of the canonicalized cacheable subset of the
+        payload. Always in `W/"<40-hex>"` form. Echo this back as
+        `If-None-Match: "<etag>"` on the next poll to receive a
+        `304 Not Modified` when nothing has changed. The hash is
+        computed AFTER excluding per-request fields (timestamps,
+        rate-limit snapshots, last-used markers) so the validator
+        is stable across cosmetic refreshes. Available since v1.6.0.
+      schema:
+        type: string
+        pattern: '^W/"[a-f0-9]{40}"$'
+        example: 'W/"deadbeefcafebabe1234567890abcdef12345678"'
 
   schemas:
     Error:
@@ -530,7 +606,7 @@ components:
         apiVersion:
           type: string
           description: Semver version of the v1 surface (matches `info.version`).
-          example: "1.5.0"
+          example: "1.6.0"
         time:
           type: string
           format: date-time

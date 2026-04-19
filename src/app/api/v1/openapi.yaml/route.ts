@@ -17,26 +17,43 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { NextResponse } from "next/server";
 
+import {
+  applyEtagHeader,
+  computeWeakEtagFromBytes,
+  matchesEtag,
+  notModifiedResponse,
+  parseIfNoneMatch,
+} from "@/lib/api/etag";
+
 export const runtime = "nodejs";
 
 let cachedSpec: string | null = null;
+let cachedEtag: string | null = null;
 
-async function loadSpec(): Promise<string> {
-  if (cachedSpec) return cachedSpec;
+async function loadSpec(): Promise<{ yaml: string; etag: string }> {
+  if (cachedSpec && cachedEtag) return { yaml: cachedSpec, etag: cachedEtag };
   const path = join(process.cwd(), "docs", "api", "openapi-v1.yaml");
   cachedSpec = await readFile(path, "utf-8");
-  return cachedSpec;
+  cachedEtag = computeWeakEtagFromBytes(cachedSpec);
+  return { yaml: cachedSpec, etag: cachedEtag };
 }
 
-export async function GET(): Promise<NextResponse> {
-  const yaml = await loadSpec();
-  return new NextResponse(yaml, {
-    status: 200,
-    headers: {
-      // RFC 9512 — official OpenAPI YAML media type.
-      "Content-Type": "application/yaml; charset=utf-8",
-      "Cache-Control": "public, max-age=300, s-maxage=3600",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
+export async function GET(request: Request): Promise<NextResponse> {
+  const { yaml, etag } = await loadSpec();
+  const tokens = parseIfNoneMatch(request.headers.get("If-None-Match"));
+  if (matchesEtag(etag, tokens)) {
+    return notModifiedResponse(etag);
+  }
+  return applyEtagHeader(
+    new NextResponse(yaml, {
+      status: 200,
+      headers: {
+        // RFC 9512 — official OpenAPI YAML media type.
+        "Content-Type": "application/yaml; charset=utf-8",
+        "Cache-Control": "public, max-age=300, s-maxage=3600",
+        "X-Content-Type-Options": "nosniff",
+      },
+    }),
+    etag,
+  );
 }

@@ -251,7 +251,7 @@ export interface components {
             keyId: string;
             /**
              * @description Semver version of the v1 surface (matches `info.version`).
-             * @example 1.5.0
+             * @example 1.6.0
              */
             apiVersion: string;
             /**
@@ -482,6 +482,24 @@ export interface components {
             };
         };
         /**
+         * @description Conditional GET cache hit (since v1.6.0). The caller sent
+         *     `If-None-Match` with an ETag that matches the current
+         *     representation. The response body is empty (zero bytes per
+         *     RFC 9110 §15.4.5); the `ETag`, `X-Request-Id`, and
+         *     rate-limit headers are still present.
+         */
+        NotModified: {
+            headers: {
+                ETag: components["headers"]["ETag"];
+                "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
+                "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
+                "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
+                "X-Request-Id": components["headers"]["RequestId"];
+                [name: string]: unknown;
+            };
+            content?: never;
+        };
+        /**
          * @description Too many requests for this key. The body is a
          *     `RateLimitProblem`. The `Retry-After` header (seconds) tells
          *     you when the next request is allowed; the standard
@@ -511,6 +529,19 @@ export interface components {
          *     end-to-end tracing. Available since v1.3.0.
          */
         RequestIdHeader: string;
+        /**
+         * @description Conditional GET — supply the `ETag` value the server returned
+         *     on a previous response and, if nothing has changed, the
+         *     server replies `304 Not Modified` with an empty body. Either
+         *     the literal `*` (wildcard, always matches a current
+         *     representation) or one or more quoted ETag tokens
+         *     (`W/"<hex>"` or `"<hex>"`), comma-separated. Weak
+         *     comparison per RFC 9110 §13.1.2 — a strong-form token
+         *     (`"abc"`) matches the corresponding weak-form ETag
+         *     (`W/"abc"`). Available since v1.6.0.
+         * @example W/"deadbeefcafebabe1234567890abcdef12345678"
+         */
+        IfNoneMatchHeader: string;
         /** @description 1-based page index. Default 1. */
         Page: number;
         /** @description Items per page (max 100). Default 25. */
@@ -558,6 +589,17 @@ export interface components {
          *     helper to turn it into a `{ rel: url }` map.
          */
         Link: string;
+        /**
+         * @description Weak entity-tag for the response body, derived from a stable
+         *     SHA-1 hash of the canonicalized cacheable subset of the
+         *     payload. Always in `W/"<40-hex>"` form. Echo this back as
+         *     `If-None-Match: "<etag>"` on the next poll to receive a
+         *     `304 Not Modified` when nothing has changed. The hash is
+         *     computed AFTER excluding per-request fields (timestamps,
+         *     rate-limit snapshots, last-used markers) so the validator
+         *     is stable across cosmetic refreshes. Available since v1.6.0.
+         */
+        ETag: string;
     };
     pathItems: never;
 }
@@ -575,6 +617,19 @@ export interface operations {
                  *     end-to-end tracing. Available since v1.3.0.
                  */
                 "X-Request-Id"?: components["parameters"]["RequestIdHeader"];
+                /**
+                 * @description Conditional GET — supply the `ETag` value the server returned
+                 *     on a previous response and, if nothing has changed, the
+                 *     server replies `304 Not Modified` with an empty body. Either
+                 *     the literal `*` (wildcard, always matches a current
+                 *     representation) or one or more quoted ETag tokens
+                 *     (`W/"<hex>"` or `"<hex>"`), comma-separated. Weak
+                 *     comparison per RFC 9110 §13.1.2 — a strong-form token
+                 *     (`"abc"`) matches the corresponding weak-form ETag
+                 *     (`W/"abc"`). Available since v1.6.0.
+                 * @example W/"deadbeefcafebabe1234567890abcdef12345678"
+                 */
+                "If-None-Match"?: components["parameters"]["IfNoneMatchHeader"];
             };
             path?: never;
             cookie?: never;
@@ -584,6 +639,7 @@ export interface operations {
             /** @description Healthy. */
             200: {
                 headers: {
+                    ETag: components["headers"]["ETag"];
                     "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
                     "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
@@ -594,6 +650,7 @@ export interface operations {
                     "application/json": components["schemas"]["Health"];
                 };
             };
+            304: components["responses"]["NotModified"];
             /** @description Missing, invalid, expired, or revoked API key. */
             401: {
                 headers: {
@@ -618,6 +675,19 @@ export interface operations {
                  *     end-to-end tracing. Available since v1.3.0.
                  */
                 "X-Request-Id"?: components["parameters"]["RequestIdHeader"];
+                /**
+                 * @description Conditional GET — supply the `ETag` value the server returned
+                 *     on a previous response and, if nothing has changed, the
+                 *     server replies `304 Not Modified` with an empty body. Either
+                 *     the literal `*` (wildcard, always matches a current
+                 *     representation) or one or more quoted ETag tokens
+                 *     (`W/"<hex>"` or `"<hex>"`), comma-separated. Weak
+                 *     comparison per RFC 9110 §13.1.2 — a strong-form token
+                 *     (`"abc"`) matches the corresponding weak-form ETag
+                 *     (`W/"abc"`). Available since v1.6.0.
+                 * @example W/"deadbeefcafebabe1234567890abcdef12345678"
+                 */
+                "If-None-Match"?: components["parameters"]["IfNoneMatchHeader"];
             };
             path?: never;
             cookie?: never;
@@ -627,6 +697,7 @@ export interface operations {
             /** @description API key introspection result. */
             200: {
                 headers: {
+                    ETag: components["headers"]["ETag"];
                     "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
                     "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
@@ -637,6 +708,7 @@ export interface operations {
                     "application/json": components["schemas"]["Me"];
                 };
             };
+            304: components["responses"]["NotModified"];
             401: components["responses"]["Unauthorized"];
             429: components["responses"]["RateLimited"];
         };
@@ -661,6 +733,19 @@ export interface operations {
                  *     end-to-end tracing. Available since v1.3.0.
                  */
                 "X-Request-Id"?: components["parameters"]["RequestIdHeader"];
+                /**
+                 * @description Conditional GET — supply the `ETag` value the server returned
+                 *     on a previous response and, if nothing has changed, the
+                 *     server replies `304 Not Modified` with an empty body. Either
+                 *     the literal `*` (wildcard, always matches a current
+                 *     representation) or one or more quoted ETag tokens
+                 *     (`W/"<hex>"` or `"<hex>"`), comma-separated. Weak
+                 *     comparison per RFC 9110 §13.1.2 — a strong-form token
+                 *     (`"abc"`) matches the corresponding weak-form ETag
+                 *     (`W/"abc"`). Available since v1.6.0.
+                 * @example W/"deadbeefcafebabe1234567890abcdef12345678"
+                 */
+                "If-None-Match"?: components["parameters"]["IfNoneMatchHeader"];
             };
             path?: never;
             cookie?: never;
@@ -670,6 +755,7 @@ export interface operations {
             /** @description Page of providers. */
             200: {
                 headers: {
+                    ETag: components["headers"]["ETag"];
                     "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
                     "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
@@ -681,6 +767,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProvidersPage"];
                 };
             };
+            304: components["responses"]["NotModified"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             429: components["responses"]["RateLimited"];
@@ -698,6 +785,19 @@ export interface operations {
                  *     end-to-end tracing. Available since v1.3.0.
                  */
                 "X-Request-Id"?: components["parameters"]["RequestIdHeader"];
+                /**
+                 * @description Conditional GET — supply the `ETag` value the server returned
+                 *     on a previous response and, if nothing has changed, the
+                 *     server replies `304 Not Modified` with an empty body. Either
+                 *     the literal `*` (wildcard, always matches a current
+                 *     representation) or one or more quoted ETag tokens
+                 *     (`W/"<hex>"` or `"<hex>"`), comma-separated. Weak
+                 *     comparison per RFC 9110 §13.1.2 — a strong-form token
+                 *     (`"abc"`) matches the corresponding weak-form ETag
+                 *     (`W/"abc"`). Available since v1.6.0.
+                 * @example W/"deadbeefcafebabe1234567890abcdef12345678"
+                 */
+                "If-None-Match"?: components["parameters"]["IfNoneMatchHeader"];
             };
             path: {
                 id: string;
@@ -709,6 +809,7 @@ export interface operations {
             /** @description Provider envelope. */
             200: {
                 headers: {
+                    ETag: components["headers"]["ETag"];
                     "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
                     "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
@@ -721,6 +822,7 @@ export interface operations {
                     };
                 };
             };
+            304: components["responses"]["NotModified"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -787,6 +889,19 @@ export interface operations {
                  *     end-to-end tracing. Available since v1.3.0.
                  */
                 "X-Request-Id"?: components["parameters"]["RequestIdHeader"];
+                /**
+                 * @description Conditional GET — supply the `ETag` value the server returned
+                 *     on a previous response and, if nothing has changed, the
+                 *     server replies `304 Not Modified` with an empty body. Either
+                 *     the literal `*` (wildcard, always matches a current
+                 *     representation) or one or more quoted ETag tokens
+                 *     (`W/"<hex>"` or `"<hex>"`), comma-separated. Weak
+                 *     comparison per RFC 9110 §13.1.2 — a strong-form token
+                 *     (`"abc"`) matches the corresponding weak-form ETag
+                 *     (`W/"abc"`). Available since v1.6.0.
+                 * @example W/"deadbeefcafebabe1234567890abcdef12345678"
+                 */
+                "If-None-Match"?: components["parameters"]["IfNoneMatchHeader"];
             };
             path?: never;
             cookie?: never;
@@ -796,6 +911,7 @@ export interface operations {
             /** @description Page of sanctions checks. */
             200: {
                 headers: {
+                    ETag: components["headers"]["ETag"];
                     "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
                     "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
@@ -807,6 +923,7 @@ export interface operations {
                     "application/json": components["schemas"]["SanctionsPage"];
                 };
             };
+            304: components["responses"]["NotModified"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             429: components["responses"]["RateLimited"];
@@ -832,6 +949,19 @@ export interface operations {
                  *     end-to-end tracing. Available since v1.3.0.
                  */
                 "X-Request-Id"?: components["parameters"]["RequestIdHeader"];
+                /**
+                 * @description Conditional GET — supply the `ETag` value the server returned
+                 *     on a previous response and, if nothing has changed, the
+                 *     server replies `304 Not Modified` with an empty body. Either
+                 *     the literal `*` (wildcard, always matches a current
+                 *     representation) or one or more quoted ETag tokens
+                 *     (`W/"<hex>"` or `"<hex>"`), comma-separated. Weak
+                 *     comparison per RFC 9110 §13.1.2 — a strong-form token
+                 *     (`"abc"`) matches the corresponding weak-form ETag
+                 *     (`W/"abc"`). Available since v1.6.0.
+                 * @example W/"deadbeefcafebabe1234567890abcdef12345678"
+                 */
+                "If-None-Match"?: components["parameters"]["IfNoneMatchHeader"];
             };
             path?: never;
             cookie?: never;
@@ -841,6 +971,7 @@ export interface operations {
             /** @description Page of enrollments. */
             200: {
                 headers: {
+                    ETag: components["headers"]["ETag"];
                     "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
                     "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
@@ -852,6 +983,7 @@ export interface operations {
                     "application/json": components["schemas"]["EnrollmentsPage"];
                 };
             };
+            304: components["responses"]["NotModified"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             429: components["responses"]["RateLimited"];

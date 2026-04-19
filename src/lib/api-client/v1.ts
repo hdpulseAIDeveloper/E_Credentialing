@@ -334,3 +334,94 @@ export function parseLinkHeader(value: string | null | undefined): V1PaginationL
   }
   return out;
 }
+
+/**
+ * Read the `ETag` response header off any v1 response (since spec
+ * v1.6.0). Returns the raw token value (e.g. `W/"deadbeef"` or
+ * `"deadbeef"`) so callers can echo it back as `If-None-Match`
+ * on the next poll. Returns `undefined` for `null`/empty/missing
+ * headers (e.g. on older deployments).
+ */
+export function parseEtag(headers: Headers): string | undefined {
+  const v = headers.get("etag");
+  return v && v.length > 0 ? v : undefined;
+}
+
+/**
+ * Convenience wrapper to perform a conditional GET against any v1
+ * endpoint (since spec v1.6.0). Returns either:
+ *
+ *   - `{ status: "fresh", etag, data }`        - the resource was
+ *                                                  re-sent with a
+ *                                                  new ETag.
+ *   - `{ status: "not-modified", etag }`       - the cached copy
+ *                                                  is still valid;
+ *                                                  no body returned.
+ *
+ * Throws `V1ApiError` for any non-200/304 response (auth failures,
+ * rate limiting, etc) so callers don't need to special-case errors.
+ *
+ * Use it like:
+ *
+ *   const result = await client.conditionalGet<HealthShape>(
+ *     "/api/v1/health",
+ *     previousEtag,
+ *   );
+ *   if (result.status === "fresh") cache.put(result.etag, result.data);
+ */
+export async function conditionalGetWith<T>(
+  client: V1Client,
+  path: string,
+  ifNoneMatch: string | undefined,
+): Promise<
+  | { status: "fresh"; etag: string | undefined; data: T }
+  | { status: "not-modified"; etag: string | undefined }
+> {
+  // We have to reach into the client; expose enough internals
+  // through a bound helper.
+  const internals = client as unknown as {
+    baseUrl: string;
+    apiKey: string;
+    fetchImpl: FetchLike;
+    requestIdFactory?: () => string | undefined;
+  };
+  const headers = new Headers({
+    Authorization: `Bearer ${internals.apiKey}`,
+    Accept: "application/json",
+  });
+  if (ifNoneMatch) headers.set("If-None-Match", ifNoneMatch);
+  if (internals.requestIdFactory) {
+    const candidate = internals.requestIdFactory();
+    if (candidate && REQUEST_ID_RE.test(candidate)) {
+      headers.set("X-Request-Id", candidate);
+    }
+  }
+  const res = await internals.fetchImpl(`${internals.baseUrl}${path}`, {
+    headers,
+  });
+  if (res.status === 304) {
+    return { status: "not-modified", etag: parseEtag(res.headers) };
+  }
+  if (!res.ok) {
+    let code: string | undefined;
+    let message = `HTTP ${res.status} on GET ${path}`;
+    try {
+      const body = (await res.json()) as {
+        error?: { code?: string; message?: string };
+      };
+      if (body?.error?.message) message = body.error.message;
+      code = body?.error?.code;
+    } catch {
+      // Non-JSON error body is fine.
+    }
+    throw new V1ApiError(
+      res.status,
+      message,
+      code,
+      parseRateLimit(res.headers),
+      res.headers.get("x-request-id") ?? undefined,
+    );
+  }
+  const data = (await res.json()) as T;
+  return { status: "fresh", etag: parseEtag(res.headers), data };
+}

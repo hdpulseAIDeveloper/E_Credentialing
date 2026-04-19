@@ -13,6 +13,8 @@ import {
   V1ApiError,
   parseRateLimit,
   parseLinkHeader,
+  parseEtag,
+  conditionalGetWith,
 } from "../../../../src/lib/api-client/v1";
 
 interface MockResponse {
@@ -28,8 +30,11 @@ function makeFetch(responses: MockResponse[]) {
     _init?: RequestInit,
   ): Promise<Response> => {
     const r: MockResponse = responses[i++] ?? { status: 200 };
-    return new Response(r.body ?? JSON.stringify({}), {
-      status: r.status ?? 200,
+    const status = r.status ?? 200;
+    // 1xx / 204 / 304 cannot have a body per the Fetch spec.
+    const allowsBody = status >= 200 && status !== 204 && status !== 304;
+    return new Response(allowsBody ? (r.body ?? JSON.stringify({})) : null, {
+      status,
       headers: r.headers ?? { "content-type": "application/json" },
     });
   };
@@ -348,6 +353,85 @@ describe("V1Client", () => {
       const err = e as V1ApiError;
       expect(err.requestId).toBe("req_server_assigned_999");
     }
+  });
+
+  it("parseEtag returns the raw ETag token from response headers", () => {
+    const headers = new Headers({ etag: 'W/"deadbeef"' });
+    expect(parseEtag(headers)).toBe('W/"deadbeef"');
+  });
+
+  it("parseEtag returns undefined when no ETag header is present", () => {
+    expect(parseEtag(new Headers())).toBeUndefined();
+  });
+
+  it("conditionalGetWith returns 'fresh' on 200 with parsed ETag (v1.6.0)", async () => {
+    const fetchSpy = makeFetch([
+      {
+        status: 200,
+        body: JSON.stringify({ ok: true }),
+        headers: {
+          "content-type": "application/json",
+          etag: 'W/"abc123"',
+        },
+      },
+    ]);
+    const client = new V1Client({
+      baseUrl: "https://api.example.com",
+      apiKey: "k",
+      fetch: fetchSpy as unknown as typeof fetch,
+    });
+    const result = await conditionalGetWith<{ ok: boolean }>(
+      client,
+      "/api/v1/health",
+      undefined,
+    );
+    expect(result.status).toBe("fresh");
+    if (result.status === "fresh") {
+      expect(result.etag).toBe('W/"abc123"');
+      expect(result.data).toEqual({ ok: true });
+    }
+  });
+
+  it("conditionalGetWith forwards If-None-Match when supplied", async () => {
+    const fetchSpy = makeFetch([
+      { status: 304, headers: { etag: 'W/"abc123"' } },
+    ]);
+    const client = new V1Client({
+      baseUrl: "https://api.example.com",
+      apiKey: "k",
+      fetch: fetchSpy as unknown as typeof fetch,
+    });
+    const result = await conditionalGetWith(
+      client,
+      "/api/v1/health",
+      'W/"abc123"',
+    );
+    const [, init] = fetchSpy.mock.calls[0]!;
+    const headers = (init as RequestInit).headers as Headers;
+    expect(headers.get("If-None-Match")).toBe('W/"abc123"');
+    expect(result.status).toBe("not-modified");
+    if (result.status === "not-modified") {
+      expect(result.etag).toBe('W/"abc123"');
+    }
+  });
+
+  it("conditionalGetWith throws V1ApiError on non-200/304 (e.g. 401)", async () => {
+    const fetchSpy = makeFetch([
+      {
+        status: 401,
+        body: JSON.stringify({
+          error: { code: "unauthenticated", message: "missing key" },
+        }),
+      },
+    ]);
+    const client = new V1Client({
+      baseUrl: "https://api.example.com",
+      apiKey: "k",
+      fetch: fetchSpy as unknown as typeof fetch,
+    });
+    await expect(
+      conditionalGetWith(client, "/api/v1/health", undefined),
+    ).rejects.toBeInstanceOf(V1ApiError);
   });
 
   it("parseLinkHeader returns the decoded {rel: url} map (v1.5.0)", () => {

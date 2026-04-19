@@ -20,27 +20,46 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { NextResponse } from "next/server";
 
+import {
+  applyEtagHeader,
+  computeWeakEtagFromBytes,
+  matchesEtag,
+  notModifiedResponse,
+  parseIfNoneMatch,
+} from "@/lib/api/etag";
+
 export const runtime = "nodejs";
 
 let cachedCollection: string | null = null;
+let cachedEtag: string | null = null;
 
-async function loadCollection(): Promise<string> {
-  if (cachedCollection) return cachedCollection;
+async function loadCollection(): Promise<{ json: string; etag: string }> {
+  if (cachedCollection && cachedEtag) {
+    return { json: cachedCollection, etag: cachedEtag };
+  }
   const path = join(process.cwd(), "public", "api", "v1", "postman.json");
   cachedCollection = await readFile(path, "utf-8");
-  return cachedCollection;
+  cachedEtag = computeWeakEtagFromBytes(cachedCollection);
+  return { json: cachedCollection, etag: cachedEtag };
 }
 
-export async function GET(): Promise<NextResponse> {
-  const json = await loadCollection();
-  return new NextResponse(json, {
-    status: 200,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Content-Disposition":
-        'attachment; filename="ecredentialing-v1.postman_collection.json"',
-      "Cache-Control": "public, max-age=300, s-maxage=3600",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
+export async function GET(request: Request): Promise<NextResponse> {
+  const { json, etag } = await loadCollection();
+  const tokens = parseIfNoneMatch(request.headers.get("If-None-Match"));
+  if (matchesEtag(etag, tokens)) {
+    return notModifiedResponse(etag);
+  }
+  return applyEtagHeader(
+    new NextResponse(json, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition":
+          'attachment; filename="ecredentialing-v1.postman_collection.json"',
+        "Cache-Control": "public, max-age=300, s-maxage=3600",
+        "X-Content-Type-Options": "nosniff",
+      },
+    }),
+    etag,
+  );
 }

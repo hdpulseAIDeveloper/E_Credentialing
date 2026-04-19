@@ -7,6 +7,114 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sem
 ## [Unreleased]
 
 ### Added
+- **Wave 17 — Conditional GETs: ETag + If-None-Match
+  (1.5.0 -> 1.6.0) (2026-04-18):** Sixth exercise of the
+  versioning machinery. Adds the canonical REST cache-validation
+  contract on top of every read endpoint so polling integrations
+  drop from ~5 KB/response to ~80 bytes when nothing has changed.
+  - `src/lib/api/etag.ts`: new helper module exporting
+    `computeWeakEtag(payload)` (hashes a canonicalized JSON
+    payload — keys sorted, undefined values dropped, arrays
+    order-preserving — into a `W/"<40-hex>"` weak ETag using
+    SHA-1; pure function, deterministic, ~3x faster than SHA-256
+    and matches GitHub/Stripe/S3/nginx conventions),
+    `computeWeakEtagFromBytes(bytes)` (raw-bytes variant for
+    spec-delivery routes), `parseIfNoneMatch(header)` (handles
+    comma-separated lists, weak/strong tokens, the `*` wildcard,
+    and tolerates extra whitespace), `matchesEtag(current,
+    inboundTokens)` (RFC 9110 §13.1.2 weak comparison —
+    `W/"abc"` matches `"abc"` and vice versa, `*` always
+    matches), `applyEtagHeader(response, etag)` (no-op for
+    falsy etag), `notModifiedResponse(etag, options)` (empty
+    body per RFC 9110 §15.4.5; propagates `X-Request-Id` +
+    rate-limit headers), and the convenience wrapper
+    `evaluateConditionalGet(request, payload)` that combines
+    compute + match + reply into one call.
+  - Wired into 6 cacheable JSON endpoints +
+    3 spec-delivery endpoints:
+    - `src/app/api/v1/health/route.ts`: ETag computed over
+      `{ ok, keyId, apiVersion }` (excludes per-request `time`).
+      `API_VERSION` constant bumped to `"1.6.0"`.
+    - `src/app/api/v1/me/route.ts`: ETag computed over
+      `{ keyId, name, scopes, createdAt, expiresAt }` (excludes
+      `lastUsedAt` and the rate-limit snapshot — both mutate on
+      every authenticated call).
+    - `src/app/api/v1/providers/route.ts`,
+      `src/app/api/v1/providers/[id]/route.ts`,
+      `src/app/api/v1/sanctions/route.ts`,
+      `src/app/api/v1/enrollments/route.ts`: ETag computed over
+      the full JSON envelope.
+    - `src/app/api/v1/openapi.yaml/route.ts`,
+      `src/app/api/v1/openapi.json/route.ts`,
+      `src/app/api/v1/postman.json/route.ts`: ETag computed
+      from the raw bytes of the cached file content; ETag is
+      cached alongside the bytes so the per-request work is
+      just header parsing + a string compare.
+  - `src/app/api/v1/providers/[id]/cv.pdf/route.ts`:
+    intentionally unchanged — binary streams have a different
+    caching strategy (byte-range support, separate ADR pending).
+  - `docs/api/openapi-v1.yaml`: bumped `info.version` to
+    `1.6.0`. Added `components.headers.ETag`,
+    `components.parameters.IfNoneMatchHeader`, and
+    `components.responses.NotModified` (the latter inherits
+    `X-Request-Id` and the rate-limit headers — caches still
+    see the budget on a 304). Attached `IfNoneMatchHeader` +
+    `ETag` header on 200 + `304 NotModified` to all 6 JSON GET
+    operations. Bumped `Health.apiVersion` example to `"1.6.0"`.
+  - `src/lib/api-client/v1-types.ts`,
+    `public/api/v1/postman.json`: regenerated from the spec;
+    both drift gates pass.
+  - `src/lib/api-client/v1.ts`: added `parseEtag(headers)`
+    (reads the raw token off any v1 response) and
+    `conditionalGetWith(client, path, ifNoneMatch)`
+    (one-call conditional GET that returns either
+    `{ status: "fresh", etag, data }` or
+    `{ status: "not-modified", etag }`; throws `V1ApiError`
+    on auth/rate-limit failures so callers don't need to
+    special-case errors). Both helpers are dependency-free;
+    SDK still has zero transitive deps.
+  - `tests/unit/api/etag.test.ts`: 33 unit tests covering all
+    helper functions — weak format, determinism, key-order
+    insensitivity, array order sensitivity, `undefined` value
+    handling, raw-bytes mode (no canonicalization), parser for
+    null/empty/wildcard/single/list/whitespace/junk inputs,
+    weak vs strong comparison, wildcard match, header attach
+    + no-op, 304 builder body emptiness + header propagation,
+    `evaluateConditionalGet` integration scenarios.
+  - `tests/unit/lib/api-client/v1-client.test.ts`: 5 new tests
+    covering `parseEtag` round-trip and `null` fallback,
+    `conditionalGetWith` 200 fresh + 304 cache-hit (with
+    `If-None-Match` forwarding asserted via the fetch spy)
+    + 401 throwing `V1ApiError`. Updated `makeFetch` mock to
+    handle 304 responses correctly (Fetch spec forbids body on
+    304/204).
+  - `tests/contract/pillar-j-openapi.spec.ts`: new "Wave 17"
+    block asserting `components.headers.ETag`,
+    `components.parameters.IfNoneMatchHeader`, and
+    `components.responses.NotModified` exist; and that every
+    JSON GET operation has the `IfNoneMatchHeader` parameter,
+    an `ETag` header on its 200 response, and a 304 response
+    (with `getProviderCv` excluded as a non-JSON operation).
+  - `tests/contract/pillar-j-openapi-json-mirror.spec.ts`,
+    `tests/contract/pillar-j-postman.spec.ts`: updated to pass
+    a `Request` to the route handlers (signature changed from
+    `GET()` to `GET(request: Request)` to support
+    `If-None-Match`).
+  - `docs/changelog/public.md`: published as v1.11.0 (API).
+  - `docs/api/versioning.md`: status -> spec 1.6.0; new §3.6
+    Conditional GETs (cacheable-subset table per endpoint, 304
+    response shape rules, opaqueness contract for the ETag
+    value, breaking-change rules); quick-reference entry added.
+  - `src/app/sandbox/page.tsx`: new "Conditional GETs" section
+    with curl example showing the 200 -> 304 round-trip and SDK
+    pointer.
+  - **Non-breaking.** The `ETag` header is purely additive on
+    200 responses. Clients that don't send `If-None-Match` are
+    unaffected; the `304 Not Modified` response only fires when
+    the client explicitly opts in.
+  - Test count: 1641 passing (up from 1599: +33 helper, +5 SDK,
+    +4 contract = +42).
+
 - **Wave 16 — Standard pagination Link headers (RFC 8288)
   (1.4.0 -> 1.5.0) (2026-04-18):** Fifth exercise of the
   versioning machinery. Adds the conventional REST pagination

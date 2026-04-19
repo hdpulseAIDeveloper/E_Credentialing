@@ -118,8 +118,12 @@ describe("pillar-J: Postman collection parity", () => {
   });
 
   describe("/api/v1/postman.json route handler", () => {
+    function freshRequest(): Request {
+      return new Request("https://x/api/v1/postman.json");
+    }
+
     it("responds 200 with application/json + attachment disposition", async () => {
-      const res = await getPostman();
+      const res = await getPostman(freshRequest());
       expect(res.status).toBe(200);
       expect(res.headers.get("content-type") ?? "").toMatch(/application\/json/);
       expect(res.headers.get("content-disposition") ?? "").toMatch(
@@ -128,7 +132,7 @@ describe("pillar-J: Postman collection parity", () => {
     });
 
     it("body parses as the same Postman collection", async () => {
-      const res = await getPostman();
+      const res = await getPostman(freshRequest());
       const body = JSON.parse(await res.text()) as {
         info: { schema: string };
       };

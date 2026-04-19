@@ -1,7 +1,7 @@
 # Public REST API — Versioning, Deprecation, and Sunset Policy
 
-- **Status:** v1 — current stable (spec `1.5.0`)
-- **Last reviewed:** 2026-04-18 (Wave 16)
+- **Status:** v1 — current stable (spec `1.6.0`)
+- **Last reviewed:** 2026-04-18 (Wave 17)
 - **Related:**
   ADR [0020](../dev/adr/0020-openapi-v1-spec.md) (OpenAPI spec),
   ADR [0022](../dev/adr/0022-public-rest-v1-sdk.md) (TypeScript SDK),
@@ -264,6 +264,70 @@ Removing the header, renaming any `rel` value, dropping query
 parameters from link targets, or emitting non-absolute URLs would
 be a breaking change and require a `/api/v2/`.
 
+## 3.6 Conditional GETs — ETag + If-None-Match (since spec v1.6.0)
+
+Every read endpoint emits a weak `ETag` response header (per
+[RFC 9110 §8.8.3](https://www.rfc-editor.org/rfc/rfc9110#section-8.8.3))
+derived from a stable hash of the *cacheable subset* of the
+response body. Clients echo it back as `If-None-Match: "<etag>"`
+on the next request; the server compares using weak comparison
+(RFC 9110 §13.1.2) and returns either the full body with a fresh
+ETag (`200`) or an empty body (`304 Not Modified`) when nothing
+has changed. This is the conventional REST cache-validation
+pattern (also used by GitHub, Stripe, AWS S3, npm registry).
+
+Wired into:
+
+| Endpoint | Cacheable subset (what the ETag covers) |
+|---|---|
+| `GET /api/v1/health` | `{ ok, keyId, apiVersion }` (excludes `time`) |
+| `GET /api/v1/me` | `{ keyId, name, scopes, createdAt, expiresAt }` (excludes `lastUsedAt`, `rateLimit`) |
+| `GET /api/v1/providers` | full JSON envelope |
+| `GET /api/v1/providers/{id}` | full JSON envelope |
+| `GET /api/v1/sanctions` | full JSON envelope |
+| `GET /api/v1/enrollments` | full JSON envelope |
+| `GET /api/v1/openapi.yaml` | raw response bytes |
+| `GET /api/v1/openapi.json` | raw response bytes |
+| `GET /api/v1/postman.json` | raw response bytes |
+
+`GET /api/v1/providers/{id}/cv.pdf` is intentionally excluded
+this release — binary streams have a different caching strategy
+(byte-range support, separate ADR pending).
+
+The `304 Not Modified` response carries `ETag`, `X-Request-Id`,
+and the rate-limit headers but has an empty body (RFC 9110
+§15.4.5). Cached requests still count against the customer's
+rate-limit budget — visible via the `X-RateLimit-*` headers on
+the 304.
+
+ETag format is **always weak** (`W/"<40-hex>"`). The hash
+algorithm (currently SHA-1) is an internal detail and can change
+without notice; clients must treat the value as opaque. Send
+`If-None-Match: *` (RFC 9110 §13.1.2) to match any current
+representation.
+
+The TypeScript SDK exposes two helpers:
+
+```ts
+import { parseEtag, conditionalGetWith } from "@e-credentialing/api-client";
+
+const result = await conditionalGetWith<HealthShape>(
+  client,
+  "/api/v1/health",
+  cachedEtag,
+);
+if (result.status === "fresh") {
+  cache.put(result.etag, result.data);
+} else {
+  // result.status === "not-modified" — keep using the cached copy.
+}
+```
+
+Removing the header, switching to strong validators without
+opt-in, requiring `If-None-Match` (i.e. returning `412 Precondition
+Failed` on absence), or breaking the weak comparison contract
+would all be breaking changes and require a `/api/v2/`.
+
 ## 4. Major-version overlap window
 
 When `/api/v2` ships:
@@ -320,6 +384,7 @@ The following invariants MUST be preserved:
 - "What rate-limit headers must I emit?" → §3.3.
 - "What request-id headers must I emit?" → §3.4.
 - "How do I emit pagination Link headers?" → §3.5.
+- "How do I add ETag support to a new endpoint?" → §3.6.
 - "How do I document this deprecation in the spec?" → §3.2.
 - "When can I ship `/api/v2`?" → After at least one of:
   - Required customer feature that can't ship in v1, OR

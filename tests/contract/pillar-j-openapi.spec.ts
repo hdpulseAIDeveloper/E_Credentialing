@@ -187,6 +187,70 @@ describe("pillar-J: OpenAPI 3.1 contract", () => {
     });
   });
 
+  describe("Wave 17: ETag + If-None-Match conditional GET contract", () => {
+    it("declares components.headers.ETag", () => {
+      const headers = (SPEC as { components?: { headers?: Record<string, unknown> } })
+        .components?.headers ?? {};
+      expect(headers.ETag, "missing components.headers.ETag").toBeTruthy();
+    });
+
+    it("declares components.parameters.IfNoneMatchHeader", () => {
+      const params = (SPEC as { components?: { parameters?: Record<string, unknown> } })
+        .components?.parameters ?? {};
+      expect(
+        params.IfNoneMatchHeader,
+        "missing components.parameters.IfNoneMatchHeader",
+      ).toBeTruthy();
+    });
+
+    it("declares components.responses.NotModified", () => {
+      const responses = (SPEC as { components?: { responses?: Record<string, unknown> } })
+        .components?.responses ?? {};
+      expect(
+        responses.NotModified,
+        "missing components.responses.NotModified",
+      ).toBeTruthy();
+    });
+
+    it("attaches ETag header + 304 response to every JSON GET operation", () => {
+      // Routes that return non-JSON (binary) bodies are explicitly
+      // out-of-scope for ETag this wave; the cv.pdf endpoint has its
+      // own caching strategy.
+      const NON_JSON_OPERATIONS = new Set(["getProviderCv"]);
+      const failures: string[] = [];
+
+      for (const [pathName, methods] of Object.entries(SPEC.paths)) {
+        const get = (methods as Record<string, unknown>).get as
+          | {
+              operationId?: string;
+              parameters?: Array<{ $ref?: string }>;
+              responses?: Record<string, { headers?: Record<string, unknown> }>;
+            }
+          | undefined;
+        if (!get) continue;
+        if (NON_JSON_OPERATIONS.has(get.operationId ?? "")) continue;
+
+        const has304 = !!get.responses?.["304"];
+        if (!has304) {
+          failures.push(`GET ${pathName} missing 304 response`);
+          continue;
+        }
+        const has200 = !!get.responses?.["200"];
+        if (has200 && !get.responses?.["200"]?.headers?.ETag) {
+          failures.push(`GET ${pathName} 200 missing ETag header`);
+        }
+        const params = get.parameters ?? [];
+        const hasIfNoneMatch = params.some(
+          (p) => p?.$ref === "#/components/parameters/IfNoneMatchHeader",
+        );
+        if (!hasIfNoneMatch) {
+          failures.push(`GET ${pathName} missing IfNoneMatchHeader parameter`);
+        }
+      }
+      expect(failures, failures.join("\n")).toEqual([]);
+    });
+  });
+
   describe("Wave 16: RFC 8288 pagination Link header contract", () => {
     it("declares components.headers.Link", () => {
       const headers = (SPEC as { components?: { headers?: Record<string, unknown> } })

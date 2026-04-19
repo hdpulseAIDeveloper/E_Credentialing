@@ -5,6 +5,11 @@ import { authenticateApiKey, requireScope } from "../middleware";
 import { applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { applyRequestIdHeader, resolveRequestId } from "@/lib/api/request-id";
 import { applyPaginationLinkHeader } from "@/lib/api/pagination-links";
+import {
+  applyEtagHeader,
+  evaluateConditionalGet,
+  notModifiedResponse,
+} from "@/lib/api/etag";
 import { auditApiRequest } from "@/lib/api/audit-api";
 
 export async function GET(request: Request) {
@@ -44,6 +49,29 @@ export async function GET(request: Request) {
     }),
   ]);
 
+  const totalPages = Math.ceil(total / limit);
+  const responseBody = {
+    data: enrollments,
+    pagination: { page, limit, total, totalPages },
+  };
+  const conditional = evaluateConditionalGet(request, responseBody);
+
+  if (conditional.status === "not-modified") {
+    void auditApiRequest({
+      apiKeyId: auth.keyId!,
+      method: "GET",
+      path: "/api/v1/enrollments",
+      status: 304,
+      resultCount: 0,
+      query: { status, payer: payerName, page: String(page), limit: String(limit) },
+      requestId,
+    });
+    return notModifiedResponse(conditional.etag, {
+      requestId,
+      rateLimit: auth.rateLimit,
+    });
+  }
+
   void auditApiRequest({
     apiKeyId: auth.keyId!,
     method: "GET",
@@ -54,14 +82,13 @@ export async function GET(request: Request) {
     requestId,
   });
 
-  const totalPages = Math.ceil(total / limit);
   return applyRequestIdHeader(
     applyPaginationLinkHeader(
       applyRateLimitHeaders(
-        NextResponse.json({
-          data: enrollments,
-          pagination: { page, limit, total, totalPages },
-        }),
+        applyEtagHeader(
+          NextResponse.json(responseBody),
+          conditional.etag,
+        ),
         auth.rateLimit,
       ),
       request.url,

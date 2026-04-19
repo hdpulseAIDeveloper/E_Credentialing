@@ -23,21 +23,25 @@ import { join } from "node:path";
 import * as yaml from "js-yaml";
 import { GET as getJson } from "../../src/app/api/v1/openapi.json/route";
 
+function freshRequest(): Request {
+  return new Request("https://x/api/v1/openapi.json");
+}
+
 describe("pillar-J: /api/v1/openapi.json mirrors /api/v1/openapi.yaml", () => {
   it("the JSON mirror responds 200 with application/json", async () => {
-    const res = await getJson();
+    const res = await getJson(freshRequest());
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type") ?? "").toMatch(/application\/json/);
   });
 
   it("body parses as a valid JSON document", async () => {
-    const res = await getJson();
+    const res = await getJson(freshRequest());
     const text = await res.text();
     expect(() => JSON.parse(text)).not.toThrow();
   });
 
   it("is deep-equal to the parsed YAML source of truth", async () => {
-    const res = await getJson();
+    const res = await getJson(freshRequest());
     const fromMirror = JSON.parse(await res.text());
 
     const yamlPath = join(process.cwd(), "docs", "api", "openapi-v1.yaml");
@@ -47,7 +51,7 @@ describe("pillar-J: /api/v1/openapi.json mirrors /api/v1/openapi.yaml", () => {
   });
 
   it("declares the same OpenAPI version + info as the YAML source", async () => {
-    const res = await getJson();
+    const res = await getJson(freshRequest());
     const doc = JSON.parse(await res.text()) as {
       openapi?: string;
       info?: { title?: string; version?: string };
@@ -58,7 +62,7 @@ describe("pillar-J: /api/v1/openapi.json mirrors /api/v1/openapi.yaml", () => {
   });
 
   it("emits sensible cache headers (5min browser, 1h CDN)", async () => {
-    const res = await getJson();
+    const res = await getJson(freshRequest());
     const cc = res.headers.get("cache-control") ?? "";
     expect(cc).toMatch(/max-age=300/);
     expect(cc).toMatch(/s-maxage=3600/);
