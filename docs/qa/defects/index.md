@@ -37,6 +37,7 @@ when the issues are picked up):
 | DEF-0012       | **Closed (fixed)**   | `.dockerignore` excluded runtime-needed `docs/` subtrees → `/changelog` 500 + degraded public-API artifacts | Q,S    | 2026-04-19 | 2026-04-19 |
 | DEF-0013       | **Closed (fixed)**   | `/api/v1/postman.json` 500 — Next.js public-vs-route URL collision (artifact moved to `data/`) | J,S    | 2026-04-19 | 2026-04-19 |
 | DEF-0014       | **Closed (fixed)**   | Lazy-compile dev loop returned ("every link feels slow the first time") — Turbopack-default + dynamic-route warmer + Pillar S Surface 7 budget gate | S      | 2026-04-19 | 2026-04-19 |
+| DEF-0015       | **Closed (fixed)**   | Production worker build broken — `tsconfig.worker.json` blanket `src/lib/**/*` include pulled `src/lib/billing/stripe-client.ts` → `@/env` → `@t3-oss/env-nextjs` (modern `exports` package) into the legacy `moduleResolution: "node"` worker compile, failing the `ecred-worker-prod` Dockerfile build at step 9/9 | S      | 2026-04-19 | 2026-04-19 |
 
 DEF-0003 and DEF-0004 were the original failures named in `STANDARD.md`
 §10 that this entire QA Standard exists to prevent from recurring

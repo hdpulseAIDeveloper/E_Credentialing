@@ -13,5 +13,15 @@
     "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src/workers/**/*", "src/lib/**/*", "src/server/db.ts"],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "src/lib/api/**",
+    "src/lib/api-client/**",
+    "src/lib/ai/**",
+    "src/lib/auditor/**",
+    "src/lib/billing/**",
+    "src/lib/changelog/**",
+    "src/lib/legal/**",
+    "src/lib/sandbox/**"
+  ]
 }
