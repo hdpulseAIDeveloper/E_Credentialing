@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: E-Credentialing CVO Platform — Public REST API v1
-  version: "1.0.0"
+  version: "1.1.0"
   summary: Read-only public REST API for the E-Credentialing CVO platform.
   description: |
     The v1 surface is intentionally read-only. Every request requires
@@ -26,6 +26,8 @@ servers:
 security:
   - BearerApiKey: []
 tags:
+  - name: health
+    description: Customer-facing API key + environment health probe.
   - name: providers
     description: Provider directory + provider details + CV PDF.
   - name: sanctions
@@ -34,6 +36,38 @@ tags:
     description: Payer enrollment status.
 
 paths:
+  /api/v1/health:
+    get:
+      tags: [health]
+      summary: API key + environment health probe
+      description: |
+        Verifies that the supplied API key is active and that the
+        environment is reachable. Returns the keyId so the caller can
+        confirm which key is in use without echoing the secret, the
+        API surface version, and a server-side timestamp for
+        clock-skew checks.
+
+        Authentication: ANY active API key. Unlike every other v1
+        operation, this endpoint does NOT require a specific scope
+        — a brand-new, scopeless key returns 200 here. This makes
+        it the natural first call when wiring up the SDK.
+
+        Versioning: shipped in v1.1.0 (SemVer minor — additive
+        only). See `docs/api/versioning.md`.
+      operationId: getHealth
+      responses:
+        "200":
+          description: Healthy.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+        "401":
+          description: Missing, invalid, expired, or revoked API key.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
   /api/v1/providers:
     get:
       tags: [providers]
@@ -241,6 +275,34 @@ components:
         limit: { type: integer, minimum: 1, maximum: 100 }
         total: { type: integer, minimum: 0 }
         totalPages: { type: integer, minimum: 0 }
+
+    Health:
+      type: object
+      description: |
+        Result of `GET /api/v1/health`. Confirms the supplied API key
+        is active and the environment is reachable. Never includes
+        PHI or customer-specific business data beyond the keyId
+        fingerprint.
+      required: [ok, keyId, apiVersion, time]
+      properties:
+        ok:
+          type: boolean
+          description: Always `true` on a 200 response. Reserved for forward-compat.
+          example: true
+        keyId:
+          type: string
+          format: cuid
+          description: Identifier of the active API key (NOT the secret).
+          example: "ck0jm0a4e0000abcd1234efgh"
+        apiVersion:
+          type: string
+          description: Semver version of the v1 surface (matches `info.version`).
+          example: "1.1.0"
+        time:
+          type: string
+          format: date-time
+          description: Server-side ISO-8601 UTC timestamp for clock-skew checks.
+          example: "2026-04-18T20:45:00.000Z"
 
     ProviderStatus:
       type: string

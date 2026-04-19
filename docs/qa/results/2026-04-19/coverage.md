@@ -2,7 +2,7 @@
 
 ```
 Routes covered:    66 of 66
-API cells covered: 55 of 55
+API cells covered: 56 of 56
 tRPC covered:      219 of 219
 Per-screen cards:  66 of 66
 Pillars touched:   A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R

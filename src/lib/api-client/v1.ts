@@ -97,6 +97,17 @@ export class V1Client {
     return (await res.json()) as T;
   }
 
+  // ---- health ----
+
+  /**
+   * `GET /api/v1/health` — verifies the API key is active and the
+   * environment is reachable. The natural first call when wiring
+   * up a new client. Available since v1.1.0.
+   */
+  health(): Promise<components["schemas"]["Health"]> {
+    return this.request("GET", "/api/v1/health");
+  }
+
   // ---- providers ----
 
   listProviders(

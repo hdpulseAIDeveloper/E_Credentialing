@@ -17,6 +17,20 @@ Anti-weakening: never delete a release. Strike-through a published
 note instead and add a follow-up release if the underlying claim
 turned out to be incorrect.
 
+## 2026-04-18 — v1.6.0 (API)
+
+### Added
+- **Public REST API `v1.1.0` — `/api/v1/health` endpoint.** A
+  customer-facing health probe that verifies an API key is active
+  and the environment is reachable. Requires a valid Bearer key but
+  no specific scope, so it's the natural first call when wiring up
+  a new integration. Returns `{ ok, keyId, apiVersion, time }`.
+  Documented in the OpenAPI 3.1 spec at `/api/v1/openapi.yaml`,
+  available in the TypeScript SDK as `client.health()`, and present
+  in the Postman collection at `/api/v1/postman.json`. This is a
+  **non-breaking minor bump** under our published API versioning
+  policy (URL-path major + SemVer minor for additive surfaces).
+
 ## 2026-04-18 — v1.5.0
 
 ### Added

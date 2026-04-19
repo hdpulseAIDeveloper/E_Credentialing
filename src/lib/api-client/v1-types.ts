@@ -4,6 +4,38 @@
  */
 
 export interface paths {
+    "/api/v1/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * API key + environment health probe
+         * @description Verifies that the supplied API key is active and that the
+         *     environment is reachable. Returns the keyId so the caller can
+         *     confirm which key is in use without echoing the secret, the
+         *     API surface version, and a server-side timestamp for
+         *     clock-skew checks.
+         *
+         *     Authentication: ANY active API key. Unlike every other v1
+         *     operation, this endpoint does NOT require a specific scope
+         *     — a brand-new, scopeless key returns 200 here. This makes
+         *     it the natural first call when wiring up the SDK.
+         *
+         *     Versioning: shipped in v1.1.0 (SemVer minor — additive
+         *     only). See `docs/api/versioning.md`.
+         */
+        get: operations["getHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/providers": {
         parameters: {
             query?: never;
@@ -117,6 +149,36 @@ export interface components {
             limit: number;
             total: number;
             totalPages: number;
+        };
+        /**
+         * @description Result of `GET /api/v1/health`. Confirms the supplied API key
+         *     is active and the environment is reachable. Never includes
+         *     PHI or customer-specific business data beyond the keyId
+         *     fingerprint.
+         */
+        Health: {
+            /**
+             * @description Always `true` on a 200 response. Reserved for forward-compat.
+             * @example true
+             */
+            ok: boolean;
+            /**
+             * Format: cuid
+             * @description Identifier of the active API key (NOT the secret).
+             * @example ck0jm0a4e0000abcd1234efgh
+             */
+            keyId: string;
+            /**
+             * @description Semver version of the v1 surface (matches `info.version`).
+             * @example 1.1.0
+             */
+            apiVersion: string;
+            /**
+             * Format: date-time
+             * @description Server-side ISO-8601 UTC timestamp for clock-skew checks.
+             * @example 2026-04-18T20:45:00.000Z
+             */
+            time: string;
         };
         /**
          * @description Lifecycle stage of the provider record.
@@ -279,6 +341,36 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Healthy. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Health"];
+                };
+            };
+            /** @description Missing, invalid, expired, or revoked API key. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+        };
+    };
     listProviders: {
         parameters: {
             query?: {

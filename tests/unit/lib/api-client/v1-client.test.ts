@@ -154,6 +154,32 @@ describe("V1Client", () => {
     }
   });
 
+  it("health() calls GET /api/v1/health and returns the typed envelope", async () => {
+    const fetchSpy = makeFetch([
+      {
+        status: 200,
+        body: JSON.stringify({
+          ok: true,
+          keyId: "ck_test_abc",
+          apiVersion: "1.1.0",
+          time: "2026-04-18T20:45:00.000Z",
+        }),
+      },
+    ]);
+    const client = new V1Client({
+      baseUrl: "https://api.example.com",
+      apiKey: "k",
+      fetch: fetchSpy as unknown as typeof fetch,
+    });
+    const result = await client.health();
+    const [url, init] = fetchSpy.mock.calls[0]!;
+    expect(url).toBe("https://api.example.com/api/v1/health");
+    expect((init as RequestInit).method).toBe("GET");
+    expect(result.ok).toBe(true);
+    expect(result.keyId).toBe("ck_test_abc");
+    expect(result.apiVersion).toBe("1.1.0");
+  });
+
   it("falls back to a generic error message when body is non-JSON", async () => {
     const fetchSpy = makeFetch([
       {

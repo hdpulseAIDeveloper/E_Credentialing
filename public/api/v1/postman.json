@@ -1,9 +1,9 @@
 {
   "info": {
-    "name": "E-Credentialing CVO Platform — Public REST API v1 (v1.0.0)",
+    "name": "E-Credentialing CVO Platform — Public REST API v1 (v1.1.0)",
     "description": "The v1 surface is intentionally read-only. Every request requires\na Bearer API key with the appropriate scope; every request is\naudited; PHI fields (SSN, DOB, DEA, personal address, notes) are\nNEVER returned regardless of scope.\n\nFor a no-auth playground using synthetic data, see\n`/api/sandbox/v1/*` (documented at `/sandbox`).\n\nWave 8 (2026-04-18). See ADR 0020 and `docs/qa/per-pillar/pillar-j-api.md`.\n\nAuto-generated from `docs/api/openapi-v1.yaml`.\nDo not hand-edit — regenerate via `npm run postman:gen`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "auth": {
     "type": "bearer",
@@ -69,6 +69,37 @@
               ]
             },
             "description": "List payer enrollments"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "health",
+      "item": [
+        {
+          "name": "getHealth",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "health"
+              ]
+            },
+            "description": "Verifies that the supplied API key is active and that the\nenvironment is reachable. Returns the keyId so the caller can\nconfirm which key is in use without echoing the secret, the\nAPI surface version, and a server-side timestamp for\nclock-skew checks.\n\nAuthentication: ANY active API key. Unlike every other v1\noperation, this endpoint does NOT require a specific scope\n— a brand-new, scopeless key returns 200 here. This makes\nit the natural first call when wiring up the SDK.\n\nVersioning: shipped in v1.1.0 (SemVer minor — additive\nonly). See `docs/api/versioning.md`.\n"
           },
           "response": []
         }
