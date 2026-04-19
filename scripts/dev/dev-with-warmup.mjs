@@ -26,7 +26,23 @@ function log(msg) {
   process.stdout.write(`[dev:warm] ${msg}\n`);
 }
 
-const next = spawn("npx", ["next", "dev", "-p", PORT], {
+// FORCE_WEBPACK=1 escape hatch for the rare case where a Turbopack
+// regression blocks dev-loop work; the standard (`docs/qa/STANDARD.md`
+// §11) is Turbopack-by-default and any opt-out MUST be paired with a
+// defect card. Turbopack is the single biggest dev-loop performance
+// win available — typical compile times drop from 5–15s/route
+// (webpack) to 100–500ms/route (Turbopack), eliminating the "every
+// link feels slow" experience that triggered DEF-0014.
+const USE_WEBPACK = process.env.FORCE_WEBPACK === "1";
+const nextArgs = USE_WEBPACK
+  ? ["next", "dev", "-p", PORT]
+  : ["next", "dev", "--turbo", "-p", PORT];
+log(
+  USE_WEBPACK
+    ? "FORCE_WEBPACK=1 — using webpack dev compiler (slower; DEF-0014 risk)"
+    : "using Turbopack dev compiler (per STANDARD.md §11; set FORCE_WEBPACK=1 to override)",
+);
+const next = spawn("npx", nextArgs, {
   cwd: REPO_ROOT,
   stdio: ["inherit", "pipe", "pipe"],
   env: process.env,

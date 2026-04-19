@@ -30,7 +30,13 @@ when the issues are picked up):
 | DEF-0006       | **Closed (fixed)**  | `<select>` on `/dashboard` missing accessible name (WCAG 4.1.2)                | E      | 2026-04-17 | 2026-04-17 |
 | DEF-INFRA-0001 | **Closed (fixed)**  | Pillar runs against `next dev` are unstable for E2E (production-build mode)   | All    | 2026-04-17 | 2026-04-18 |
 | DEF-0007       | **Closed (fixed)**  | `/errors` HTML pages redirect anonymous visitors (Wave 21 contract regression) | A,J    | 2026-04-19 | 2026-04-19 |
-| DEF-0008       | Open — **Escalated** | Systemic drift: middleware public allow-list out of sync with `route-inventory.json` `group:public` (PRE-EXISTING, ≥7 affected routes) | A,B,Q  | 2026-04-19 | —          |
+| DEF-0008       | **Closed (fixed)**   | Systemic drift: middleware public allow-list out of sync with `route-inventory.json` `group:public` (PRE-EXISTING, ≥7 affected routes) | A,B,Q  | 2026-04-19 | 2026-04-19 |
+| DEF-0009       | **Closed (fixed)**   | Sign-in dead on the deployed dev stack (3 stacked root causes: stale named volumes, unapplied Prisma migrations, Dockerfile postinstall ordering) | S      | 2026-04-19 | 2026-04-19 |
+| DEF-0010       | **Closed (fixed)**   | Public marketing homepage `/` rendered without a `<main>` landmark (a11y + Pillar S Surface 5 invariant) | E,S    | 2026-04-19 | 2026-04-19 |
+| DEF-0011       | **Closed (fixed)**   | `route-inventory.json` mis-classified `/settings/billing` + `/settings/compliance` as `group:public` (build-time vs runtime contract drift) | Q,S    | 2026-04-19 | 2026-04-19 |
+| DEF-0012       | **Closed (fixed)**   | `.dockerignore` excluded runtime-needed `docs/` subtrees → `/changelog` 500 + degraded public-API artifacts | Q,S    | 2026-04-19 | 2026-04-19 |
+| DEF-0013       | **Closed (fixed)**   | `/api/v1/postman.json` 500 — Next.js public-vs-route URL collision (artifact moved to `data/`) | J,S    | 2026-04-19 | 2026-04-19 |
+| DEF-0014       | **Closed (fixed)**   | Lazy-compile dev loop returned ("every link feels slow the first time") — Turbopack-default + dynamic-route warmer + Pillar S Surface 7 budget gate | S      | 2026-04-19 | 2026-04-19 |
 
 DEF-0003 and DEF-0004 were the original failures named in `STANDARD.md`
 §10 that this entire QA Standard exists to prevent from recurring

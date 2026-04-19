@@ -211,12 +211,17 @@ async function loadRoutes() {
   for (const p of candidates) {
     try {
       const json = JSON.parse(await readFile(p, "utf8"));
-      const routes = json
+      const staticRoutes = json
         .filter((r) => !r.dynamic)
         .map((r) => r.route);
-      if (routes.length > 0) {
-        log(`loaded ${routes.length} static routes from ${p}`);
-        return routes;
+      const dynamicRoutes = json
+        .filter((r) => r.dynamic)
+        .map((r) => r.route);
+      if (staticRoutes.length > 0) {
+        log(
+          `loaded ${staticRoutes.length} static + ${dynamicRoutes.length} dynamic routes from ${p}`,
+        );
+        return { static: staticRoutes, dynamic: dynamicRoutes };
       }
     } catch {
       // try next
@@ -225,7 +230,85 @@ async function loadRoutes() {
   log(
     `route inventory not found; using ${FALLBACK_ROUTES.length}-route fallback list (run \`npm run qa:inventory\` to enable full coverage)`,
   );
-  return FALLBACK_ROUTES;
+  return { static: FALLBACK_ROUTES, dynamic: [] };
+}
+
+/**
+ * Map every dynamic route template (e.g. `/providers/[id]`) to its
+ * "parent list page" (e.g. `/providers`). The list page is the surface
+ * the user will most likely click into a detail page from, and its
+ * rendered HTML usually contains href="/providers/<real-id>" links we
+ * can harvest as sample URLs to warm the dynamic page module.
+ *
+ * We deliberately keep this self-discovering (parse list HTML) rather
+ * than DB-querying so the warmer has zero new schema dependencies and
+ * works against any seed state. If a list page yields no harvestable
+ * href, we fall back to a synthetic UUID-shaped placeholder — the
+ * dynamic page MODULE compiles regardless of whether the loader finds
+ * a row, so even a 404 response from `/providers/<bad-uuid>` warms
+ * the entire route tree (RootLayout → (staff)Layout →
+ * providers/[id]/layout → providers/[id]/page).
+ *
+ * Synthetic placeholder for unmappable routes (e.g. `/admin/ai-governance/[id]`
+ * if the list page hasn't been seeded yet).
+ */
+const SYNTHETIC_SAMPLE = "00000000-0000-0000-0000-000000000000";
+
+function parentListFor(dynamicRoute) {
+  // `/providers/[id]` -> `/providers`
+  // `/committee/sessions/[id]` -> `/committee/sessions`
+  // `/compliance/[framework]/[id]` -> we want `/compliance` (the topmost
+  //   non-dynamic ancestor) so we have a list to harvest from.
+  // `/errors/[code]` -> `/errors`
+  const segments = dynamicRoute.split("/").filter(Boolean);
+  const upToFirstDyn = [];
+  for (const seg of segments) {
+    if (seg.startsWith("[")) break;
+    upToFirstDyn.push(seg);
+  }
+  if (upToFirstDyn.length === 0) return "/";
+  return "/" + upToFirstDyn.join("/");
+}
+
+/**
+ * Harvest the first href that matches a `/<parent>/<id>` shape from a
+ * list page's HTML. Returns null if none found.
+ */
+function harvestSampleHref(html, parent) {
+  // Match href="/providers/<id>" — id can be a uuid, a numeric, or a
+  // slug. Stop at any `?`, `#`, `"`, or further `/` to keep just the
+  // first id segment.
+  const escapedParent = parent.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`href=["']${escapedParent}/([^"'#?/]+)`, "g");
+  const m = re.exec(html);
+  return m ? `${parent}/${m[1]}` : null;
+}
+
+async function expandDynamicRoutes(dynamicRoutes) {
+  const expanded = [];
+  for (const dyn of dynamicRoutes) {
+    const parent = parentListFor(dyn);
+    let sampleHref = null;
+    try {
+      const res = await fetchWithJar(`${BASE_URL}${parent}`, {
+        redirect: "manual",
+      });
+      if (res.ok) {
+        const html = await res.text();
+        sampleHref = harvestSampleHref(html, parent);
+      }
+    } catch {
+      // ignore; fall back to synthetic
+    }
+    if (!sampleHref) {
+      // Build a synthetic URL by replacing each `[xxx]` with the
+      // synthetic id placeholder. Safe because Next.js compiles the
+      // route module regardless of whether the loader resolves a row.
+      sampleHref = dyn.replace(/\[[^\]]+\]/g, SYNTHETIC_SAMPLE);
+    }
+    expanded.push({ template: dyn, url: sampleHref });
+  }
+  return expanded;
 }
 
 async function warmOne(route) {
@@ -261,22 +344,19 @@ async function main() {
       `WARN login failed (${err.message}); will warm public routes only — protected routes will compile on first user click`,
     );
   }
-  const routes = await loadRoutes();
-  const t0 = Date.now();
+  const { static: staticRoutes, dynamic: dynamicTemplates } = await loadRoutes();
 
-  // Sequential — Next dev compilation is single-threaded per process.
+  // Pass 1 — warm every static route.
+  const t0 = Date.now();
   let slow = 0;
   let fail = 0;
   let auth307 = 0;
-  for (const route of routes) {
+  for (const route of staticRoutes) {
     const r = await warmOne(route);
     if (!r.ok) {
       fail++;
       log(`  FAIL ${route} (${r.ms}ms): ${r.err}`);
     } else {
-      // Status 307 with no session means the warmer never authenticated
-      // and the route never actually compiled. Track separately so the
-      // user knows.
       if (r.status === 307 && jar.size === 0) auth307++;
       const flag = r.ms > 5000 ? "  SLOW" : "";
       if (r.ms > 5000) slow++;
@@ -284,9 +364,39 @@ async function main() {
     }
   }
 
+  // Pass 2 — warm every dynamic route via a harvested or synthetic
+  // sample id. The dynamic page MODULE compiles regardless of the
+  // sample's validity, so even a 404 response warms the route tree.
+  // This closes the DEF-0014 hole where the user's first click into
+  // any /providers/[id], /committee/sessions/[id], etc. paid the full
+  // 5–15 second compile cost interactively.
+  let dynSlow = 0;
+  let dynFail = 0;
+  if (dynamicTemplates.length > 0) {
+    log(`expanding ${dynamicTemplates.length} dynamic routes…`);
+    const expanded = await expandDynamicRoutes(dynamicTemplates);
+    for (const { template, url } of expanded) {
+      const r = await warmOne(url);
+      if (!r.ok) {
+        dynFail++;
+        log(`  FAIL ${template} via ${url} (${r.ms}ms): ${r.err}`);
+      } else {
+        const synthetic = url.includes(SYNTHETIC_SAMPLE) ? " (synthetic id)" : "";
+        const flag = r.ms > 5000 ? "  SLOW" : "";
+        if (r.ms > 5000) dynSlow++;
+        log(
+          `  ${String(r.status).padStart(3)} ${template} via ${url}${synthetic} (${r.ms}ms)${flag}`,
+        );
+      }
+    }
+  }
+
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+  const totalRoutes = staticRoutes.length + dynamicTemplates.length;
+  const totalSlow = slow + dynSlow;
+  const totalFail = fail + dynFail;
   log(
-    `done: ${routes.length} routes warmed in ${elapsed}s (${slow} slow > 5s, ${fail} failed${auth307 ? `, ${auth307} unauthenticated 307s` : ""}) — clicks should now feel instant`,
+    `done: ${totalRoutes} routes warmed (${staticRoutes.length} static + ${dynamicTemplates.length} dynamic) in ${elapsed}s — ${totalSlow} slow > 5s, ${totalFail} failed${auth307 ? `, ${auth307} unauthenticated 307s` : ""} — clicks should now feel instant`,
   );
 }
 

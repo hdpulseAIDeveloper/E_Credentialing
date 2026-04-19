@@ -3,7 +3,7 @@
 **Status:** BINDING. This document is the canonical, versioned testing standard for
 the ESSEN Credentialing Platform and for every future HDPulseAI product unless an
 explicit ADR supersedes a clause.
-**Version:** 1.2.0 (2026-04-19)
+**Version:** 1.3.0 (2026-04-19)
 **Owner:** QA Standard Owner (see `## 9. Roles & governance`)
 **Audience:** every human and AI agent that writes, reviews, or merges code into
 this repository, plus any future repository that adopts this standard.
@@ -247,6 +247,23 @@ None of them may be downgraded to a warning, screenshot, or "known issue":
     and recreate. (Added in 1.2.0; closes the
     `ecred_web_node_modules` / `ecred_web_next_cache` root cause of
     DEF-0009.)
+15. **Lazy-compile dev loop ("every link feels slow the first time")** —
+    the `next dev` command MUST run with the Turbopack compiler
+    (`next dev --turbo`), the dev server MUST pre-warm every static
+    AND every dynamic route in `route-inventory.json` on startup
+    (via `npm run dev:warm` / `scripts/dev/warm-routes.mjs`), and
+    after warming every covered route MUST respond in
+    **≤ 2000 ms** on a measured re-fetch. Enforced by
+    `scripts/qa/live-stack-smoke.mjs --dev-perf` (Surface 7) and
+    `next.config.mjs` `onDemandEntries: { maxInactiveAge: 24h,
+    pagesBufferLength: 200 }`. Falling back to webpack
+    (`next dev` without `--turbo`, or `FORCE_WEBPACK=1`) is permitted
+    only when paired with an open defect card naming a Turbopack
+    incompatibility and a remediation date. (Added in 1.3.0; closes
+    the recurring user-reported "every link I click on is taking
+    long to load the next screen" — DEF-0014. See §11 for the full
+    binding rule and `docs/qa/defects/DEF-0014.md` for the structural
+    fix attestation.)
 
 ---
 
@@ -708,7 +725,111 @@ violation of this standard even if every spec is green.
 
 ---
 
-## 11. How to evolve this standard
+## 11. Dev-loop performance baseline (BINDING)
+
+> **Why this exists.** The user has reported two distinct slow-compile
+> regressions to date — once during initial dev-loop work
+> (DEF-INFRA-0001, closed by the warmer + `onDemandEntries` cap) and a
+> second time on 2026-04-19 after a stack of unrelated changes
+> invalidated the `.next` cache and the user clicked into a dynamic
+> route the warmer had never touched (DEF-0014). "Every link feels
+> slow the first time" is not a UX nuisance — it is **product
+> performance leaking into the developer tightening loop** and it
+> dramatically slows every contributor and every AI agent on the
+> codebase. This section makes the slow-compile experience
+> structurally impossible to reintroduce.
+
+This section binds for THIS repository AND for every sibling /
+future HDPulseAI repository that adopts the qa-standard. It is also
+mirrored verbatim in `.cursor/rules/qa-standard.mdc` (workspace) and
+`~/.cursor/rules/qa-standard-global.mdc` (global) so every Cursor
+agent inherits it on every machine without per-repo opt-in.
+
+### 11.1 Three binding requirements
+
+1. **Turbopack is the dev compiler.** `next dev` MUST be invoked with
+   `--turbo` (Next.js 14.x and later). The default `dev` script in
+   `package.json` MUST read `next dev --turbo -p <PORT>`. A
+   webpack-only fallback script (e.g. `dev:webpack`) is permitted for
+   diagnosing Turbopack regressions but MUST NOT be the default. The
+   wrapper that actually runs in containers (`scripts/dev/dev-with-warmup.mjs`)
+   MUST log which compiler it picked at startup so the choice is
+   auditable.
+
+2. **Pre-warm static AND dynamic routes on startup.** A dev-server
+   wrapper (`scripts/dev/warm-routes.mjs` in this repo) MUST:
+   - wait for `/api/health` to return 200,
+   - authenticate as a seeded staff user (so middleware does not
+     307-short-circuit before the page module loads),
+   - read `route-inventory.json`,
+   - GET every static route (compiles the page module + its layout
+     tree),
+   - GET one sample URL per dynamic route — preferably harvested from
+     the parent list page's HTML, falling back to a synthetic
+     placeholder id (`00000000-…`). The dynamic page module compiles
+     regardless of whether the loader resolves a row, so a 404
+     response still warms the route tree.
+   - log slow (>5 s) and failed routes individually so a regression
+     surfaces in container logs without anyone re-reading them.
+
+3. **Compile cache must outlive idle.** `next.config.mjs` MUST set
+   `onDemandEntries: { maxInactiveAge: 24h, pagesBufferLength: 200 }`
+   (or higher), defeating Next's default 15-second-idle eviction
+   policy. Otherwise a coffee break re-compiles every route the next
+   click touches.
+
+### 11.2 Enforcement (Pillar S Surface 7)
+
+`scripts/qa/live-stack-smoke.mjs --dev-perf` runs a measured re-fetch
+on a deterministic cross-section of routes (homepage, dashboard, +
+the first four staff routes from the inventory). Any fetch
+**> 2000 ms** is a hard fail of the gate (`§4`(15)) and emits a
+remediation hint that points the operator to the three most common
+root causes:
+- Turbopack is off (check container logs for the wrapper's startup
+  banner)
+- the warmer never ran (check for the `[warm] done:` line)
+- the `.next` cache was invalidated since last warm (force a re-warm
+  with `docker compose exec ecred-web node scripts/dev/warm-routes.mjs`)
+
+Surface 7 is opt-in (the gate exits 1 on `notrun` so plain
+`qa:live-stack` will surface it) because it only applies to a
+`next dev` instance — CI runs against the prod build where every
+route is pre-compiled at build time. The "fully green local dev"
+script is `npm run qa:live-stack:full` which enables both
+`--volume-probe` (Surface 6) and `--dev-perf` (Surface 7).
+
+### 11.3 Anti-weakening (Surface 7)
+
+The following count as §4.2 violations:
+
+1. Removing the `--turbo` flag from the default `dev` script without
+   an open defect card naming a Turbopack incompatibility AND a
+   remediation date. (`FORCE_WEBPACK=1` as a one-shot env override
+   is fine; making it the default is not.)
+2. Changing `scripts/dev/warm-routes.mjs` so it skips dynamic
+   routes "because they don't have a real id." Use the synthetic
+   placeholder; 404 on a non-existent row still compiles the page
+   module.
+3. Lowering `pagesBufferLength` or `maxInactiveAge` below the values
+   above. The cap exists precisely so an idle dev server doesn't
+   evict the compiled cache the warmer just paid to build.
+4. Raising `DEV_PERF_BUDGET_MS` above 2000 without a paired ADR.
+   The budget is the regression detector; relaxing it just means
+   the regression goes undetected for longer.
+5. Removing Surface 7 from `qa:live-stack:full`. The full gate is
+   the contract for "ready to hand to the user."
+
+### 11.4 Defect card
+
+Closed by [DEF-0014](defects/DEF-0014.md). All three structural fixes
+(Turbopack default, dynamic-route warmer, Surface 7 budget gate)
+landed together; reverting any of them in isolation reopens the
+regression.
+
+---
+
+## 12. How to evolve this standard
 
 1. Open a PR that edits this document.
 2. Bump the `Version` line (semver: patch for clarification, minor for new

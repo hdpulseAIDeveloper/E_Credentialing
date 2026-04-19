@@ -22,7 +22,11 @@ to every change you produce in this repo.
   is REQUIRED for every PR that touches `src/server/auth.ts`,
   `src/middleware.ts`, `prisma/**`, `Dockerfile.*`, `docker-compose.*.yml`,
   `.env*`, `scripts/web-entrypoint.sh`, `src/lib/api/error-catalog.ts`, or
-  any `src/app/api/auth/**` route.
+  any `src/app/api/auth/**` route. **Pillar S Surface 7 — dev-loop
+  performance invariant** (added 2026-04-19 in STANDARD.md §11 / DEF-0014)
+  is REQUIRED for every PR that touches `next.config.mjs`, `package.json`
+  `scripts.dev*`, `scripts/dev/warm-routes.mjs`,
+  `scripts/dev/dev-with-warmup.mjs`, or `docker-compose.dev.yml`.
 - Run `npm run qa:inventory` if you added a route, link, REST endpoint, tRPC
   procedure, bot, webhook, scheduled job, or form. Commit the regenerated
   inventories under `docs/qa/inventories/`.
@@ -54,6 +58,16 @@ to every change you produce in this repo.
    (`npm run qa:dockerfile -- --cold` red).
 10. **(STANDARD.md §4 (14), added 1.2.0)** Stale named-volume contents
     shadowing the deployed image (Pillar S `--volume-probe` red).
+11. **(STANDARD.md §4 (15) / §11, added 1.3.0)** Lazy-compile dev-loop
+    regression. The default `dev` script MUST invoke
+    `next dev --turbo`, `dev:warm` MUST pre-warm BOTH static AND
+    dynamic routes from `route-inventory.json` on container startup,
+    and after warming every probed route MUST return in
+    **≤ 2000 ms** on a measured re-fetch
+    (`npm run qa:live-stack:perf` red, or
+    `qa:live-stack:full` red, or any container log missing the
+    `[warm] done:` line). Closes DEF-INFRA-0001 and DEF-0014. The
+    binding rule + anti-weakening clauses live in STANDARD.md §11.
 
 ## You MUST report results using the headline block (coverage FIRST)
 

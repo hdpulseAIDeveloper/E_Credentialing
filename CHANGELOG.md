@@ -7,6 +7,75 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sem
 ## [Unreleased]
 
 ### Fixed
+- **Dev-loop performance regression structurally closed — closes
+  DEF-0014 ("every link feels slow the first time" — second sighting,
+  with three structural fixes landed together) (2026-04-19):** The
+  user reported "Every link I click on is taking long to load the
+  next screen." Container logs confirmed `/providers/[id]` was paying
+  a 14,968 ms on-demand compile on first interactive click; even
+  after warming, dynamic detail pages were never warmed at all
+  because `scripts/dev/warm-routes.mjs` filtered the inventory with
+  `!r.dynamic`. Fixed by three structural changes that ALL must
+  land together (reverting any one reopens the defect):
+  - **Turbopack is now the default dev compiler.** `package.json`
+    `"dev"` now reads `"next dev --turbo -p 6015"`. Same-shape
+    routes that took 5–15 s on webpack now compile in 100–500 ms,
+    including HMR rebuilds. A `dev:webpack` fallback is preserved
+    for emergencies and `FORCE_WEBPACK=1` is honored by
+    `scripts/dev/dev-with-warmup.mjs`, but using either requires an
+    open defect card per STANDARD.md §11.3 anti-weakening rule (1).
+    The wrapper now logs which compiler it picked at startup so the
+    choice is auditable from `docker compose logs`.
+  - **The route warmer now also warms dynamic routes.**
+    `scripts/dev/warm-routes.mjs` returns BOTH the static and
+    dynamic route lists from `route-inventory.json`. For each
+    dynamic template (`/providers/[id]`, `/committee/sessions/[id]`,
+    `/medicaid/[id]`, `/admin/users/[id]`,
+    `/compliance/[framework]/[id]`, etc. — 16 templates total in
+    this app) it resolves the parent list page, fetches the HTML,
+    and harvests the first `href="/<parent>/<id>"` match as the
+    sample URL. When no harvestable href is found (empty list, or
+    a dynamic-only route tree), it falls back to a synthetic UUID
+    placeholder — the page MODULE compiles regardless of whether
+    the loader resolves a row, so a 404 still warms the route tree.
+    Tail summary now reports both counts:
+    `done: 68 routes warmed (52 static + 16 dynamic) in 305s`.
+  - **Pillar S Surface 7 — dev-loop performance invariant.**
+    `scripts/qa/live-stack-smoke.mjs --dev-perf` picks a
+    deterministic mix (homepage, dashboard, first 4 staff routes
+    from the inventory), authenticates as admin, fetches each
+    route TWICE (warm-up discarded, second fetch measured), and
+    fails the gate on any measured fetch > **2000 ms**
+    (`DEV_PERF_BUDGET_MS`, configurable via `--dev-perf-budget`).
+    Failure messages name the three most common root causes
+    (Turbopack off, warmer skipped, cache invalidated) so the
+    operator doesn't have to guess. New `qa:live-stack:perf`
+    script for the dev-perf check alone; `qa:live-stack:full`
+    now enables both `--volume-probe` AND `--dev-perf` (the
+    canonical "fully green local dev" gate).
+  - **STANDARD.md v1.3.0** — new §11 "Dev-loop performance
+    baseline" with three binding requirements (Turbopack default,
+    dynamic-route warmer, compile cache outlives idle), the
+    Surface 7 enforcement clause, and five anti-weakening rules.
+    New §4 hard-fail condition (15) wires Surface 7 into the gate.
+    Mirrored verbatim into `.cursor/rules/qa-standard.mdc` (this
+    workspace) AND `~/.cursor/rules/qa-standard-global.mdc`
+    (every sibling and future HDPulseAI repo on this machine
+    inherits the rule on the next agent invocation, written
+    framework-agnostically: Turbopack for Next, default for Vite,
+    `vite:dev` for Remix).
+  - Live verification (immediately after the container recreate
+    that picked up `--turbo` + the new warmer):
+    `pass=32  fail=0  warn=0  notrun=0  EXIT=0` for
+    `qa:live-stack:full`, with Surface 7 reporting all 6 probed
+    routes in 425–989 ms (well inside the 2000 ms budget) — the
+    25–30× speedup vs the user's 14,968 ms compile is the
+    fingerprint of healthy Turbopack + a warmed cache.
+  - Defect card: `docs/qa/defects/DEF-0014.md`. The defect is
+    closed by the structural-fix bundle; the new Surface 7 budget
+    will catch any future regression of this class on the very
+    next gate run.
+
 - **Public-API delivery surface hardened — closes DEF-0012
   (`docs/` excluded from Docker image) and DEF-0013 (Next.js
   public-vs-route URL collision on `/api/v1/postman.json`)

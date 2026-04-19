@@ -72,6 +72,14 @@ const VOLUME_PROBE = flag("--volume-probe") === true;
 const CONTAINER = flag("--container") ?? "ecred-web";
 const ALLOW_DEGRADED_DB = flag("--allow-degraded-db") === true;
 const JSON_OUT = flag("--json") === true;
+// Surface 7 — dev-loop perf invariant. Off by default so CI (which
+// runs against a prod build where every route is pre-compiled) doesn't
+// re-time things that aren't comparable. Pass --dev-perf to enable
+// when probing a `next dev` instance — fails the gate if any
+// already-warmed route exceeds DEV_PERF_BUDGET_MS on a re-fetch
+// (the regression signal for DEF-0014: lazy compile back).
+const DEV_PERF = flag("--dev-perf") === true;
+const DEV_PERF_BUDGET_MS = Number(flag("--dev-perf-budget") ?? 2000);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Reporting helpers.
@@ -550,6 +558,111 @@ function surfaceVersionPin() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Surface 7 — Dev-loop performance invariant (DEF-0014 regression detector).
+//
+// Once the dev warmer has run, every static route in the inventory MUST
+// respond in <DEV_PERF_BUDGET_MS on a re-fetch. If any exceeds the budget
+// it means either (a) Turbopack is off and webpack is back on, or (b) the
+// warmer didn't run (or failed silently), or (c) the .next compile cache
+// was invalidated and never re-warmed. All three are DEF-0014 classes
+// and should fail Pillar S so the regression is visible immediately.
+//
+// Off by default (--dev-perf to enable) because:
+//   - CI runs against a prod build where every route is pre-compiled at
+//     build time — re-timing routes there isn't comparable to dev.
+//   - Local dev runs may legitimately invalidate compile cache between
+//     gate runs (HMR after editing the warmed-route module). Flagging
+//     this only when the user explicitly opts in keeps the gate honest
+//     without turning every routine `qa:live-stack` red.
+//
+// When enabled, picks 5 deterministic routes (first 5 in inventory order)
+// + the dashboard, fetches each twice (warm-up then measured), and fails
+// on any measured fetch >budget. The first fetch is discarded so we
+// measure cache hit, not cold compile.
+// ─────────────────────────────────────────────────────────────────────────────
+async function surfaceDevPerf(adminJar) {
+  if (!DEV_PERF) {
+    record("7.devperf", "dev-loop perf invariant", "notrun",
+      `pass --dev-perf to enable (regression detector for DEF-0014 — webpack-instead-of-turbopack OR warmer-skipped OR cache-invalidated)`);
+    return;
+  }
+
+  const invPath = join(REPO_ROOT, "docs", "qa", "inventories", "route-inventory.json");
+  if (!existsSync(invPath)) {
+    record("7.devperf", "route-inventory.json", "notrun",
+      `not found at ${invPath}; run \`npm run qa:inventory\` first`);
+    return;
+  }
+  const inv = JSON.parse(readFileSync(invPath, "utf8"));
+
+  // Pick a deterministic mix: the first 4 static staff routes (the
+  // module-tree the user most commonly clicks into) + the homepage +
+  // /dashboard. Skip dynamic routes — those need a sample id we can't
+  // fabricate inside this script without depending on the warmer's
+  // harvest logic.
+  const staffRoutes = inv
+    .filter((r) => r.group === "staff" && !r.dynamic)
+    .slice(0, 4)
+    .map((r) => r.route);
+  const probeUrls = ["/", "/dashboard", ...staffRoutes];
+
+  if (!adminJar || adminJar.size === 0) {
+    record("7.devperf", "admin session", "notrun",
+      "no admin session cookie available — Surface 3 sign-in must succeed first");
+    return;
+  }
+
+  // Use the admin role's session jar so staff routes don't 307 to signin.
+  const cookieHeader = [...adminJar.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
+
+  let allGreen = true;
+  for (const url of probeUrls) {
+    // Discard fetch (warm the cache).
+    try {
+      await fetch(`${BASE_URL}${url}`, {
+        headers: { cookie: cookieHeader },
+        redirect: "manual",
+      });
+    } catch {
+      // ignore — measured fetch will surface the failure
+    }
+    // Measured fetch.
+    const t0 = Date.now();
+    let res;
+    try {
+      res = await fetch(`${BASE_URL}${url}`, {
+        headers: { cookie: cookieHeader },
+        redirect: "manual",
+      });
+    } catch (e) {
+      record("7.devperf", url, "fail", `fetch threw: ${e.message}`);
+      allGreen = false;
+      continue;
+    }
+    const ms = Date.now() - t0;
+    // 2xx + 3xx are both acceptable here; we're measuring compile, not
+    // semantic correctness (Surface 5 covers that).
+    if (res.status >= 500) {
+      record("7.devperf", url, "fail", `HTTP ${res.status} (${ms}ms)`);
+      allGreen = false;
+      continue;
+    }
+    if (ms > DEV_PERF_BUDGET_MS) {
+      record("7.devperf", url, "fail",
+        `${ms}ms > ${DEV_PERF_BUDGET_MS}ms budget — DEF-0014 regression. ` +
+        `Either Turbopack is off (check \`docker compose logs ecred-web | grep -i turbopack\`), ` +
+        `the warmer did not run (check for "[warm] done:" in container logs), ` +
+        `or the .next cache was invalidated since last warm. ` +
+        `Force a re-warm with \`docker compose -f docker-compose.dev.yml exec ecred-web node scripts/dev/warm-routes.mjs\`.`);
+      allGreen = false;
+      continue;
+    }
+    record("7.devperf", url, "pass", `${ms}ms ≤ ${DEV_PERF_BUDGET_MS}ms`);
+  }
+  return allGreen;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main.
 // ─────────────────────────────────────────────────────────────────────────────
 async function main() {
@@ -593,6 +706,10 @@ async function main() {
 
   // Surface 6: stack-version pin.
   surfaceVersionPin();
+
+  // Surface 7: dev-loop performance invariant (DEF-0014). Off by
+  // default; enable with --dev-perf when probing a `next dev` instance.
+  await surfaceDevPerf(adminResult?.jar);
 
   const h = headline();
   if (!JSON_OUT) {
