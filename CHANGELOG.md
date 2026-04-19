@@ -7,6 +7,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sem
 ## [Unreleased]
 
 ### Added
+- **Wave 7 — Phase 1.5 roadmap consolidation (2026-04-18):**
+  - `docs/development-plan.md` — added Phase 1.5 (Commercial-Readiness
+    Band, Waves 0–6) to the executive summary and as a new full
+    section between Phase 1 and Phase 2. Cross-linked to the
+    per-wave delivery index, ADRs 0013–0019, and the resolver scripts.
+  - `docs/status/shipped.md` — new canonical "what shipped, where to
+    find it, in what order to activate it" reference. Wave-by-wave
+    table with links to every ADR, runbook, ops script, defect card,
+    and per-screen card produced during the band. Includes the
+    deliberate post-deploy feature-flag activation order.
+  - `docs/system-prompt.md` — bumped so a from-scratch regenerator
+    builds the Wave 5–6 commercial-readiness band from day one
+    rather than retrofitting it. New §10.3 (public surfaces), §10.4
+    (auditor-package export), and explicit guidance to (a) prefer
+    iterator-style specs that walk the inventories, and (b) only run
+    E2E against the production bundle via `npm run qa:e2e:prod`.
+
 - **Wave 6 — iterator-aware coverage gate + per-cell contract iterators (2026-04-18):**
   - `scripts/qa/iterator-coverage.ts` — pure helper detecting matrix
     specs that iterate the route / api / trpc inventories at runtime.

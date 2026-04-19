@@ -66,6 +66,17 @@ When you finish a module, also produce:
   new flow.
 - Regenerated inventories under `docs/qa/inventories/` (`npm run qa:inventory`)
   with `scripts/qa/check-coverage.ts` green.
+- For pillars that cover the full surface (A — functional smoke,
+  B — RBAC matrix, E — accessibility, J — API/tRPC contract), prefer
+  **iterator-style specs** that import the relevant inventory JSON
+  (`route-inventory.json`, `api-inventory.json`, `trpc-inventory.json`)
+  and iterate it with `for (...)` / `describe.each(...)` / `it.each(...)`.
+  The coverage gate (`scripts/qa/iterator-coverage.ts`) credits any
+  spec that does both as covering every entry. New routes / API cells /
+  tRPC procedures then absorb coverage automatically as the inventory
+  regenerates. See ADR 0019. Do NOT loosen the iterator-detection rule
+  to "presence of import is enough" — the iteration construct is half
+  the contract.
 - Updates to the relevant pages in `docs/user/`, `docs/functional/`,
   `docs/technical/`, `docs/api/`, `docs/compliance/`, and the audit-package
   generator.
@@ -439,7 +450,38 @@ Folders inside the Blob container:
 - Implements `Practitioner` resource per CMS-0057-F minimum.
 - Pagination via `_count` and `_offset`; `Bundle.total` is accurate.
 - Errors return `OperationOutcome` resources.
-- Future resources: `PractitionerRole`, `Organization`, `Location`, `Endpoint`, `HealthcareService` — directory models already exist.
+- Resources shipped as of Wave 3.3 (CMS-0057-F / DaVinci PDex Plan-Net IG):
+  `Practitioner`, `PractitionerRole`, `Organization`, `Location`,
+  `Endpoint`, `HealthcareService`, `InsurancePlan`. Instance-level
+  `$everything` operation. `CapabilityStatement` at `/api/fhir/metadata`
+  enumerates supported resources, search params, and operations.
+
+### 10.3 Public surfaces (Wave 5 — commercial readiness)
+
+These five surfaces are publicly reachable without auth and should be
+built from day one of any regeneration:
+
+- `/` — marketing landing, leads with CVO positioning.
+- `/cvo` — CVO explainer (NCQA element catalog, TJC NPG-12, CMS-0057-F).
+- `/pricing` — Starter / Growth / Enterprise tiers.
+  Live values from Stripe when `BILLING_ENABLED=true`.
+- `/sandbox` — read-only REST API on synthetic data
+  (`@faker-js/faker` seeded deterministically per session).
+- `/changelog` (Server Component) + `/changelog.rss` (RSS 2.0).
+  Source of truth: hand-edited `docs/changelog/public.md`. Never
+  regenerated from `CHANGELOG.md`. Pure parser at
+  `src/lib/changelog/parser.ts`; pure RSS renderer at
+  `src/lib/changelog/rss.ts`. ADR 0018.
+
+### 10.4 Auditor-package export (Wave 5.4)
+
+Admins can trigger a single ZIP bundle that includes:
+- Every NCQA criterion assessment with its evidence.
+- HMAC-chained audit-log proof (range, head sequence, head hash).
+- Versioned legal/policy text snapshots (`docs/legal/`).
+- SOC 2 Type I gap analysis Markdown.
+- A machine-readable `manifest.json` listing every file with SHA-256.
+The endpoint is admin-only at all times. ADR 0017.
 
 ---
 
@@ -555,6 +597,20 @@ ALLOW_DEPLOY=1
 - **Load (k6):** REST p95 < 200 ms at 50 RPS; FHIR p95 < 400 ms at 20 RPS.
 - **Coverage floors (`vitest.config.ts`):** lines 60%, functions 50%, branches 50%, statements 60%. Critical paths (auth, encryption, bot, audit) require 90% branch coverage.
 - **Mandatory tests:** PHI encryption round-trip; PHI redaction in logs; provider-token failure modes; IDOR across providers; rate-limit behaviour and headers; bot lifecycle (RUNNING→COMPLETED, REQUIRES_MANUAL, FAILED, RETRYING); audit completeness on every mutation; role-based access enforcement.
+- **Iterator coverage (Wave 6, ADR 0019):** matrix specs MUST iterate
+  the inventories rather than copy-pasting route lists. See
+  `tests/contract/pillar-j-trpc-iterator.spec.ts` and
+  `tests/contract/pillar-j-api-iterator.spec.ts` for the canonical
+  shape. The detection rule lives in `scripts/qa/iterator-coverage.ts`
+  and is pinned by `tests/unit/scripts/iterator-coverage.test.ts`.
+  Per-procedure / per-cell tests via `describe.each` give well-targeted
+  failure names AND credit the gate for full inventory coverage.
+- **Production-bundle E2E (Wave 1.1):** never run pillar E (or any
+  E2E) against `next dev`. Use `npm run qa:e2e:prod` which orchestrates
+  `npm run build` → `npm start` → wait-for-`/api/health` →
+  `playwright test --config=playwright.prod.config.ts`. Pre-compiled
+  routes mean Playwright never times out compiling on first request.
+  This closed DEF-INFRA-0001 and is the only sanctioned way to run E2E.
 
 For the comprehensive test strategy and per-module test cases see
 [qa/test-strategy.md](qa/test-strategy.md), [qa/unit-testing.md](qa/unit-testing.md),
@@ -671,3 +727,4 @@ You have rebuilt the platform when:
 | Date | Author | Change |
 |---|---|---|
 | 2026-04-17 | Documentation refresh | Initial comprehensive prompt; supersedes inline guidance in `CLAUDE.md`. |
+| 2026-04-18 | Cursor (autonomous Wave 7) | Added §10.3 (public surfaces shipped in Wave 5), §10.4 (auditor-package export), iterator-coverage and production-bundle E2E expectations in §0 and §15. A regenerator now builds the Wave 5–6 commercial-readiness band from day one rather than retrofitting it. Cross-references ADR 0017, ADR 0018, ADR 0019. |

@@ -20,6 +20,7 @@ and a public changelog), and **continuous compliance**.
 | Phase | Name | Window | Status |
 |---|---|---|---|
 | 1 | Core Platform Build | Apr 2026 (4 weeks) | **Complete** |
+| 1.5 | Commercial-Readiness Band (Waves 0–6) | Apr 16–18 2026 | **Complete** |
 | 2 | Integration Activation | May–Jun 2026 (8 weeks) | In progress |
 | 3 | Training & Pilot | Jul–Aug 2026 (8 weeks) | Planned |
 | 4 | Full Rollout & PARCS Sunset | Sep–Oct 2026 (8 weeks) | Planned |
@@ -51,6 +52,49 @@ Delivered in April 2026. Outcomes:
 Detailed Phase 1 deliverables are preserved in
 [planning/scope.md](planning/scope.md) and the prior implementation plan now
 mirrored in the `docs/pm/` PM artifacts (charter, status reporting, decision log).
+
+---
+
+## 2.5 Phase 1.5 — Commercial-Readiness Band (Waves 0–6, complete)
+
+**Window:** 2026-04-16 → 2026-04-18 (autonomous Cursor execution).
+**Goal:** Take the platform from "in production for one customer" to
+"commercially shippable as a CVO platform to external medical groups
+and ACOs" without deploying to production until human sign-off. Every
+change committed and pushed to `master`; zero prod deploys.
+
+The band is fully delivered. See
+[docs/status/shipped.md](status/shipped.md) for the per-wave index
+with links to the ADRs, runbooks, and resolver scripts. Summary:
+
+| Wave | Theme | Headline outcome |
+|---|---|---|
+| 0 | Unblock the blockers | Every B-001…B-011 blocker now has a one-shot resolver script under `scripts/ops/`, `scripts/azure/`, `scripts/legal/`, or `scripts/seed/`, or has been collapsed to a single yes/no decision for the named owner. See [`docs/status/resolved.md`](status/resolved.md). |
+| 1 | QA gate solidified | DEF-INFRA-0001 closed (`npm run qa:e2e:prod` runs against a real production bundle); pillar specs landed for C/D/F/G/H/I/J/K/L/M/N/O/P/Q/R; 60 per-screen cards backfilled; coverage gate fails on zero-spec pillars and missing cards. |
+| 2 | Architecture cleanup + design system | Five tRPC routers refactored behind dedicated services (`Document`, `Bot`, `Sanctions`, `Recredentialing`, `Roster`); TanStack-powered `<DataTable>` with `ThemeProvider`/`ThemeToggle`; `no-raw-color` ESLint rule + RuleTester; lite Storybook harness. ADR 0015. |
+| 3 | Compliance polish | OPPE/FPPE polish + Joint Commission NPG-12 spec; CME aggregator + auto-generated CV PDF (`/api/v1/providers/:id/cv.pdf`); FHIR `HealthcareService`, `InsurancePlan`, `$everything` operation, updated `CapabilityStatement`; Telehealth coverage-gap UI + IMLC LoQ + Expirables wiring. |
+| 4 | Observability, performance, security, IaC | Sentry + Application Insights + Prometheus + Grafana dashboard; k6 perf suites + Postgres index audit; OWASP ZAP baseline/active + gitleaks; per-browser Playwright visual baselines; full Azure Bicep IaC with `azd up`. ADR 0013 (telemetry). |
+| 5 | Commercial readiness | Multi-tenancy shim (`Organization` model + `AsyncLocalStorage` tenant scoping) — ADR 0014; CVO-positioned marketing landing + `/cvo`/`/pricing`/`/sandbox`; Stripe billing scaffolding behind `BILLING_ENABLED` flag — ADR 0016; one-click auditor-package export + SOC 2 Type I gap analysis — ADR 0017; customer-facing `/changelog` page + RSS feed — ADR 0018. |
+| 6 | Iterator-aware coverage gate | `qa:gate` reaches PASS for the first time in the project's history (66/66 routes, 52/52 API cells, 219/219 tRPC procedures, 18/18 pillars). 1064 named per-cell / per-procedure tests added. ADR 0019 documents the four anti-weakening invariants. |
+| Cross-cutting | CVO positioning sweep | Eleven core docs (root README, docs/README, system-prompt, FRD, BRD, TRD, product/user/dev README) re-titled and re-introduced as the "E-Credentialing CVO Platform". |
+
+Aggregate impact:
+
+- **Test count:** 234 → 1477 (+1243), 100 % green.
+- **Coverage gate:** failing → PASS.
+- **Defect ledger:** all DEFs (0003 / 0004 / 0005 / 0006 / INFRA-0001) closed.
+- **Blockers:** every B-001…B-011 has a resolver script or one-line yes/no.
+- **Public surfaces shipped:** `/`, `/cvo`, `/pricing`, `/sandbox`,
+  `/changelog`, `/changelog.rss`, `/legal/{privacy,terms,cookies,hipaa}`,
+  `/api/v1/*` (read-only REST), `/api/fhir/*` (R4 directory).
+- **Commercial features behind flags:** Stripe billing
+  (`BILLING_ENABLED`), multi-tenancy (`MULTI_TENANT_ENABLED`),
+  auditor-package export (always on for admins).
+
+Phase 1.5 carried no production deploys. The next step (still
+gated on human action) is one production deploy that activates the
+new feature flags one at a time per the rollout plan in
+[docs/status/shipped.md](status/shipped.md).
 
 ---
 
@@ -309,3 +353,4 @@ The full register is maintained in [pm/risk-register.md](pm/risk-register.md).
 |---|---|---|
 | 2026-04-15 | HDPulse | Initial implementation plan (Phase 1 complete). |
 | 2026-04-17 | Documentation refresh | Promoted to required document; added Phase 5 detail; aligned roadmap with shipped feature set; added governance and metric sections. |
+| 2026-04-18 | Cursor (autonomous Wave 7) | Added Phase 1.5 (Commercial-Readiness Band, Waves 0–6) to executive summary and as a new full section between Phase 1 and Phase 2. Cross-linked to `docs/status/shipped.md` and ADRs 0013–0019. |
