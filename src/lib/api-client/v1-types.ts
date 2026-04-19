@@ -136,12 +136,55 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description Canonical v1 error envelope. The body of every non-2xx response
+         *     from `/api/v1/*` follows this shape. Clients (including the
+         *     in-tree TypeScript SDK) parse `error.code` and `error.message`.
+         */
         Error: {
             error: {
-                /** @example PROVIDER_NOT_FOUND */
+                /**
+                 * @description Stable machine-readable identifier for the failure
+                 *     mode. Snake_case. Part of the contract — never renamed
+                 *     without bumping `info.version` and following the
+                 *     deprecation policy in `docs/api/versioning.md`.
+                 * @example not_found
+                 */
                 code: string;
-                /** @example Provider not found */
+                /**
+                 * @description Human-readable explanation, may change between releases.
+                 * @example Provider not found
+                 */
                 message: string;
+                /**
+                 * @description Present on `insufficient_scope` errors — names the
+                 *     scope the API key would have needed. Optional on
+                 *     other errors.
+                 */
+                required?: string;
+            };
+        };
+        /**
+         * @description Body of a `429 Too Many Requests` response. Extends `Error`
+         *     with a `retryAfterSeconds` field that mirrors the
+         *     `Retry-After` header so SDKs that don't read response headers
+         *     can still back off correctly.
+         */
+        RateLimitProblem: {
+            error: {
+                /**
+                 * @example rate_limited
+                 * @constant
+                 */
+                code: "rate_limited";
+                /** @example Rate limit of 120 requests/min exceeded. Retry in 7s. */
+                message: string;
+                /**
+                 * @description Seconds until the next request is allowed. Always
+                 *     matches the `Retry-After` header.
+                 * @example 7
+                 */
+                retryAfterSeconds: number;
             };
         };
         Pagination: {
@@ -170,7 +213,7 @@ export interface components {
             keyId: string;
             /**
              * @description Semver version of the v1 surface (matches `info.version`).
-             * @example 1.1.0
+             * @example 1.2.0
              */
             apiVersion: string;
             /**
@@ -318,14 +361,23 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description Too many requests for this key — see `Retry-After` header. */
+        /**
+         * @description Too many requests for this key. The body is a
+         *     `RateLimitProblem`. The `Retry-After` header (seconds) tells
+         *     you when the next request is allowed; the standard
+         *     `X-RateLimit-*` headers (also present on every successful
+         *     response since v1.2.0) describe your budget.
+         */
         RateLimited: {
             headers: {
-                "Retry-After"?: number;
+                "Retry-After": components["headers"]["RetryAfter"];
+                "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
+                "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
+                "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["Error"];
+                "application/json": components["schemas"]["RateLimitProblem"];
             };
         };
     };
@@ -336,7 +388,29 @@ export interface components {
         Limit: number;
     };
     requestBodies: never;
-    headers: never;
+    headers: {
+        /**
+         * @description Maximum requests allowed in the current fixed window for the
+         *     authenticated API key. Stable across the window. Present on
+         *     every successful 2xx response and on the 429 rejection.
+         */
+        RateLimitLimit: number;
+        /**
+         * @description Requests still available in the current window (>= 0).
+         *     Decrements on every accepted request. On a 429 this is `0`.
+         */
+        RateLimitRemaining: number;
+        /**
+         * @description Unix-seconds (UTC) timestamp when the current window resets
+         *     and `X-RateLimit-Remaining` returns to `X-RateLimit-Limit`.
+         */
+        RateLimitReset: number;
+        /**
+         * @description Seconds the client should wait before retrying. Always >= 1.
+         *     Present only on `429` responses.
+         */
+        RetryAfter: number;
+    };
     pathItems: never;
 }
 export type $defs = Record<string, never>;
@@ -353,6 +427,9 @@ export interface operations {
             /** @description Healthy. */
             200: {
                 headers: {
+                    "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
+                    "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
+                    "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -391,6 +468,9 @@ export interface operations {
             /** @description Page of providers. */
             200: {
                 headers: {
+                    "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
+                    "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
+                    "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -416,6 +496,9 @@ export interface operations {
             /** @description Provider envelope. */
             200: {
                 headers: {
+                    "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
+                    "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
+                    "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -446,6 +529,9 @@ export interface operations {
                 headers: {
                     "Content-Disposition"?: string;
                     "Content-Length"?: number;
+                    "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
+                    "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
+                    "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -455,6 +541,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
         };
     };
     listSanctions: {
@@ -476,6 +563,9 @@ export interface operations {
             /** @description Page of sanctions checks. */
             200: {
                 headers: {
+                    "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
+                    "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
+                    "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -507,6 +597,9 @@ export interface operations {
             /** @description Page of enrollments. */
             200: {
                 headers: {
+                    "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
+                    "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
+                    "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
                     [name: string]: unknown;
                 };
                 content: {

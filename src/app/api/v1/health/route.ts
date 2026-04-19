@@ -34,9 +34,10 @@
 
 import { NextResponse } from "next/server";
 import { authenticateApiKey } from "../middleware";
+import { applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { auditApiRequest } from "@/lib/api/audit-api";
 
-const API_VERSION = "1.1.0";
+const API_VERSION = "1.2.0";
 
 export async function GET(request: Request): Promise<NextResponse> {
   const auth = await authenticateApiKey(request);
@@ -57,11 +58,14 @@ export async function GET(request: Request): Promise<NextResponse> {
     resultCount: 1,
   });
 
-  return NextResponse.json(body, {
-    status: 200,
-    headers: {
-      "Cache-Control": "no-store",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
+  return applyRateLimitHeaders(
+    NextResponse.json(body, {
+      status: 200,
+      headers: {
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
+    }),
+    auth.rateLimit,
+  );
 }

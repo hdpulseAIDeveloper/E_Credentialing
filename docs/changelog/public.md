@@ -17,6 +17,33 @@ Anti-weakening: never delete a release. Strike-through a published
 note instead and add a follow-up release if the underlying claim
 turned out to be incorrect.
 
+## 2026-04-18 — v1.7.0 (API)
+
+### Added
+- **Standard rate-limit headers on every v1 response.** Every
+  successful 2xx response from `/api/v1/*` now carries
+  `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and
+  `X-RateLimit-Reset` (Unix-seconds). When you exceed the per-key
+  budget the API returns a `429 RateLimitProblem` with the same
+  three headers plus `Retry-After`. The TypeScript SDK exposes the
+  parsed snapshot on `V1ApiError.rateLimit` and via
+  `parseRateLimit(response.headers)`. Documented in the OpenAPI
+  3.1 spec at `/api/v1/openapi.yaml` (apiVersion `1.2.0`).
+- **Standardised v1 error envelope.** Every non-2xx response now
+  uses `{ "error": { "code": "...", "message": "..." } }` —
+  matching the spec, the SDK's `V1ApiError` parser, and the
+  customer-facing documentation. Stable `error.code` values
+  (`missing_authorization`, `invalid_api_key`, `expired_api_key`,
+  `insufficient_scope`, `unauthorized`, `rate_limited`,
+  `not_found`, `cv_generation_failed`) are now part of the v1
+  contract.
+
+### Improved
+- **Predictable client back-off.** SDKs and integrations can now
+  read remaining quota proactively instead of waiting for a 429.
+  This is a **non-breaking minor bump** under the published API
+  versioning policy.
+
 ## 2026-04-18 — v1.6.0 (API)
 
 ### Added

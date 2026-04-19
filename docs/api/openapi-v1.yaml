@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: E-Credentialing CVO Platform — Public REST API v1
-  version: "1.1.0"
+  version: "1.2.0"
   summary: Read-only public REST API for the E-Credentialing CVO platform.
   description: |
     The v1 surface is intentionally read-only. Every request requires
@@ -11,6 +11,13 @@ info:
 
     For a no-auth playground using synthetic data, see
     `/api/sandbox/v1/*` (documented at `/sandbox`).
+
+    Rate limiting (since v1.2.0): every successful response carries
+    `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and
+    `X-RateLimit-Reset` headers (Unix-seconds). When you exceed the
+    per-key budget the API returns a `429` with the `RateLimitProblem`
+    body and a `Retry-After` header. See `docs/api/versioning.md`
+    for the full contract and deprecation policy.
 
     Wave 8 (2026-04-18). See ADR 0020 and `docs/qa/per-pillar/pillar-j-api.md`.
   contact:
@@ -58,6 +65,13 @@ paths:
       responses:
         "200":
           description: Healthy.
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/RateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/RateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/RateLimitReset"
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Health" }
@@ -89,6 +103,10 @@ paths:
       responses:
         "200":
           description: Page of providers.
+          headers:
+            X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
+            X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ProvidersPage" }
@@ -109,6 +127,10 @@ paths:
       responses:
         "200":
           description: Provider envelope.
+          headers:
+            X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
+            X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
           content:
             application/json:
               schema:
@@ -145,12 +167,16 @@ paths:
               schema: { type: string, example: 'attachment; filename="cv-prov-abc12.pdf"' }
             Content-Length:
               schema: { type: integer }
+            X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
+            X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
           content:
             application/pdf:
               schema: { type: string, format: binary }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
 
   /api/v1/sanctions:
     get:
@@ -169,6 +195,10 @@ paths:
       responses:
         "200":
           description: Page of sanctions checks.
+          headers:
+            X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
+            X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/SanctionsPage" }
@@ -194,6 +224,10 @@ paths:
       responses:
         "200":
           description: Page of enrollments.
+          headers:
+            X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
+            X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/EnrollmentsPage" }
@@ -247,25 +281,107 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     RateLimited:
-      description: Too many requests for this key — see `Retry-After` header.
+      description: |
+        Too many requests for this key. The body is a
+        `RateLimitProblem`. The `Retry-After` header (seconds) tells
+        you when the next request is allowed; the standard
+        `X-RateLimit-*` headers (also present on every successful
+        response since v1.2.0) describe your budget.
       headers:
         Retry-After:
-          schema: { type: integer, description: Seconds until next request allowed. }
+          $ref: "#/components/headers/RetryAfter"
+        X-RateLimit-Limit:
+          $ref: "#/components/headers/RateLimitLimit"
+        X-RateLimit-Remaining:
+          $ref: "#/components/headers/RateLimitRemaining"
+        X-RateLimit-Reset:
+          $ref: "#/components/headers/RateLimitReset"
       content:
         application/json:
-          schema: { $ref: "#/components/schemas/Error" }
+          schema: { $ref: "#/components/schemas/RateLimitProblem" }
+
+  headers:
+    RateLimitLimit:
+      description: |
+        Maximum requests allowed in the current fixed window for the
+        authenticated API key. Stable across the window. Present on
+        every successful 2xx response and on the 429 rejection.
+      schema: { type: integer, minimum: 1, example: 120 }
+    RateLimitRemaining:
+      description: |
+        Requests still available in the current window (>= 0).
+        Decrements on every accepted request. On a 429 this is `0`.
+      schema: { type: integer, minimum: 0, example: 117 }
+    RateLimitReset:
+      description: |
+        Unix-seconds (UTC) timestamp when the current window resets
+        and `X-RateLimit-Remaining` returns to `X-RateLimit-Limit`.
+      schema: { type: integer, minimum: 0, example: 1739887200 }
+    RetryAfter:
+      description: |
+        Seconds the client should wait before retrying. Always >= 1.
+        Present only on `429` responses.
+      schema: { type: integer, minimum: 1, example: 7 }
 
   schemas:
     Error:
       type: object
       required: [error]
+      description: |
+        Canonical v1 error envelope. The body of every non-2xx response
+        from `/api/v1/*` follows this shape. Clients (including the
+        in-tree TypeScript SDK) parse `error.code` and `error.message`.
       properties:
         error:
           type: object
           required: [code, message]
           properties:
-            code: { type: string, example: "PROVIDER_NOT_FOUND" }
-            message: { type: string, example: "Provider not found" }
+            code:
+              type: string
+              description: |
+                Stable machine-readable identifier for the failure
+                mode. Snake_case. Part of the contract — never renamed
+                without bumping `info.version` and following the
+                deprecation policy in `docs/api/versioning.md`.
+              example: "not_found"
+            message:
+              type: string
+              description: Human-readable explanation, may change between releases.
+              example: "Provider not found"
+            required:
+              type: string
+              description: |
+                Present on `insufficient_scope` errors — names the
+                scope the API key would have needed. Optional on
+                other errors.
+
+    RateLimitProblem:
+      type: object
+      required: [error]
+      description: |
+        Body of a `429 Too Many Requests` response. Extends `Error`
+        with a `retryAfterSeconds` field that mirrors the
+        `Retry-After` header so SDKs that don't read response headers
+        can still back off correctly.
+      properties:
+        error:
+          type: object
+          required: [code, message, retryAfterSeconds]
+          properties:
+            code:
+              type: string
+              const: "rate_limited"
+              example: "rate_limited"
+            message:
+              type: string
+              example: "Rate limit of 120 requests/min exceeded. Retry in 7s."
+            retryAfterSeconds:
+              type: integer
+              minimum: 1
+              example: 7
+              description: |
+                Seconds until the next request is allowed. Always
+                matches the `Retry-After` header.
 
     Pagination:
       type: object
@@ -297,7 +413,7 @@ components:
         apiVersion:
           type: string
           description: Semver version of the v1 surface (matches `info.version`).
-          example: "1.1.0"
+          example: "1.2.0"
         time:
           type: string
           format: date-time

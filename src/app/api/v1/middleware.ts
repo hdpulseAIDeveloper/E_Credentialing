@@ -1,12 +1,23 @@
 import { db } from "@/server/db";
 import { createHash } from "crypto";
 import { NextResponse } from "next/server";
-import { rateLimit } from "@/lib/api/rate-limit";
+import {
+  buildRateLimitResponse,
+  evaluateRateLimit,
+  type RateLimitState,
+} from "@/lib/api/rate-limit";
 
 export interface ApiKeyAuthResult {
   valid: boolean;
   keyId?: string;
   permissions?: Record<string, boolean>;
+  /**
+   * Rate-limit snapshot for this request. Always populated when
+   * `valid === true` so route handlers can attach `X-RateLimit-*`
+   * headers to their successful responses via
+   * `applyRateLimitHeaders(response, auth.rateLimit)`.
+   */
+  rateLimit?: RateLimitState;
   error?: NextResponse;
 }
 
@@ -17,10 +28,7 @@ export async function authenticateApiKey(request: Request): Promise<ApiKeyAuthRe
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return {
       valid: false,
-      error: NextResponse.json(
-        { error: "Missing or invalid Authorization header. Use Bearer <api-key>" },
-        { status: 401 }
-      ),
+      error: v1ErrorResponse(401, "missing_authorization", "Missing or invalid Authorization header. Use Bearer <api-key>"),
     };
   }
 
@@ -28,7 +36,7 @@ export async function authenticateApiKey(request: Request): Promise<ApiKeyAuthRe
   if (rawKey.length < 16) {
     return {
       valid: false,
-      error: NextResponse.json({ error: "Invalid API key format" }, { status: 401 }),
+      error: v1ErrorResponse(401, "invalid_api_key", "Invalid API key format"),
     };
   }
   const keyHash = createHash("sha256").update(rawKey).digest("hex");
@@ -37,21 +45,22 @@ export async function authenticateApiKey(request: Request): Promise<ApiKeyAuthRe
   if (!apiKey || !apiKey.isActive) {
     return {
       valid: false,
-      error: NextResponse.json({ error: "Invalid or revoked API key" }, { status: 401 }),
+      error: v1ErrorResponse(401, "invalid_api_key", "Invalid or revoked API key"),
     };
   }
 
   if (apiKey.expiresAt && apiKey.expiresAt < new Date()) {
     return {
       valid: false,
-      error: NextResponse.json({ error: "API key has expired" }, { status: 401 }),
+      error: v1ErrorResponse(401, "expired_api_key", "API key has expired"),
     };
   }
 
-  // Rate limit per API key — fixed window of 60s.
-  const rl = rateLimit(`apikey:${apiKey.id}`, { limit: RATE_LIMIT_PER_MINUTE });
-  if (rl) {
-    return { valid: false, error: rl };
+  // Per-key fixed-window rate limit. State is computed unconditionally
+  // so we can surface X-RateLimit-* headers on every response.
+  const rl = evaluateRateLimit(`apikey:${apiKey.id}`, { limit: RATE_LIMIT_PER_MINUTE });
+  if (!rl.allowed) {
+    return { valid: false, error: buildRateLimitResponse(rl) };
   }
 
   // Best-effort lastUsedAt update (do not block the request on failure).
@@ -63,6 +72,7 @@ export async function authenticateApiKey(request: Request): Promise<ApiKeyAuthRe
     valid: true,
     keyId: apiKey.id,
     permissions: (apiKey.permissions as Record<string, boolean>) || {},
+    rateLimit: rl,
   };
 }
 
@@ -80,19 +90,42 @@ export function requireScope(
   scope: string,
 ): NextResponse | null {
   if (!auth.valid || !auth.permissions) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return v1ErrorResponse(401, "unauthorized", "Unauthorized");
   }
   if (auth.permissions[scope] !== true) {
-    return NextResponse.json(
-      {
-        error: "insufficient_scope",
-        message: `This API key is missing the '${scope}' scope`,
-        required: scope,
-      },
-      { status: 403 },
+    return v1ErrorResponse(
+      403,
+      "insufficient_scope",
+      `This API key is missing the '${scope}' scope`,
+      { required: scope },
     );
   }
   return null;
+}
+
+/**
+ * Build a v1-shaped JSON error response.
+ *
+ * Standard envelope across the entire `/api/v1/*` surface:
+ *
+ *   { "error": { "code": "...", "message": "...", ...extras } }
+ *
+ * This is the contract the OpenAPI `Error` schema describes and the
+ * one the TypeScript SDK (`V1ApiError`) parses to surface
+ * `error.code` and `error.message`. **Never** flatten or rename
+ * these fields without bumping `info.version` and following the
+ * deprecation policy in `docs/api/versioning.md`.
+ */
+export function v1ErrorResponse(
+  status: number,
+  code: string,
+  message: string,
+  extras: Record<string, unknown> = {},
+): NextResponse {
+  return NextResponse.json(
+    { error: { code, message, ...extras } },
+    { status },
+  );
 }
 
 /**
@@ -107,4 +140,3 @@ export const API_SCOPES = [
 ] as const;
 
 export type ApiScope = (typeof API_SCOPES)[number];
-

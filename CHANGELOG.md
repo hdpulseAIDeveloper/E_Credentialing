@@ -7,6 +7,71 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sem
 ## [Unreleased]
 
 ### Added
+- **Wave 13 — productize the rate-limit contract as SemVer minor bump
+  (1.1.0 -> 1.2.0) (2026-04-18):** Second exercise of the versioning
+  machinery — turn the silent in-memory rate limiter into a documented,
+  client-consumable API contract.
+  - `src/lib/api/rate-limit.ts`: refactored. New `evaluateRateLimit()`
+    returns a structured `RateLimitState` (`limit`, `remaining`,
+    `resetUnixSeconds`, `allowed`, `retryAfterSeconds`). New
+    `applyRateLimitHeaders(response, state)` attaches
+    `X-RateLimit-Limit/Remaining/Reset` to any NextResponse. New
+    `buildRateLimitResponse(state)` constructs the canonical
+    `RateLimitProblem` 429 with all four headers (the three above
+    plus `Retry-After`). The legacy `rateLimit()` helper is kept as
+    a backwards-compatible facade so unrelated callers don't break.
+  - `src/app/api/v1/middleware.ts`: `authenticateApiKey()` now
+    surfaces a `rateLimit: RateLimitState` field on every successful
+    auth so route handlers can attach the standard headers without
+    recomputing. Introduced `v1ErrorResponse(status, code, message,
+    extras?)` — the single shaper for every v1 error envelope.
+  - All six v1 route handlers (`/health`, `/providers`,
+    `/providers/{id}`, `/providers/{id}/cv.pdf`, `/sanctions`,
+    `/enrollments`) now wrap their successful responses in
+    `applyRateLimitHeaders(..., auth.rateLimit)` and return errors
+    via the standardised envelope.
+  - **Standardised v1 error envelope:** every non-2xx response
+    across `/api/v1/*` now matches the OpenAPI `Error` shape
+    `{ "error": { "code": "...", "message": "..." } }`. Stable
+    snake_case codes added: `missing_authorization`,
+    `invalid_api_key`, `expired_api_key`, `insufficient_scope`,
+    `unauthorized`, `rate_limited`, `not_found`,
+    `cv_generation_failed`. The TypeScript SDK already parsed this
+    shape — Wave 13 makes it actually deliverable, closing a
+    long-standing contract gap.
+  - `docs/api/openapi-v1.yaml`: bumped `info.version` `1.1.0 ->
+    1.2.0`. Added `components.headers.{RateLimitLimit,
+    RateLimitRemaining, RateLimitReset, RetryAfter}`. Added
+    `components.schemas.RateLimitProblem` with `error.code`
+    declared `const: "rate_limited"`. Tightened
+    `components.schemas.Error` with description, `code` /
+    `message` requirements, and the optional `required` field that
+    `insufficient_scope` errors carry. Wired `X-RateLimit-*`
+    response headers into every JSON 200 response across the spec.
+    Bumped `Health.apiVersion` example to `1.2.0`. Added the CV-PDF
+    operation's missing 429 response.
+  - `src/lib/api-client/v1.ts`: added `parseRateLimit(headers)` and
+    a `V1RateLimit` interface. `V1ApiError` now carries the parsed
+    snapshot as `rateLimit` so customers can implement
+    Retry-After-aware back-off without manually reading the
+    response. Health docstring bumped to mention v1.2.0.
+  - `src/lib/api-client/v1-types.ts`: regenerated; drift gate
+    green. `public/api/v1/postman.json`: regenerated; drift gate
+    green.
+  - `tests/unit/lib/rate-limit.test.ts`: rewritten with 9 tests
+    covering the new structured state, header attachment helper,
+    and the `RateLimitProblem` 429 envelope.
+  - `tests/unit/lib/api-client/v1-client.test.ts`: 3 new tests for
+    `parseRateLimit` and the `V1ApiError.rateLimit` field on a 429.
+  - `tests/contract/pillar-j-openapi.spec.ts`: 4 new contract
+    assertions — every JSON 200 must declare 429, must reference
+    every `X-RateLimit-*` header, and the `RateLimitProblem`
+    schema must lock `error.code` to the literal `"rate_limited"`.
+  - `tests/unit/api/require-scope.test.ts`: updated expectation
+    to the new envelope shape.
+  - **Result:** 1556/1556 unit tests green, full `qa:gate` green
+    (typecheck, sdk:check, postman:check, coverage), no drift.
+
 - **Wave 12 — `/api/v1/health` endpoint as SemVer minor bump (2026-04-18):**
   End-to-end exercise of the new versioning machinery: a single
   additive endpoint flowing through the spec, generated SDK,

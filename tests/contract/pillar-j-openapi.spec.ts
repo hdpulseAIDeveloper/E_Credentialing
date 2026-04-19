@@ -113,6 +113,80 @@ describe("pillar-J: OpenAPI 3.1 contract", () => {
     });
   });
 
+  describe("Wave 13: rate-limit contract", () => {
+    it("declares every X-RateLimit-* header as a reusable component", () => {
+      const headers = (SPEC as { components?: { headers?: Record<string, unknown> } })
+        .components?.headers ?? {};
+      expect(headers.RateLimitLimit, "missing components.headers.RateLimitLimit").toBeTruthy();
+      expect(headers.RateLimitRemaining, "missing components.headers.RateLimitRemaining").toBeTruthy();
+      expect(headers.RateLimitReset, "missing components.headers.RateLimitReset").toBeTruthy();
+      expect(headers.RetryAfter, "missing components.headers.RetryAfter").toBeTruthy();
+    });
+
+    it("declares the RateLimitProblem schema with const code='rate_limited'", () => {
+      const schemas = SPEC.components?.schemas ?? {};
+      const rlp = schemas["RateLimitProblem"] as
+        | {
+            properties?: { error?: { properties?: { code?: { const?: string } } } };
+          }
+        | undefined;
+      expect(rlp, "RateLimitProblem schema missing").toBeTruthy();
+      expect(rlp?.properties?.error?.properties?.code?.const).toBe("rate_limited");
+    });
+
+    it("references the RateLimited response from every JSON 200 operation", () => {
+      // Find every operation whose 200 response is application/json (i.e.
+      // not the binary CV PDF). All of them MUST also declare 429.
+      const failures: string[] = [];
+      for (const [path, ops] of Object.entries(SPEC.paths)) {
+        for (const [method, op] of Object.entries(ops)) {
+          const operation = op as {
+            responses?: Record<
+              string,
+              { content?: Record<string, unknown>; $ref?: string }
+            >;
+          };
+          const r200 = operation?.responses?.["200"];
+          if (!r200) continue;
+          const json = r200.content?.["application/json"];
+          if (!json) continue;
+          if (!operation.responses?.["429"]) {
+            failures.push(`${method.toUpperCase()} ${path} (200 is JSON but no 429 declared)`);
+          }
+        }
+      }
+      expect(failures, failures.join("\n")).toEqual([]);
+    });
+
+    it("attaches X-RateLimit-* headers to every JSON 200 response", () => {
+      const failures: string[] = [];
+      for (const [path, ops] of Object.entries(SPEC.paths)) {
+        for (const [method, op] of Object.entries(ops)) {
+          const operation = op as {
+            responses?: Record<
+              string,
+              {
+                content?: Record<string, unknown>;
+                headers?: Record<string, unknown>;
+              }
+            >;
+          };
+          const r200 = operation?.responses?.["200"];
+          if (!r200?.content?.["application/json"]) continue;
+          const headers = r200.headers ?? {};
+          for (const h of [
+            "X-RateLimit-Limit",
+            "X-RateLimit-Remaining",
+            "X-RateLimit-Reset",
+          ]) {
+            if (!headers[h]) failures.push(`${method.toUpperCase()} ${path} 200 missing header ${h}`);
+          }
+        }
+      }
+      expect(failures, failures.join("\n")).toEqual([]);
+    });
+  });
+
   describe("anti-PHI guard", () => {
     /**
      * Walks the spec and collects every property name that appears

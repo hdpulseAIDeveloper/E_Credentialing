@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { authenticateApiKey, requireScope } from "../../middleware";
+import { applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { auditApiRequest } from "@/lib/api/audit-api";
 
 export async function GET(
@@ -53,7 +54,13 @@ export async function GET(
 
   if (!provider) {
     void auditApiRequest({ apiKeyId: auth.keyId!, method: "GET", path: `/api/v1/providers/${id}`, status: 404 });
-    return NextResponse.json({ error: "Provider not found" }, { status: 404 });
+    return applyRateLimitHeaders(
+      NextResponse.json(
+        { error: { code: "not_found", message: "Provider not found" } },
+        { status: 404 },
+      ),
+      auth.rateLimit,
+    );
   }
 
   void auditApiRequest({
@@ -64,5 +71,8 @@ export async function GET(
     resultCount: 1,
   });
 
-  return NextResponse.json({ data: provider });
+  return applyRateLimitHeaders(
+    NextResponse.json({ data: provider }),
+    auth.rateLimit,
+  );
 }

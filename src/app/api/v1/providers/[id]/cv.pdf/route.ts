@@ -23,6 +23,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { authenticateApiKey, requireScope } from "../../../middleware";
+import { applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { auditApiRequest } from "@/lib/api/audit-api";
 import { CmeService } from "@/server/services/cme";
 import { writeAuditLog } from "@/lib/audit";
@@ -50,7 +51,13 @@ export async function GET(
       path: `/api/v1/providers/${id}/cv.pdf`,
       status: 404,
     });
-    return NextResponse.json({ error: "Provider not found" }, { status: 404 });
+    return applyRateLimitHeaders(
+      NextResponse.json(
+        { error: { code: "not_found", message: "Provider not found" } },
+        { status: 404 },
+      ),
+      auth.rateLimit,
+    );
   }
 
   const svc = new CmeService({
@@ -71,15 +78,18 @@ export async function GET(
     const safeName = (provider.legalLastName ?? "provider")
       .replace(/[^A-Za-z0-9_-]+/g, "-")
       .toLowerCase();
-    return new NextResponse(bytes as unknown as BodyInit, {
-      status: 200,
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="cv-${safeName}-${id.slice(0, 8)}.pdf"`,
-        "Content-Length": String(bytes.byteLength),
-        "Cache-Control": "no-store",
-      },
-    });
+    return applyRateLimitHeaders(
+      new NextResponse(bytes as unknown as BodyInit, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="cv-${safeName}-${id.slice(0, 8)}.pdf"`,
+          "Content-Length": String(bytes.byteLength),
+          "Cache-Control": "no-store",
+        },
+      }) as NextResponse,
+      auth.rateLimit,
+    );
   } catch (err) {
     console.error("[/api/v1/providers/:id/cv.pdf] generation failed:", err);
     void auditApiRequest({
@@ -88,9 +98,12 @@ export async function GET(
       path: `/api/v1/providers/${id}/cv.pdf`,
       status: 500,
     });
-    return NextResponse.json(
-      { error: "Failed to generate CV PDF" },
-      { status: 500 },
+    return applyRateLimitHeaders(
+      NextResponse.json(
+        { error: { code: "cv_generation_failed", message: "Failed to generate CV PDF" } },
+        { status: 500 },
+      ),
+      auth.rateLimit,
     );
   }
 }

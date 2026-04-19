@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/server/db";
 import { authenticateApiKey, requireScope } from "../middleware";
+import { applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { auditApiRequest } from "@/lib/api/audit-api";
 
 export async function GET(request: Request) {
@@ -49,8 +50,11 @@ export async function GET(request: Request) {
     query: { status, payer: payerName, page: String(page), limit: String(limit) },
   });
 
-  return NextResponse.json({
-    data: enrollments,
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-  });
+  return applyRateLimitHeaders(
+    NextResponse.json({
+      data: enrollments,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    }),
+    auth.rateLimit,
+  );
 }

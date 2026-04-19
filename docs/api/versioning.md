@@ -1,7 +1,7 @@
 # Public REST API — Versioning, Deprecation, and Sunset Policy
 
-- **Status:** v1 — current stable
-- **Last reviewed:** 2026-04-18 (Wave 11)
+- **Status:** v1 — current stable (spec `1.2.0`)
+- **Last reviewed:** 2026-04-18 (Wave 13)
 - **Related:**
   ADR [0020](../dev/adr/0020-openapi-v1-spec.md) (OpenAPI spec),
   ADR [0022](../dev/adr/0022-public-rest-v1-sdk.md) (TypeScript SDK),
@@ -147,6 +147,40 @@ A future contract test (Wave 12 candidate) will assert that any
 operation marked `deprecated: true` in the spec also serves the
 required headers at runtime.
 
+## 3.3 Standard rate-limit response headers (since spec v1.2.0)
+
+Every successful 2xx response from `/api/v1/*` carries three
+standard headers that describe the caller's per-key budget:
+
+| Header | Type | Meaning |
+|---|---|---|
+| `X-RateLimit-Limit` | integer | Maximum requests allowed in the current fixed window. |
+| `X-RateLimit-Remaining` | integer | Requests still available in the current window (>= 0). |
+| `X-RateLimit-Reset` | integer | Unix-seconds (UTC) when the window resets. |
+
+When the budget is exhausted the API returns a `429 Too Many
+Requests` whose body matches the `RateLimitProblem` schema in the
+OpenAPI spec:
+
+```json
+{
+  "error": {
+    "code": "rate_limited",
+    "message": "Rate limit of 120 requests/min exceeded. Retry in 7s.",
+    "retryAfterSeconds": 7
+  }
+}
+```
+
+The 429 response carries the same three `X-RateLimit-*` headers
+plus `Retry-After: <seconds>` (RFC 9110 §10.2.3). The
+`error.code` value `"rate_limited"` is a fixed literal — see
+ADR 0023 for why we treat error codes as part of the contract.
+
+These headers were added in spec `1.2.0` (additive, non-breaking).
+Removing them, renaming them, or changing their semantics would be
+a breaking change and require a `/api/v2/`.
+
 ## 4. Major-version overlap window
 
 When `/api/v2` ships:
@@ -200,6 +234,7 @@ The following invariants MUST be preserved:
 - "How long until I can delete this endpoint?" → §3 (90 days
   minimum after `Deprecation`-header-on date).
 - "What headers do I need on a deprecated endpoint?" → §3.1.
+- "What rate-limit headers must I emit?" → §3.3.
 - "How do I document this deprecation in the spec?" → §3.2.
 - "When can I ship `/api/v2`?" → After at least one of:
   - Required customer feature that can't ship in v1, OR

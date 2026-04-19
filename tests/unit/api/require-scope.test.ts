@@ -19,9 +19,13 @@ describe("requireScope", () => {
       "providers:read",
     );
     expect(res!.status).toBe(403);
-    const body = (await res!.json()) as { error: string; required: string };
-    expect(body.error).toBe("insufficient_scope");
-    expect(body.required).toBe("providers:read");
+    // Wave 13 standardised every v1 error to the OpenAPI envelope:
+    //   { "error": { "code": "...", "message": "...", ...extras } }
+    const body = (await res!.json()) as {
+      error: { code: string; message: string; required: string };
+    };
+    expect(body.error.code).toBe("insufficient_scope");
+    expect(body.error.required).toBe("providers:read");
   });
 
   it("returns 403 when the key has a different scope only", () => {

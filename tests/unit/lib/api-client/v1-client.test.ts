@@ -8,7 +8,11 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { V1Client, V1ApiError } from "../../../../src/lib/api-client/v1";
+import {
+  V1Client,
+  V1ApiError,
+  parseRateLimit,
+} from "../../../../src/lib/api-client/v1";
 
 interface MockResponse {
   status?: number;
@@ -178,6 +182,66 @@ describe("V1Client", () => {
     expect(result.ok).toBe(true);
     expect(result.keyId).toBe("ck_test_abc");
     expect(result.apiVersion).toBe("1.1.0");
+  });
+
+  it("parseRateLimit returns the decoded headers when present", () => {
+    const h = new Headers({
+      "x-ratelimit-limit": "120",
+      "x-ratelimit-remaining": "117",
+      "x-ratelimit-reset": "1739887200",
+    });
+    const rl = parseRateLimit(h);
+    expect(rl).toEqual({
+      limit: 120,
+      remaining: 117,
+      resetUnixSeconds: 1739887200,
+      retryAfterSeconds: 0,
+    });
+  });
+
+  it("parseRateLimit returns undefined when headers are absent (older deployments)", () => {
+    expect(parseRateLimit(new Headers({}))).toBeUndefined();
+  });
+
+  it("V1ApiError exposes the parsed rate-limit on a 429 (RateLimitProblem)", async () => {
+    const fetchSpy = makeFetch([
+      {
+        status: 429,
+        headers: {
+          "content-type": "application/json",
+          "x-ratelimit-limit": "60",
+          "x-ratelimit-remaining": "0",
+          "x-ratelimit-reset": "1739887260",
+          "retry-after": "12",
+        },
+        body: JSON.stringify({
+          error: {
+            code: "rate_limited",
+            message: "Rate limit of 60 requests/min exceeded. Retry in 12s.",
+            retryAfterSeconds: 12,
+          },
+        }),
+      },
+    ]);
+    const client = new V1Client({
+      baseUrl: "https://api.example.com",
+      apiKey: "k",
+      fetch: fetchSpy as unknown as typeof fetch,
+    });
+    try {
+      await client.listProviders();
+      throw new Error("expected V1ApiError");
+    } catch (e) {
+      const err = e as V1ApiError;
+      expect(err.status).toBe(429);
+      expect(err.code).toBe("rate_limited");
+      expect(err.rateLimit).toEqual({
+        limit: 60,
+        remaining: 0,
+        resetUnixSeconds: 1739887260,
+        retryAfterSeconds: 12,
+      });
+    }
   });
 
   it("falls back to a generic error message when body is non-JSON", async () => {

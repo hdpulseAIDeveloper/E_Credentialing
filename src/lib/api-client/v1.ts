@@ -41,13 +41,62 @@ export interface V1ClientOptions {
 export class V1ApiError extends Error {
   readonly status: number;
   readonly code: string | undefined;
+  /**
+   * Parsed rate-limit snapshot from the response headers, if present.
+   * Available on every v1 error since spec v1.2.0 — including the 429
+   * `RateLimitProblem` response, where `remaining === 0` and
+   * `retryAfterSeconds` mirrors the body.
+   */
+  readonly rateLimit: V1RateLimit | undefined;
 
-  constructor(status: number, message: string, code?: string) {
+  constructor(
+    status: number,
+    message: string,
+    code?: string,
+    rateLimit?: V1RateLimit,
+  ) {
     super(message);
     this.name = "V1ApiError";
     this.status = status;
     this.code = code;
+    this.rateLimit = rateLimit;
   }
+}
+
+/**
+ * Decoded `X-RateLimit-*` (and `Retry-After`, on 429) headers.
+ * Available on every successful and failed v1 response since spec
+ * v1.2.0. Use `parseRateLimit(response.headers)` from a raw
+ * `Response`, or read `V1ApiError.rateLimit` after a thrown error.
+ */
+export interface V1RateLimit {
+  /** Maximum requests allowed in the current fixed window. */
+  limit: number;
+  /** Requests still available in the current window. */
+  remaining: number;
+  /** Unix-seconds when the window resets. */
+  resetUnixSeconds: number;
+  /** Seconds until next request allowed (only on 429s; else 0). */
+  retryAfterSeconds: number;
+}
+
+/**
+ * Parse the `X-RateLimit-*` (and `Retry-After`) headers off any
+ * response from the v1 API. Returns `undefined` when none are
+ * present — useful for older deployments still on spec < 1.2.0.
+ */
+export function parseRateLimit(headers: Headers): V1RateLimit | undefined {
+  const limit = headers.get("x-ratelimit-limit");
+  const remaining = headers.get("x-ratelimit-remaining");
+  const reset = headers.get("x-ratelimit-reset");
+  if (limit === null || remaining === null || reset === null) return undefined;
+  const retryAfter = headers.get("retry-after");
+  return {
+    limit: Number(limit),
+    remaining: Number(remaining),
+    resetUnixSeconds: Number(reset),
+    retryAfterSeconds: retryAfter !== null ? Number(retryAfter) : 0,
+  };
 }
 
 export class V1Client {
@@ -92,7 +141,7 @@ export class V1Client {
       } catch {
         // Non-JSON error body is fine — the HTTP message is enough.
       }
-      throw new V1ApiError(res.status, message, code);
+      throw new V1ApiError(res.status, message, code, parseRateLimit(res.headers));
     }
     return (await res.json()) as T;
   }
@@ -102,7 +151,8 @@ export class V1Client {
   /**
    * `GET /api/v1/health` — verifies the API key is active and the
    * environment is reachable. The natural first call when wiring
-   * up a new client. Available since v1.1.0.
+   * up a new client. Available since v1.1.0; `apiVersion` returns
+   * `"1.2.0"` and above on a current deployment.
    */
   health(): Promise<components["schemas"]["Health"]> {
     return this.request("GET", "/api/v1/health");
