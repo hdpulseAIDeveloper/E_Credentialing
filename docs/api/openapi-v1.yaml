@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: E-Credentialing CVO Platform — Public REST API v1
-  version: "1.2.0"
+  version: "1.3.0"
   summary: Read-only public REST API for the E-Credentialing CVO platform.
   description: |
     The v1 surface is intentionally read-only. Every request requires
@@ -16,7 +16,13 @@ info:
     `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and
     `X-RateLimit-Reset` headers (Unix-seconds). When you exceed the
     per-key budget the API returns a `429` with the `RateLimitProblem`
-    body and a `Retry-After` header. See `docs/api/versioning.md`
+    body and a `Retry-After` header.
+
+    Request correlation (since v1.3.0): every request and response —
+    success or error — carries an `X-Request-Id` header. Send your
+    own (`^[A-Za-z0-9_\-]{8,128}$`) and we'll honour it; otherwise
+    we generate one server-side. Paste it into a support ticket and
+    we can find your call in O(1). See `docs/api/versioning.md`
     for the full contract and deprecation policy.
 
     Wave 8 (2026-04-18). See ADR 0020 and `docs/qa/per-pillar/pillar-j-api.md`.
@@ -62,6 +68,8 @@ paths:
         Versioning: shipped in v1.1.0 (SemVer minor — additive
         only). See `docs/api/versioning.md`.
       operationId: getHealth
+      parameters:
+        - $ref: "#/components/parameters/RequestIdHeader"
       responses:
         "200":
           description: Healthy.
@@ -72,6 +80,8 @@ paths:
               $ref: "#/components/headers/RateLimitRemaining"
             X-RateLimit-Reset:
               $ref: "#/components/headers/RateLimitReset"
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Health" }
@@ -91,6 +101,7 @@ paths:
         `status` and `npi`. PHI is never included.
       operationId: listProviders
       parameters:
+        - $ref: "#/components/parameters/RequestIdHeader"
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Limit"
         - in: query
@@ -107,6 +118,7 @@ paths:
             X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
             X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
             X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ProvidersPage" }
@@ -120,6 +132,7 @@ paths:
       summary: Get one provider (full envelope, no PHI)
       operationId: getProvider
       parameters:
+        - $ref: "#/components/parameters/RequestIdHeader"
         - in: path
           name: id
           required: true
@@ -131,6 +144,7 @@ paths:
             X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
             X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
             X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
           content:
             application/json:
               schema:
@@ -155,6 +169,7 @@ paths:
         CME log) — never SSN, DOB, DEA, or personal addresses.
       operationId: getProviderCv
       parameters:
+        - $ref: "#/components/parameters/RequestIdHeader"
         - in: path
           name: id
           required: true
@@ -170,6 +185,7 @@ paths:
             X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
             X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
             X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
           content:
             application/pdf:
               schema: { type: string, format: binary }
@@ -184,6 +200,7 @@ paths:
       summary: List sanctions checks
       operationId: listSanctions
       parameters:
+        - $ref: "#/components/parameters/RequestIdHeader"
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Limit"
         - in: query
@@ -199,6 +216,7 @@ paths:
             X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
             X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
             X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/SanctionsPage" }
@@ -212,6 +230,7 @@ paths:
       summary: List payer enrollments
       operationId: listEnrollments
       parameters:
+        - $ref: "#/components/parameters/RequestIdHeader"
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Limit"
         - in: query
@@ -228,6 +247,7 @@ paths:
             X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
             X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
             X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/EnrollmentsPage" }
@@ -253,6 +273,17 @@ components:
         documents:read: Read provider document metadata (no PHI).
 
   parameters:
+    RequestIdHeader:
+      in: header
+      name: X-Request-Id
+      required: false
+      description: |
+        Optional caller-supplied correlation id. If supplied and it
+        matches `^[A-Za-z0-9_\-]{8,128}$` the server honours it and
+        echoes it back on the response. Otherwise the server
+        generates one. Pair this with your client-side log lines for
+        end-to-end tracing. Available since v1.3.0.
+      schema: { type: string, pattern: "^[A-Za-z0-9_\\-]{8,128}$" }
     Page:
       in: query
       name: page
@@ -267,16 +298,22 @@ components:
   responses:
     Unauthorized:
       description: Missing or invalid API key.
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     Forbidden:
       description: API key valid but lacks the required scope.
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     NotFound:
       description: Resource not found.
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -296,11 +333,22 @@ components:
           $ref: "#/components/headers/RateLimitRemaining"
         X-RateLimit-Reset:
           $ref: "#/components/headers/RateLimitReset"
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
       content:
         application/json:
           schema: { $ref: "#/components/schemas/RateLimitProblem" }
 
   headers:
+    RequestId:
+      description: |
+        Correlation id for this request/response pair. If the inbound
+        request supplied a valid `X-Request-Id` we honour it;
+        otherwise we generate one server-side as `req_<hex>`.
+        Present on every response (2xx and non-2xx). Format:
+        `^[A-Za-z0-9_\-]{8,128}$`. Pass it to support to look up the
+        full audit + log trail in O(1). Available since v1.3.0.
+      schema: { type: string, pattern: "^[A-Za-z0-9_\\-]{8,128}$", example: "req_8f3c2a91d4b6e0f5" }
     RateLimitLimit:
       description: |
         Maximum requests allowed in the current fixed window for the
@@ -413,7 +461,7 @@ components:
         apiVersion:
           type: string
           description: Semver version of the v1 surface (matches `info.version`).
-          example: "1.2.0"
+          example: "1.3.0"
         time:
           type: string
           format: date-time

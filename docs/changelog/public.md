@@ -17,6 +17,34 @@ Anti-weakening: never delete a release. Strike-through a published
 note instead and add a follow-up release if the underlying claim
 turned out to be incorrect.
 
+## 2026-04-18 — v1.8.0 (API)
+
+### Added
+- **Request correlation header on every v1 response.** Every
+  `/api/v1/*` request now carries an `X-Request-Id` header on both
+  the request and the response. If you supply one (any string
+  matching `^[A-Za-z0-9_\-]{8,128}$` — ULID, UUID, Stripe-style
+  `req_*`, or your own opaque token), we honour it and stamp it
+  onto our audit log + Pino structured logs. If you don't, we
+  generate one (`req_<16-hex>`) and return it. Surface it verbatim
+  in support tickets — it's the lookup key our on-call engineers
+  use. Documented in the OpenAPI 3.1 spec at
+  `/api/v1/openapi.yaml` (apiVersion `1.3.0`).
+- **TypeScript SDK forwards & captures request ids.** Pass
+  `requestIdFactory: () => myCorrelationId()` when constructing
+  `V1Client` to forward your client-side correlation id; on every
+  thrown `V1ApiError`, `error.requestId` exposes the server-assigned
+  id from the response header. Available in
+  `src/lib/api-client/v1.ts` and the regenerated Postman collection
+  at `/api/v1/postman.json`.
+
+### Improved
+- **Faster support triage.** Customers can now hand us a single id
+  that pinpoints both their client-side log and our server-side
+  audit row — no more correlating by timestamp + key id. This is a
+  **non-breaking minor bump** under the published API versioning
+  policy.
+
 ## 2026-04-18 — v1.7.0 (API)
 
 ### Added

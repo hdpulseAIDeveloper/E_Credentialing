@@ -7,6 +7,80 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sem
 ## [Unreleased]
 
 ### Added
+- **Wave 14 — `X-Request-Id` correlation header + structured request
+  logging (1.2.0 -> 1.3.0) (2026-04-18):** Third exercise of the
+  versioning machinery — give every API request a stable correlation
+  id customers can paste into a support ticket, and thread that id
+  through the audit log + Pino logs so on-call can reconstruct the
+  full trace from a single string.
+  - `src/lib/api/request-id.ts`: new helper module.
+    `generateRequestId()` emits an opaque `req_<16-hex>` id (64 bits
+    of cryptographic randomness; Birthday-paradox-safe to ~5B ids).
+    `resolveRequestId(request)` honours a valid inbound
+    `X-Request-Id` header (regex `^[A-Za-z0-9_\-]{8,128}$`, covers
+    ULID/UUID/Stripe-style/opaque tokens) or generates a fresh one;
+    malformed inbound ids are silently replaced (no 400 — that
+    would be customer-hostile). `applyRequestIdHeader(response, id)`
+    stamps the id onto a NextResponse, mutating-and-returning so it
+    composes inline with the rate-limit helpers.
+  - All six v1 route handlers (`/health`, `/providers`,
+    `/providers/{id}`, `/providers/{id}/cv.pdf`, `/sanctions`,
+    `/enrollments`) now resolve a request id at the top of the
+    handler and stamp it onto every response — success, error, 429,
+    PDF binary, all of them.
+  - `src/lib/api/audit-api.ts`: `auditApiRequest()` now accepts an
+    optional `requestId` parameter and records it on the audit row
+    (`afterState.requestId`), making the id the join key between
+    customer-facing support tickets and the tamper-evident audit
+    log. Bumped `API_VERSION` constant to `"1.3.0"` in
+    `src/app/api/v1/health/route.ts`.
+  - `docs/api/openapi-v1.yaml`: bumped `info.version` to `1.3.0`.
+    New `components.headers.RequestId` (response) and
+    `components.parameters.RequestIdHeader` (request) declarations.
+    Every reusable error response (`Unauthorized`, `Forbidden`,
+    `NotFound`, `RateLimited`) and every operation's 200 response
+    now declares `X-Request-Id`. Every operation declares
+    `RequestIdHeader` as an optional inbound parameter.
+  - `src/lib/api-client/v1.ts`: `V1ClientOptions.requestIdFactory`
+    callback lets callers forward their own client-side correlation
+    id; the SDK validates the format before attaching it.
+    `V1ApiError.requestId` exposes the server-assigned id off the
+    response header on every thrown error (including the binary
+    CV PDF path). `getProviderCv` now also forwards the inbound id
+    and parses rate-limit headers off the error path.
+  - Regenerated `src/lib/api-client/v1-types.ts` and
+    `public/api/v1/postman.json` from the bumped spec.
+  - **Tests:**
+    - `tests/unit/api/request-id.test.ts` — 10 tests covering
+      header constant, id format, freshness, ULID/UUID/Stripe/opaque
+      acceptance, malformed-id rejection (too short/long/spaces/
+      slashes/newlines/semicolons), inbound honouring, malformed
+      inbound replacement (no 400), no-header generation, header
+      stamping, and undefined-id no-op.
+    - `tests/unit/lib/api-client/v1-client.test.ts` — 3 new tests:
+      forwards `X-Request-Id` from `requestIdFactory`, drops a
+      malformed factory output without sending it, captures
+      server-assigned `X-Request-Id` onto `V1ApiError.requestId`
+      from a 404 response.
+    - `tests/contract/pillar-j-openapi.spec.ts` — new "Wave 14"
+      describe block with 4 contract assertions: header component
+      declared, parameter component declared, every 200 response
+      attaches `X-Request-Id`, every reusable error response
+      attaches `X-Request-Id`.
+  - `docs/changelog/public.md` — new `## 2026-04-18 — v1.8.0 (API)`
+    entry under categories `Added` and `Improved`, citing the
+    OpenAPI spec, the SDK, and the Postman collection. The "support
+    triage" framing makes the value concrete for non-technical
+    buyers.
+  - `docs/api/versioning.md` — new `## 3.4` section documenting the
+    `X-Request-Id` contract end-to-end (inbound semantics, outbound
+    coverage, server-generated format, SDK example, breaking-change
+    rules). Last-reviewed bumped to Wave 14; status to `1.3.0`.
+    New quick-reference entry.
+  - **No drift:** `npm run sdk:check`, `npm run postman:check` both
+    green. All 57 affected tests pass (10 helper unit + 14 SDK unit
+    + 33 OpenAPI contract).
+
 - **Wave 13 — productize the rate-limit contract as SemVer minor bump
   (1.1.0 -> 1.2.0) (2026-04-18):** Second exercise of the versioning
   machinery — turn the silent in-memory rate limiter into a documented,

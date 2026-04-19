@@ -35,13 +35,15 @@
 import { NextResponse } from "next/server";
 import { authenticateApiKey } from "../middleware";
 import { applyRateLimitHeaders } from "@/lib/api/rate-limit";
+import { applyRequestIdHeader, resolveRequestId } from "@/lib/api/request-id";
 import { auditApiRequest } from "@/lib/api/audit-api";
 
-const API_VERSION = "1.2.0";
+const API_VERSION = "1.3.0";
 
 export async function GET(request: Request): Promise<NextResponse> {
+  const requestId = resolveRequestId(request);
   const auth = await authenticateApiKey(request);
-  if (!auth.valid) return auth.error!;
+  if (!auth.valid) return applyRequestIdHeader(auth.error!, requestId);
 
   const body = {
     ok: true,
@@ -56,16 +58,20 @@ export async function GET(request: Request): Promise<NextResponse> {
     path: "/api/v1/health",
     status: 200,
     resultCount: 1,
+    requestId,
   });
 
-  return applyRateLimitHeaders(
-    NextResponse.json(body, {
-      status: 200,
-      headers: {
-        "Cache-Control": "no-store",
-        "X-Content-Type-Options": "nosniff",
-      },
-    }),
-    auth.rateLimit,
+  return applyRequestIdHeader(
+    applyRateLimitHeaders(
+      NextResponse.json(body, {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store",
+          "X-Content-Type-Options": "nosniff",
+        },
+      }),
+      auth.rateLimit,
+    ),
+    requestId,
   );
 }

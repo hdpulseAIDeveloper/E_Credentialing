@@ -36,6 +36,14 @@ export interface V1ClientOptions {
   apiKey: string;
   /** Optional `fetch` implementation; defaults to global `fetch`. */
   fetch?: FetchLike;
+  /**
+   * Optional factory invoked once per request. Returns the value to
+   * send as the `X-Request-Id` header. Use this to thread your own
+   * client-side correlation id through to our audit log + Pino
+   * logs. The string MUST match `^[A-Za-z0-9_\-]{8,128}$`; anything
+   * else is silently dropped server-side. Available since v1.3.0.
+   */
+  requestIdFactory?: () => string | undefined;
 }
 
 export class V1ApiError extends Error {
@@ -43,23 +51,34 @@ export class V1ApiError extends Error {
   readonly code: string | undefined;
   /**
    * Parsed rate-limit snapshot from the response headers, if present.
-   * Available on every v1 error since spec v1.2.0 — including the 429
-   * `RateLimitProblem` response, where `remaining === 0` and
-   * `retryAfterSeconds` mirrors the body.
+   * Available on every v1 error since spec v1.2.0 - including the 429
+   * RateLimitProblem response, where remaining === 0 and
+   * retryAfterSeconds mirrors the body.
    */
   readonly rateLimit: V1RateLimit | undefined;
+  /**
+   * Server-assigned correlation id pulled from the X-Request-Id
+   * response header. Available on every v1 error since spec v1.3.0;
+   * safe to surface verbatim to your support team - it is the lookup
+   * key in our audit log + Pino structured logs. undefined only when
+   * the deployment is older than 1.3.0 or the response was
+   * network-aborted before headers arrived.
+   */
+  readonly requestId: string | undefined;
 
   constructor(
     status: number,
     message: string,
     code?: string,
     rateLimit?: V1RateLimit,
+    requestId?: string,
   ) {
     super(message);
     this.name = "V1ApiError";
     this.status = status;
     this.code = code;
     this.rateLimit = rateLimit;
+    this.requestId = requestId;
   }
 }
 
@@ -99,10 +118,14 @@ export function parseRateLimit(headers: Headers): V1RateLimit | undefined {
   };
 }
 
+/** Regex for X-Request-Id - mirrors `src/lib/api/request-id.ts` server-side. */
+const REQUEST_ID_RE = /^[A-Za-z0-9_\-]{8,128}$/;
+
 export class V1Client {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly fetchImpl: FetchLike;
+  private readonly requestIdFactory: (() => string | undefined) | undefined;
 
   constructor(opts: V1ClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/$/, "");
@@ -117,6 +140,7 @@ export class V1Client {
     if (!this.apiKey) {
       throw new Error("V1Client: apiKey is required.");
     }
+    this.requestIdFactory = opts.requestIdFactory;
   }
 
   private async request<T>(
@@ -128,6 +152,12 @@ export class V1Client {
     const headers = new Headers(init.headers);
     headers.set("Authorization", `Bearer ${this.apiKey}`);
     headers.set("Accept", "application/json");
+    if (this.requestIdFactory && !headers.has("X-Request-Id")) {
+      const candidate = this.requestIdFactory();
+      if (candidate && REQUEST_ID_RE.test(candidate)) {
+        headers.set("X-Request-Id", candidate);
+      }
+    }
     const res = await this.fetchImpl(url, { ...init, method, headers });
     if (!res.ok) {
       let code: string | undefined;
@@ -139,9 +169,15 @@ export class V1Client {
         if (body?.error?.message) message = body.error.message;
         code = body?.error?.code;
       } catch {
-        // Non-JSON error body is fine — the HTTP message is enough.
+        // Non-JSON error body is fine - the HTTP message is enough.
       }
-      throw new V1ApiError(res.status, message, code, parseRateLimit(res.headers));
+      throw new V1ApiError(
+        res.status,
+        message,
+        code,
+        parseRateLimit(res.headers),
+        res.headers.get("x-request-id") ?? undefined,
+      );
     }
     return (await res.json()) as T;
   }
@@ -181,17 +217,32 @@ export class V1Client {
     return this.request("GET", `/api/v1/providers/${encodeURIComponent(id)}`);
   }
 
-  /** CV PDF: returns the raw response so the caller can stream it. */
+  /**
+   * CV PDF: returns the raw response so the caller can stream it.
+   * Forwards X-Request-Id (if requestIdFactory is configured) and
+   * surfaces the server-assigned correlation id on the thrown error.
+   */
   async getProviderCv(id: string): Promise<Response> {
     const url = `${this.baseUrl}/api/v1/providers/${encodeURIComponent(id)}/cv.pdf`;
-    const res = await this.fetchImpl(url, {
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        Accept: "application/pdf",
-      },
+    const headers = new Headers({
+      Authorization: `Bearer ${this.apiKey}`,
+      Accept: "application/pdf",
     });
+    if (this.requestIdFactory) {
+      const candidate = this.requestIdFactory();
+      if (candidate && REQUEST_ID_RE.test(candidate)) {
+        headers.set("X-Request-Id", candidate);
+      }
+    }
+    const res = await this.fetchImpl(url, { headers });
     if (!res.ok) {
-      throw new V1ApiError(res.status, `HTTP ${res.status} on GET ${url}`);
+      throw new V1ApiError(
+        res.status,
+        `HTTP ${res.status} on GET ${url}`,
+        undefined,
+        parseRateLimit(res.headers),
+        res.headers.get("x-request-id") ?? undefined,
+      );
     }
     return res;
   }

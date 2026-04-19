@@ -153,6 +153,39 @@ curl -L https://your-host/api/v1/postman.json \\
           </p>
         </section>
 
+        <section className="mt-12 rounded-xl border border-purple-200 bg-purple-50 p-6">
+          <h2 className="text-xl font-bold text-gray-900">
+            Request correlation (X-Request-Id)
+          </h2>
+          <p className="mt-2 text-sm text-gray-700">
+            Every <code className="font-mono">/api/v1/*</code> request and
+            response carries an <code className="font-mono">X-Request-Id</code>{" "}
+            header (since spec <code className="font-mono">1.3.0</code>). Send
+            your own correlation id and we'll honour it; otherwise we generate
+            an opaque <code className="font-mono">req_&lt;hex&gt;</code>. Either
+            way, the value is the lookup key in our audit log + structured logs
+            — paste it into a support ticket and on-call can pull both halves
+            of the trace.
+          </p>
+          <pre className="mt-3 overflow-x-auto rounded bg-white border border-purple-200 p-3 text-xs">
+            <code>{`curl -i https://your-host/api/v1/health \\
+  -H "Authorization: Bearer $ECRED_API_KEY" \\
+  -H "X-Request-Id: req_my_client_correlation_id"
+
+# Response includes the same X-Request-Id back in the headers,
+# whether the call succeeded or failed.`}</code>
+          </pre>
+          <p className="mt-3 text-xs text-gray-600">
+            The TypeScript SDK accepts a{" "}
+            <code className="font-mono">requestIdFactory</code> option and
+            exposes the server-assigned id on{" "}
+            <code className="font-mono">V1ApiError.requestId</code>. Format gate:{" "}
+            <code className="font-mono">^[A-Za-z0-9_\-]&#123;8,128&#125;$</code>{" "}
+            — covers ULID, UUIDv4, Stripe-style{" "}
+            <code className="font-mono">req_*</code>, and any opaque token.
+          </p>
+        </section>
+
         <section className="mt-12 rounded-xl bg-gray-900 text-white p-8">
           <h2 className="text-xl font-bold">Quick start</h2>
           <p className="mt-2 text-gray-300">

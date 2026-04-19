@@ -244,6 +244,77 @@ describe("V1Client", () => {
     }
   });
 
+  it("forwards X-Request-Id from requestIdFactory on every request (v1.3.0)", async () => {
+    const fetchSpy = makeFetch([
+      {
+        status: 200,
+        body: JSON.stringify({
+          data: [],
+          pagination: { page: 1, limit: 25, total: 0, totalPages: 0 },
+        }),
+      },
+    ]);
+    const client = new V1Client({
+      baseUrl: "https://api.example.com",
+      apiKey: "k",
+      fetch: fetchSpy as unknown as typeof fetch,
+      requestIdFactory: () => "req_abcdef0123456789",
+    });
+    await client.listProviders();
+    const [, init] = fetchSpy.mock.calls[0]!;
+    const headers = (init as RequestInit).headers as Headers;
+    expect(headers.get("X-Request-Id")).toBe("req_abcdef0123456789");
+  });
+
+  it("does not forward an invalid X-Request-Id (silently drops malformed factory output)", async () => {
+    const fetchSpy = makeFetch([
+      {
+        status: 200,
+        body: JSON.stringify({
+          data: [],
+          pagination: { page: 1, limit: 25, total: 0, totalPages: 0 },
+        }),
+      },
+    ]);
+    const client = new V1Client({
+      baseUrl: "https://api.example.com",
+      apiKey: "k",
+      fetch: fetchSpy as unknown as typeof fetch,
+      requestIdFactory: () => "bad id with spaces",
+    });
+    await client.listProviders();
+    const [, init] = fetchSpy.mock.calls[0]!;
+    const headers = (init as RequestInit).headers as Headers;
+    expect(headers.get("X-Request-Id")).toBeNull();
+  });
+
+  it("captures server-assigned X-Request-Id onto V1ApiError (v1.3.0)", async () => {
+    const fetchSpy = makeFetch([
+      {
+        status: 404,
+        headers: {
+          "content-type": "application/json",
+          "x-request-id": "req_server_assigned_999",
+        },
+        body: JSON.stringify({
+          error: { code: "PROVIDER_NOT_FOUND", message: "Provider not found" },
+        }),
+      },
+    ]);
+    const client = new V1Client({
+      baseUrl: "https://api.example.com",
+      apiKey: "k",
+      fetch: fetchSpy as unknown as typeof fetch,
+    });
+    try {
+      await client.getProvider("nope");
+      throw new Error("expected V1ApiError");
+    } catch (e) {
+      const err = e as V1ApiError;
+      expect(err.requestId).toBe("req_server_assigned_999");
+    }
+  });
+
   it("falls back to a generic error message when body is non-JSON", async () => {
     const fetchSpy = makeFetch([
       {

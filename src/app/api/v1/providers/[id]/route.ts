@@ -2,17 +2,19 @@ import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { authenticateApiKey, requireScope } from "../../middleware";
 import { applyRateLimitHeaders } from "@/lib/api/rate-limit";
+import { applyRequestIdHeader, resolveRequestId } from "@/lib/api/request-id";
 import { auditApiRequest } from "@/lib/api/audit-api";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const requestId = resolveRequestId(request);
   const auth = await authenticateApiKey(request);
-  if (!auth.valid) return auth.error;
+  if (!auth.valid) return applyRequestIdHeader(auth.error!, requestId);
 
   const scopeError = requireScope(auth, "providers:read");
-  if (scopeError) return scopeError;
+  if (scopeError) return applyRequestIdHeader(scopeError, requestId);
 
   const { id } = await params;
   const provider = await db.provider.findUnique({
@@ -53,13 +55,22 @@ export async function GET(
   });
 
   if (!provider) {
-    void auditApiRequest({ apiKeyId: auth.keyId!, method: "GET", path: `/api/v1/providers/${id}`, status: 404 });
-    return applyRateLimitHeaders(
-      NextResponse.json(
-        { error: { code: "not_found", message: "Provider not found" } },
-        { status: 404 },
+    void auditApiRequest({
+      apiKeyId: auth.keyId!,
+      method: "GET",
+      path: `/api/v1/providers/${id}`,
+      status: 404,
+      requestId,
+    });
+    return applyRequestIdHeader(
+      applyRateLimitHeaders(
+        NextResponse.json(
+          { error: { code: "not_found", message: "Provider not found" } },
+          { status: 404 },
+        ),
+        auth.rateLimit,
       ),
-      auth.rateLimit,
+      requestId,
     );
   }
 
@@ -69,10 +80,14 @@ export async function GET(
     path: `/api/v1/providers/${id}`,
     status: 200,
     resultCount: 1,
+    requestId,
   });
 
-  return applyRateLimitHeaders(
-    NextResponse.json({ data: provider }),
-    auth.rateLimit,
+  return applyRequestIdHeader(
+    applyRateLimitHeaders(
+      NextResponse.json({ data: provider }),
+      auth.rateLimit,
+    ),
+    requestId,
   );
 }

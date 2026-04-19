@@ -24,6 +24,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { authenticateApiKey, requireScope } from "../../../middleware";
 import { applyRateLimitHeaders } from "@/lib/api/rate-limit";
+import { applyRequestIdHeader, resolveRequestId } from "@/lib/api/request-id";
 import { auditApiRequest } from "@/lib/api/audit-api";
 import { CmeService } from "@/server/services/cme";
 import { writeAuditLog } from "@/lib/audit";
@@ -34,10 +35,11 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const requestId = resolveRequestId(request);
   const auth = await authenticateApiKey(request);
-  if (!auth.valid) return auth.error!;
+  if (!auth.valid) return applyRequestIdHeader(auth.error!, requestId);
   const scopeError = requireScope(auth, "providers:cv");
-  if (scopeError) return scopeError;
+  if (scopeError) return applyRequestIdHeader(scopeError, requestId);
 
   const { id } = await params;
   const provider = await db.provider.findUnique({
@@ -50,13 +52,17 @@ export async function GET(
       method: "GET",
       path: `/api/v1/providers/${id}/cv.pdf`,
       status: 404,
+      requestId,
     });
-    return applyRateLimitHeaders(
-      NextResponse.json(
-        { error: { code: "not_found", message: "Provider not found" } },
-        { status: 404 },
+    return applyRequestIdHeader(
+      applyRateLimitHeaders(
+        NextResponse.json(
+          { error: { code: "not_found", message: "Provider not found" } },
+          { status: 404 },
+        ),
+        auth.rateLimit,
       ),
-      auth.rateLimit,
+      requestId,
     );
   }
 
@@ -74,36 +80,47 @@ export async function GET(
       path: `/api/v1/providers/${id}/cv.pdf`,
       status: 200,
       resultCount: 1,
+      requestId,
     });
     const safeName = (provider.legalLastName ?? "provider")
       .replace(/[^A-Za-z0-9_-]+/g, "-")
       .toLowerCase();
-    return applyRateLimitHeaders(
-      new NextResponse(bytes as unknown as BodyInit, {
-        status: 200,
-        headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="cv-${safeName}-${id.slice(0, 8)}.pdf"`,
-          "Content-Length": String(bytes.byteLength),
-          "Cache-Control": "no-store",
-        },
-      }) as NextResponse,
-      auth.rateLimit,
+    return applyRequestIdHeader(
+      applyRateLimitHeaders(
+        new NextResponse(bytes as unknown as BodyInit, {
+          status: 200,
+          headers: {
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename="cv-${safeName}-${id.slice(0, 8)}.pdf"`,
+            "Content-Length": String(bytes.byteLength),
+            "Cache-Control": "no-store",
+          },
+        }) as NextResponse,
+        auth.rateLimit,
+      ),
+      requestId,
     );
   } catch (err) {
-    console.error("[/api/v1/providers/:id/cv.pdf] generation failed:", err);
+    console.error(
+      `[/api/v1/providers/:id/cv.pdf] generation failed (requestId=${requestId}):`,
+      err,
+    );
     void auditApiRequest({
       apiKeyId: auth.keyId!,
       method: "GET",
       path: `/api/v1/providers/${id}/cv.pdf`,
       status: 500,
+      requestId,
     });
-    return applyRateLimitHeaders(
-      NextResponse.json(
-        { error: { code: "cv_generation_failed", message: "Failed to generate CV PDF" } },
-        { status: 500 },
+    return applyRequestIdHeader(
+      applyRateLimitHeaders(
+        NextResponse.json(
+          { error: { code: "cv_generation_failed", message: "Failed to generate CV PDF" } },
+          { status: 500 },
+        ),
+        auth.rateLimit,
       ),
-      auth.rateLimit,
+      requestId,
     );
   }
 }

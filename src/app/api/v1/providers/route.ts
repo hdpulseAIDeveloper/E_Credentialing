@@ -3,14 +3,16 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/server/db";
 import { authenticateApiKey, requireScope } from "../middleware";
 import { applyRateLimitHeaders } from "@/lib/api/rate-limit";
+import { applyRequestIdHeader, resolveRequestId } from "@/lib/api/request-id";
 import { auditApiRequest } from "@/lib/api/audit-api";
 
 export async function GET(request: Request) {
+  const requestId = resolveRequestId(request);
   const auth = await authenticateApiKey(request);
-  if (!auth.valid) return auth.error;
+  if (!auth.valid) return applyRequestIdHeader(auth.error!, requestId);
 
   const scopeError = requireScope(auth, "providers:read");
-  if (scopeError) return scopeError;
+  if (scopeError) return applyRequestIdHeader(scopeError, requestId);
 
   const url = new URL(request.url);
   const status = url.searchParams.get("status");
@@ -49,13 +51,17 @@ export async function GET(request: Request) {
     status: 200,
     resultCount: providers.length,
     query: { status, npi, page: String(page), limit: String(limit) },
+    requestId,
   });
 
-  return applyRateLimitHeaders(
-    NextResponse.json({
-      data: providers,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    }),
-    auth.rateLimit,
+  return applyRequestIdHeader(
+    applyRateLimitHeaders(
+      NextResponse.json({
+        data: providers,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      }),
+      auth.rateLimit,
+    ),
+    requestId,
   );
 }

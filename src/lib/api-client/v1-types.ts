@@ -213,7 +213,7 @@ export interface components {
             keyId: string;
             /**
              * @description Semver version of the v1 surface (matches `info.version`).
-             * @example 1.2.0
+             * @example 1.3.0
              */
             apiVersion: string;
             /**
@@ -337,6 +337,7 @@ export interface components {
         /** @description Missing or invalid API key. */
         Unauthorized: {
             headers: {
+                "X-Request-Id": components["headers"]["RequestId"];
                 [name: string]: unknown;
             };
             content: {
@@ -346,6 +347,7 @@ export interface components {
         /** @description API key valid but lacks the required scope. */
         Forbidden: {
             headers: {
+                "X-Request-Id": components["headers"]["RequestId"];
                 [name: string]: unknown;
             };
             content: {
@@ -355,6 +357,7 @@ export interface components {
         /** @description Resource not found. */
         NotFound: {
             headers: {
+                "X-Request-Id": components["headers"]["RequestId"];
                 [name: string]: unknown;
             };
             content: {
@@ -374,6 +377,7 @@ export interface components {
                 "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
                 "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                 "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
+                "X-Request-Id": components["headers"]["RequestId"];
                 [name: string]: unknown;
             };
             content: {
@@ -382,6 +386,14 @@ export interface components {
         };
     };
     parameters: {
+        /**
+         * @description Optional caller-supplied correlation id. If supplied and it
+         *     matches `^[A-Za-z0-9_\-]{8,128}$` the server honours it and
+         *     echoes it back on the response. Otherwise the server
+         *     generates one. Pair this with your client-side log lines for
+         *     end-to-end tracing. Available since v1.3.0.
+         */
+        RequestIdHeader: string;
         /** @description 1-based page index. Default 1. */
         Page: number;
         /** @description Items per page (max 100). Default 25. */
@@ -389,6 +401,15 @@ export interface components {
     };
     requestBodies: never;
     headers: {
+        /**
+         * @description Correlation id for this request/response pair. If the inbound
+         *     request supplied a valid `X-Request-Id` we honour it;
+         *     otherwise we generate one server-side as `req_<hex>`.
+         *     Present on every response (2xx and non-2xx). Format:
+         *     `^[A-Za-z0-9_\-]{8,128}$`. Pass it to support to look up the
+         *     full audit + log trail in O(1). Available since v1.3.0.
+         */
+        RequestId: string;
         /**
          * @description Maximum requests allowed in the current fixed window for the
          *     authenticated API key. Stable across the window. Present on
@@ -418,7 +439,16 @@ export interface operations {
     getHealth: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /**
+                 * @description Optional caller-supplied correlation id. If supplied and it
+                 *     matches `^[A-Za-z0-9_\-]{8,128}$` the server honours it and
+                 *     echoes it back on the response. Otherwise the server
+                 *     generates one. Pair this with your client-side log lines for
+                 *     end-to-end tracing. Available since v1.3.0.
+                 */
+                "X-Request-Id"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -430,6 +460,7 @@ export interface operations {
                     "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
                     "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -459,7 +490,16 @@ export interface operations {
                 /** @description Exact-match NPI filter. */
                 npi?: string;
             };
-            header?: never;
+            header?: {
+                /**
+                 * @description Optional caller-supplied correlation id. If supplied and it
+                 *     matches `^[A-Za-z0-9_\-]{8,128}$` the server honours it and
+                 *     echoes it back on the response. Otherwise the server
+                 *     generates one. Pair this with your client-side log lines for
+                 *     end-to-end tracing. Available since v1.3.0.
+                 */
+                "X-Request-Id"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -471,6 +511,7 @@ export interface operations {
                     "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
                     "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -485,7 +526,16 @@ export interface operations {
     getProvider: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /**
+                 * @description Optional caller-supplied correlation id. If supplied and it
+                 *     matches `^[A-Za-z0-9_\-]{8,128}$` the server honours it and
+                 *     echoes it back on the response. Otherwise the server
+                 *     generates one. Pair this with your client-side log lines for
+                 *     end-to-end tracing. Available since v1.3.0.
+                 */
+                "X-Request-Id"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 id: string;
             };
@@ -499,6 +549,7 @@ export interface operations {
                     "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
                     "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -516,7 +567,16 @@ export interface operations {
     getProviderCv: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /**
+                 * @description Optional caller-supplied correlation id. If supplied and it
+                 *     matches `^[A-Za-z0-9_\-]{8,128}$` the server honours it and
+                 *     echoes it back on the response. Otherwise the server
+                 *     generates one. Pair this with your client-side log lines for
+                 *     end-to-end tracing. Available since v1.3.0.
+                 */
+                "X-Request-Id"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 id: string;
             };
@@ -532,6 +592,7 @@ export interface operations {
                     "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
                     "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -554,7 +615,16 @@ export interface operations {
                 providerId?: string;
                 result?: components["schemas"]["SanctionsResult"];
             };
-            header?: never;
+            header?: {
+                /**
+                 * @description Optional caller-supplied correlation id. If supplied and it
+                 *     matches `^[A-Za-z0-9_\-]{8,128}$` the server honours it and
+                 *     echoes it back on the response. Otherwise the server
+                 *     generates one. Pair this with your client-side log lines for
+                 *     end-to-end tracing. Available since v1.3.0.
+                 */
+                "X-Request-Id"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -566,6 +636,7 @@ export interface operations {
                     "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
                     "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -588,7 +659,16 @@ export interface operations {
                 /** @description Case-insensitive substring filter on payer name. */
                 payer?: string;
             };
-            header?: never;
+            header?: {
+                /**
+                 * @description Optional caller-supplied correlation id. If supplied and it
+                 *     matches `^[A-Za-z0-9_\-]{8,128}$` the server honours it and
+                 *     echoes it back on the response. Otherwise the server
+                 *     generates one. Pair this with your client-side log lines for
+                 *     end-to-end tracing. Available since v1.3.0.
+                 */
+                "X-Request-Id"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -600,6 +680,7 @@ export interface operations {
                     "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
                     "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
                     "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {

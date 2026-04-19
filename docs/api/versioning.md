@@ -1,7 +1,7 @@
 # Public REST API — Versioning, Deprecation, and Sunset Policy
 
-- **Status:** v1 — current stable (spec `1.2.0`)
-- **Last reviewed:** 2026-04-18 (Wave 13)
+- **Status:** v1 — current stable (spec `1.3.0`)
+- **Last reviewed:** 2026-04-18 (Wave 14)
 - **Related:**
   ADR [0020](../dev/adr/0020-openapi-v1-spec.md) (OpenAPI spec),
   ADR [0022](../dev/adr/0022-public-rest-v1-sdk.md) (TypeScript SDK),
@@ -181,6 +181,42 @@ These headers were added in spec `1.2.0` (additive, non-breaking).
 Removing them, renaming them, or changing their semantics would be
 a breaking change and require a `/api/v2/`.
 
+## 3.4 Request correlation header (since spec v1.3.0)
+
+Every `/api/v1/*` request carries an `X-Request-Id` header on
+**both** the request and the response. The header lets customers
+join their client-side log lines to ours: paste the id into a
+support ticket and on-call can pull both halves of the trace from
+the audit log + Pino structured logs.
+
+| Direction | Behaviour |
+|---|---|
+| Inbound | If supplied and matches `^[A-Za-z0-9_\-]{8,128}$`, we honour it. Anything else is silently replaced (we do NOT 400 - that's customer-hostile). |
+| Outbound | Always present on every 2xx, 4xx, and 5xx response - including `401`, `403`, `404`, `429`, and `500`. |
+| Format (server-generated) | `req_<16-hex-chars>` - opaque, never embeds a tenant id, customer id, or PHI fragment. |
+
+The TypeScript SDK supports this end-to-end:
+
+```ts
+const client = new V1Client({
+  baseUrl: "https://api.example.com",
+  apiKey: process.env.API_KEY!,
+  requestIdFactory: () => myCorrelationId(),
+});
+
+try {
+  await client.getProvider("nope");
+} catch (e) {
+  const err = e as V1ApiError;
+  console.error("Lookup failed", err.requestId, err.status, err.code);
+}
+```
+
+Surface `err.requestId` verbatim to your support team. Removing
+the header, renaming it, relaxing the format gate, or skipping it
+on any response status would be a breaking change and require a
+`/api/v2/`.
+
 ## 4. Major-version overlap window
 
 When `/api/v2` ships:
@@ -235,6 +271,7 @@ The following invariants MUST be preserved:
   minimum after `Deprecation`-header-on date).
 - "What headers do I need on a deprecated endpoint?" → §3.1.
 - "What rate-limit headers must I emit?" → §3.3.
+- "What request-id headers must I emit?" → §3.4.
 - "How do I document this deprecation in the spec?" → §3.2.
 - "When can I ship `/api/v2`?" → After at least one of:
   - Required customer feature that can't ship in v1, OR

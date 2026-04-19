@@ -11,6 +11,13 @@ export async function auditApiRequest(params: {
   status: number;
   resultCount?: number;
   query?: Record<string, string | null>;
+  /**
+   * Wave 14 — `X-Request-Id` correlation id. Recorded so support
+   * can join a customer-supplied id to the audit row in O(1).
+   * Optional only for backwards-compat with callers that haven't
+   * been updated yet.
+   */
+  requestId?: string;
 }): Promise<void> {
   await writeAuditLog({
     actorId: null,
@@ -24,6 +31,7 @@ export async function auditApiRequest(params: {
       status: params.status,
       resultCount: params.resultCount ?? null,
       query: params.query ?? null,
+      requestId: params.requestId ?? null,
     },
   });
 }

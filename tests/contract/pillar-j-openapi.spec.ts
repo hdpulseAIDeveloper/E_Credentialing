@@ -187,6 +187,70 @@ describe("pillar-J: OpenAPI 3.1 contract", () => {
     });
   });
 
+  describe("Wave 14: X-Request-Id correlation contract", () => {
+    it("declares components.headers.RequestId", () => {
+      const headers = (SPEC as { components?: { headers?: Record<string, unknown> } })
+        .components?.headers ?? {};
+      expect(headers.RequestId, "missing components.headers.RequestId").toBeTruthy();
+    });
+
+    it("declares components.parameters.RequestIdHeader", () => {
+      const params = (SPEC as { components?: { parameters?: Record<string, unknown> } })
+        .components?.parameters ?? {};
+      expect(
+        params.RequestIdHeader,
+        "missing components.parameters.RequestIdHeader",
+      ).toBeTruthy();
+    });
+
+    it("attaches X-Request-Id to every 200 response (JSON or binary)", () => {
+      const failures: string[] = [];
+      for (const [path, ops] of Object.entries(SPEC.paths)) {
+        for (const [method, op] of Object.entries(ops)) {
+          const operation = op as {
+            responses?: Record<
+              string,
+              {
+                content?: Record<string, unknown>;
+                headers?: Record<string, unknown>;
+              }
+            >;
+          };
+          const r200 = operation?.responses?.["200"];
+          if (!r200) continue;
+          const headers = r200.headers ?? {};
+          if (!headers["X-Request-Id"]) {
+            failures.push(`${method.toUpperCase()} ${path} 200 missing X-Request-Id header`);
+          }
+        }
+      }
+      expect(failures, failures.join("\n")).toEqual([]);
+    });
+
+    it("attaches X-Request-Id to every reusable error response", () => {
+      const responses = (SPEC as {
+        components?: {
+          responses?: Record<
+            string,
+            { headers?: Record<string, unknown> }
+          >;
+        };
+      }).components?.responses ?? {};
+      const failures: string[] = [];
+      for (const name of ["Unauthorized", "Forbidden", "NotFound", "RateLimited"]) {
+        const r = responses[name];
+        if (!r) {
+          failures.push(`components.responses.${name} missing`);
+          continue;
+        }
+        if (!r.headers?.["X-Request-Id"]) {
+          failures.push(`components.responses.${name} missing X-Request-Id header`);
+        }
+      }
+      expect(failures, failures.join("\n")).toEqual([]);
+    });
+  });
+
   describe("anti-PHI guard", () => {
     /**
      * Walks the spec and collects every property name that appears
