@@ -1,9 +1,9 @@
 {
   "info": {
-    "name": "E-Credentialing CVO Platform — Public REST API v1 (v1.3.0)",
-    "description": "The v1 surface is intentionally read-only. Every request requires\na Bearer API key with the appropriate scope; every request is\naudited; PHI fields (SSN, DOB, DEA, personal address, notes) are\nNEVER returned regardless of scope.\n\nFor a no-auth playground using synthetic data, see\n`/api/sandbox/v1/*` (documented at `/sandbox`).\n\nRate limiting (since v1.2.0): every successful response carries\n`X-RateLimit-Limit`, `X-RateLimit-Remaining`, and\n`X-RateLimit-Reset` headers (Unix-seconds). When you exceed the\nper-key budget the API returns a `429` with the `RateLimitProblem`\nbody and a `Retry-After` header.\n\nRequest correlation (since v1.3.0): every request and response —\nsuccess or error — carries an `X-Request-Id` header. Send your\nown (`^[A-Za-z0-9_\\-]{8,128}$`) and we'll honour it; otherwise\nwe generate one server-side. Paste it into a support ticket and\nwe can find your call in O(1). See `docs/api/versioning.md`\nfor the full contract and deprecation policy.\n\nWave 8 (2026-04-18). See ADR 0020 and `docs/qa/per-pillar/pillar-j-api.md`.\n\nAuto-generated from `docs/api/openapi-v1.yaml`.\nDo not hand-edit — regenerate via `npm run postman:gen`.",
+    "name": "E-Credentialing CVO Platform — Public REST API v1 (v1.4.0)",
+    "description": "The v1 surface is intentionally read-only. Every request requires\na Bearer API key with the appropriate scope; every request is\naudited; PHI fields (SSN, DOB, DEA, personal address, notes) are\nNEVER returned regardless of scope.\n\nFor a no-auth playground using synthetic data, see\n`/api/sandbox/v1/*` (documented at `/sandbox`).\n\nRate limiting (since v1.2.0): every successful response carries\n`X-RateLimit-Limit`, `X-RateLimit-Remaining`, and\n`X-RateLimit-Reset` headers (Unix-seconds). When you exceed the\nper-key budget the API returns a `429` with the `RateLimitProblem`\nbody and a `Retry-After` header.\n\nRequest correlation (since v1.3.0): every request and response —\nsuccess or error — carries an `X-Request-Id` header. Send your\nown (`^[A-Za-z0-9_\\-]{8,128}$`) and we'll honour it; otherwise\nwe generate one server-side. Paste it into a support ticket and\nwe can find your call in O(1). See `docs/api/versioning.md`\nfor the full contract and deprecation policy.\n\nKey introspection (since v1.4.0): `GET /api/v1/me` returns the\ncurrent API key's name, granted scopes, lifecycle timestamps,\nand current rate-limit budget. Pairs with `/health` to make\n\"is my key configured correctly?\" a one-call answer.\n\nWave 8 (2026-04-18). See ADR 0020 and `docs/qa/per-pillar/pillar-j-api.md`.\n\nAuto-generated from `docs/api/openapi-v1.yaml`.\nDo not hand-edit — regenerate via `npm run postman:gen`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "version": "1.3.0"
+    "version": "1.4.0"
   },
   "auth": {
     "type": "bearer",
@@ -100,6 +100,37 @@
               ]
             },
             "description": "Verifies that the supplied API key is active and that the\nenvironment is reachable. Returns the keyId so the caller can\nconfirm which key is in use without echoing the secret, the\nAPI surface version, and a server-side timestamp for\nclock-skew checks.\n\nAuthentication: ANY active API key. Unlike every other v1\noperation, this endpoint does NOT require a specific scope\n— a brand-new, scopeless key returns 200 here. This makes\nit the natural first call when wiring up the SDK.\n\nVersioning: shipped in v1.1.0 (SemVer minor — additive\nonly). See `docs/api/versioning.md`.\n"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "me",
+      "item": [
+        {
+          "name": "getMe",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "me"
+              ]
+            },
+            "description": "Returns the current API key's name, granted scopes,\ncreation/expiration/last-used timestamps, and the current\nrate-limit budget snapshot. The canonical \"what can my key\nactually do?\" check.\n\nAuthentication: ANY active API key. Like `/health`, no\nspecific scope is required - a brand-new, scopeless key\nreturns 200 here. This makes it useful for debugging \"why\nam I getting 403?\" issues without a chicken-and-egg scope\nrequirement.\n\nPrivacy: never returns the bearer key, the key hash, or\nany PHI. The `name` field is the human-readable label set\nby the admin who created the key (e.g.\n\"Production prod-east\"); it is safe to surface to the end\nuser as \"you are authenticated as X\".\n\nVersioning: shipped in v1.4.0 (SemVer minor - additive\nonly). See `docs/api/versioning.md`.\n"
           },
           "response": []
         }

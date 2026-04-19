@@ -188,10 +188,25 @@ export class V1Client {
    * `GET /api/v1/health` — verifies the API key is active and the
    * environment is reachable. The natural first call when wiring
    * up a new client. Available since v1.1.0; `apiVersion` returns
-   * `"1.2.0"` and above on a current deployment.
+   * `"1.4.0"` and above on a current deployment.
    */
   health(): Promise<components["schemas"]["Health"]> {
     return this.request("GET", "/api/v1/health");
+  }
+
+  // ---- me ----
+
+  /**
+   * `GET /api/v1/me` — API key introspection. Returns the current
+   * key's name, granted scopes, lifecycle timestamps, and current
+   * rate-limit budget. Pairs with `health()` to make "is my key
+   * configured correctly?" a one-call answer.
+   *
+   * Available since spec v1.4.0. Like `health()`, requires only a
+   * valid bearer key — no specific scope needed.
+   */
+  me(): Promise<components["schemas"]["Me"]> {
+    return this.request("GET", "/api/v1/me");
   }
 
   // ---- providers ----

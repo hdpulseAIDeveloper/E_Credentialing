@@ -7,6 +7,55 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sem
 ## [Unreleased]
 
 ### Added
+- **Wave 15 — API key introspection endpoint `GET /api/v1/me`
+  (1.3.0 -> 1.4.0) (2026-04-18):** Fourth exercise of the
+  versioning machinery. Pairs with `/health` so customers can
+  answer both halves of the "is my integration set up
+  correctly?" question with two cheap, scopeless calls.
+  - `src/app/api/v1/me/route.ts`: new route handler. Re-fetches
+    the API key row to surface `name`, `createdAt`, `expiresAt`,
+    `lastUsedAt`. Filters granted permissions to the registered
+    `API_SCOPES` vocabulary so callers can rely on a stable
+    enum (any junk in the JSON column is dropped). Returns the
+    same `rateLimit` snapshot the headers carry. Wired through
+    `applyRateLimitHeaders` + `applyRequestIdHeader` +
+    `auditApiRequest` so it inherits all the v1 contract
+    invariants (rate-limit headers, X-Request-Id, audit log).
+    Never echoes the bearer key, the key hash, or any PHI.
+  - `docs/api/openapi-v1.yaml`: bumped `info.version` to `1.4.0`.
+    New `/api/v1/me` GET operation under tag `me` with the full
+    description, security requirement, and response schema.
+    New `components.schemas.Me` schema (keyId, name, scopes
+    enum, createdAt, expiresAt, lastUsedAt, rateLimit). New
+    `tags[me]` entry. Bumped `Health.apiVersion` example to
+    `1.4.0`. Added a paragraph to `info.description` introducing
+    the `/me` endpoint. `API_VERSION` constant in the health
+    route bumped accordingly.
+  - Regenerated `src/lib/api-client/v1-types.ts`,
+    `public/api/v1/postman.json`, and the inventories
+    (`api-inventory.json` now includes 51 routes / 206 cells —
+    one more than Wave 14). All drift gates green.
+  - `src/lib/api-client/v1.ts`: new `me()` method, typed off
+    `components.schemas.Me`. Inherits the SDK's existing
+    `requestIdFactory` forwarding and `V1ApiError.requestId`
+    surfacing.
+  - **Tests:**
+    - `tests/unit/lib/api-client/v1-client.test.ts` — new
+      `me()` test asserting URL, method, and the typed response
+      envelope (keyId, name, scopes, rateLimit).
+    - All iterator-style contract tests (api-iterator,
+      trpc-iterator, openapi, openapi-json-mirror, postman) now
+      cover the new cell automatically.
+  - `docs/changelog/public.md` — new `## 2026-04-18 — v1.9.0
+    (API)` entry under `Added` and `Improved`. Frames the
+    business value as "one-call key debugging" so non-technical
+    buyers see the support-cost reduction.
+  - `src/app/sandbox/page.tsx` — new "API key introspection"
+    section with curl example, sample response, and SDK
+    pointer.
+  - **No drift:** `qa:gate`, `sdk:check`, `postman:check`,
+    `typecheck`, `lint`, full vitest suite all green.
+
 - **Wave 14 — `X-Request-Id` correlation header + structured request
   logging (1.2.0 -> 1.3.0) (2026-04-18):** Third exercise of the
   versioning machinery — give every API request a stable correlation

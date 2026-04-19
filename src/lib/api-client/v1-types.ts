@@ -36,6 +36,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * API key introspection
+         * @description Returns the current API key's name, granted scopes,
+         *     creation/expiration/last-used timestamps, and the current
+         *     rate-limit budget snapshot. The canonical "what can my key
+         *     actually do?" check.
+         *
+         *     Authentication: ANY active API key. Like `/health`, no
+         *     specific scope is required - a brand-new, scopeless key
+         *     returns 200 here. This makes it useful for debugging "why
+         *     am I getting 403?" issues without a chicken-and-egg scope
+         *     requirement.
+         *
+         *     Privacy: never returns the bearer key, the key hash, or
+         *     any PHI. The `name` field is the human-readable label set
+         *     by the admin who created the key (e.g.
+         *     "Production prod-east"); it is safe to surface to the end
+         *     user as "you are authenticated as X".
+         *
+         *     Versioning: shipped in v1.4.0 (SemVer minor - additive
+         *     only). See `docs/api/versioning.md`.
+         */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/providers": {
         parameters: {
             query?: never;
@@ -213,7 +251,7 @@ export interface components {
             keyId: string;
             /**
              * @description Semver version of the v1 surface (matches `info.version`).
-             * @example 1.3.0
+             * @example 1.4.0
              */
             apiVersion: string;
             /**
@@ -222,6 +260,85 @@ export interface components {
              * @example 2026-04-18T20:45:00.000Z
              */
             time: string;
+        };
+        /**
+         * @description Result of `GET /api/v1/me`. The canonical "what can my API
+         *     key actually do?" view. Includes the key's name, granted
+         *     scopes, lifecycle timestamps, and the current rate-limit
+         *     budget snapshot. Never includes the bearer key, the key
+         *     hash, or any PHI. Available since spec v1.4.0.
+         */
+        Me: {
+            /**
+             * @description Identifier of the active API key (NOT the secret).
+             * @example ck0jm0a4e0000abcd1234efgh
+             */
+            keyId: string;
+            /**
+             * @description Human-readable label set by the admin who created the key
+             *     (e.g. "Production prod-east"). Safe to surface verbatim
+             *     to the end user.
+             * @example Production prod-east
+             */
+            name: string;
+            /**
+             * @description Granted scopes from the API_SCOPES vocabulary. Order is
+             *     stable across calls; an empty array means the key is
+             *     authenticated but cannot call any scoped operation.
+             * @example [
+             *       "providers:read",
+             *       "sanctions:read"
+             *     ]
+             */
+            scopes: ("providers:read" | "providers:cv" | "sanctions:read" | "enrollments:read" | "fhir:read")[];
+            /**
+             * Format: date-time
+             * @description ISO-8601 UTC timestamp when the key was issued.
+             * @example 2026-01-15T10:30:00.000Z
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description ISO-8601 UTC expiry timestamp. `null` means the key never
+             *     expires (admin-issued, indefinite). The `/me` call still
+             *     returns 200 right up to the moment of expiry; the next
+             *     scoped call after expiry returns 401 with
+             *     `code: "expired_api_key"`.
+             * @example 2027-01-15T10:30:00.000Z
+             */
+            expiresAt: string | null;
+            /**
+             * Format: date-time
+             * @description ISO-8601 UTC timestamp of the most recent successful
+             *     authentication. `null` for keys that have never been
+             *     used. Updated best-effort on every authenticated request.
+             * @example 2026-04-18T22:14:33.123Z
+             */
+            lastUsedAt: string | null;
+            /**
+             * @description Snapshot of the current per-key rate-limit budget. The
+             *     same numbers are also surfaced on the `X-RateLimit-*`
+             *     response headers (see §3.3 of `docs/api/versioning.md`).
+             *     `null` only on the (unlikely) older deployments that
+             *     haven't yet adopted the rate-limit contract.
+             */
+            rateLimit: {
+                /**
+                 * @description Maximum requests allowed in the current fixed window.
+                 * @example 120
+                 */
+                limit: number;
+                /**
+                 * @description Requests still available in the current window.
+                 * @example 117
+                 */
+                remaining: number;
+                /**
+                 * @description Unix-seconds (UTC) when the window resets.
+                 * @example 1739887200
+                 */
+                resetUnixSeconds: number;
+            } | null;
         };
         /**
          * @description Lifecycle stage of the provider record.
@@ -476,6 +593,41 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional caller-supplied correlation id. If supplied and it
+                 *     matches `^[A-Za-z0-9_\-]{8,128}$` the server honours it and
+                 *     echoes it back on the response. Otherwise the server
+                 *     generates one. Pair this with your client-side log lines for
+                 *     end-to-end tracing. Available since v1.3.0.
+                 */
+                "X-Request-Id"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description API key introspection result. */
+            200: {
+                headers: {
+                    "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
+                    "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
+                    "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
             429: components["responses"]["RateLimited"];
         };
     };

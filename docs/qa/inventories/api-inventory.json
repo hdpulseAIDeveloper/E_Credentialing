@@ -326,6 +326,14 @@
     "dynamic": false
   },
   {
+    "route": "/api/v1/me",
+    "file": "src/app/api/v1/me/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": false
+  },
+  {
     "route": "/api/v1/openapi.json",
     "file": "src/app/api/v1/openapi.json/route.ts",
     "methods": [

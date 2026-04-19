@@ -184,6 +184,40 @@ describe("V1Client", () => {
     expect(result.apiVersion).toBe("1.1.0");
   });
 
+  it("me() calls GET /api/v1/me and returns the typed envelope", async () => {
+    const fetchSpy = makeFetch([
+      {
+        status: 200,
+        body: JSON.stringify({
+          keyId: "ck_test_abc",
+          name: "Production prod-east",
+          scopes: ["providers:read", "sanctions:read"],
+          createdAt: "2026-01-15T10:30:00.000Z",
+          expiresAt: "2027-01-15T10:30:00.000Z",
+          lastUsedAt: "2026-04-18T22:14:33.123Z",
+          rateLimit: {
+            limit: 120,
+            remaining: 117,
+            resetUnixSeconds: 1739887200,
+          },
+        }),
+      },
+    ]);
+    const client = new V1Client({
+      baseUrl: "https://api.example.com",
+      apiKey: "k",
+      fetch: fetchSpy as unknown as typeof fetch,
+    });
+    const result = await client.me();
+    const [url, init] = fetchSpy.mock.calls[0]!;
+    expect(url).toBe("https://api.example.com/api/v1/me");
+    expect((init as RequestInit).method).toBe("GET");
+    expect(result.keyId).toBe("ck_test_abc");
+    expect(result.name).toBe("Production prod-east");
+    expect(result.scopes).toEqual(["providers:read", "sanctions:read"]);
+    expect(result.rateLimit?.limit).toBe(120);
+  });
+
   it("parseRateLimit returns the decoded headers when present", () => {
     const h = new Headers({
       "x-ratelimit-limit": "120",

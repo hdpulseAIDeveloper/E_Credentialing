@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: E-Credentialing CVO Platform — Public REST API v1
-  version: "1.3.0"
+  version: "1.4.0"
   summary: Read-only public REST API for the E-Credentialing CVO platform.
   description: |
     The v1 surface is intentionally read-only. Every request requires
@@ -25,6 +25,11 @@ info:
     we can find your call in O(1). See `docs/api/versioning.md`
     for the full contract and deprecation policy.
 
+    Key introspection (since v1.4.0): `GET /api/v1/me` returns the
+    current API key's name, granted scopes, lifecycle timestamps,
+    and current rate-limit budget. Pairs with `/health` to make
+    "is my key configured correctly?" a one-call answer.
+
     Wave 8 (2026-04-18). See ADR 0020 and `docs/qa/per-pillar/pillar-j-api.md`.
   contact:
     name: HDPulseAI
@@ -41,6 +46,8 @@ security:
 tags:
   - name: health
     description: Customer-facing API key + environment health probe.
+  - name: me
+    description: API key introspection — name, scopes, lifecycle, budget.
   - name: providers
     description: Provider directory + provider details + CV PDF.
   - name: sanctions
@@ -90,6 +97,47 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /api/v1/me:
+    get:
+      tags: [me]
+      summary: API key introspection
+      description: |
+        Returns the current API key's name, granted scopes,
+        creation/expiration/last-used timestamps, and the current
+        rate-limit budget snapshot. The canonical "what can my key
+        actually do?" check.
+
+        Authentication: ANY active API key. Like `/health`, no
+        specific scope is required - a brand-new, scopeless key
+        returns 200 here. This makes it useful for debugging "why
+        am I getting 403?" issues without a chicken-and-egg scope
+        requirement.
+
+        Privacy: never returns the bearer key, the key hash, or
+        any PHI. The `name` field is the human-readable label set
+        by the admin who created the key (e.g.
+        "Production prod-east"); it is safe to surface to the end
+        user as "you are authenticated as X".
+
+        Versioning: shipped in v1.4.0 (SemVer minor - additive
+        only). See `docs/api/versioning.md`.
+      operationId: getMe
+      parameters:
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: API key introspection result.
+          headers:
+            X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
+            X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
         "429": { $ref: "#/components/responses/RateLimited" }
 
   /api/v1/providers:
@@ -461,12 +509,96 @@ components:
         apiVersion:
           type: string
           description: Semver version of the v1 surface (matches `info.version`).
-          example: "1.3.0"
+          example: "1.4.0"
         time:
           type: string
           format: date-time
           description: Server-side ISO-8601 UTC timestamp for clock-skew checks.
           example: "2026-04-18T20:45:00.000Z"
+
+    Me:
+      type: object
+      description: |
+        Result of `GET /api/v1/me`. The canonical "what can my API
+        key actually do?" view. Includes the key's name, granted
+        scopes, lifecycle timestamps, and the current rate-limit
+        budget snapshot. Never includes the bearer key, the key
+        hash, or any PHI. Available since spec v1.4.0.
+      required: [keyId, name, scopes, createdAt, expiresAt, lastUsedAt, rateLimit]
+      properties:
+        keyId:
+          type: string
+          description: Identifier of the active API key (NOT the secret).
+          example: "ck0jm0a4e0000abcd1234efgh"
+        name:
+          type: string
+          description: |
+            Human-readable label set by the admin who created the key
+            (e.g. "Production prod-east"). Safe to surface verbatim
+            to the end user.
+          example: "Production prod-east"
+        scopes:
+          type: array
+          description: |
+            Granted scopes from the API_SCOPES vocabulary. Order is
+            stable across calls; an empty array means the key is
+            authenticated but cannot call any scoped operation.
+          items:
+            type: string
+            enum:
+              - providers:read
+              - providers:cv
+              - sanctions:read
+              - enrollments:read
+              - fhir:read
+          example: ["providers:read", "sanctions:read"]
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO-8601 UTC timestamp when the key was issued.
+          example: "2026-01-15T10:30:00.000Z"
+        expiresAt:
+          type: [string, "null"]
+          format: date-time
+          description: |
+            ISO-8601 UTC expiry timestamp. `null` means the key never
+            expires (admin-issued, indefinite). The `/me` call still
+            returns 200 right up to the moment of expiry; the next
+            scoped call after expiry returns 401 with
+            `code: "expired_api_key"`.
+          example: "2027-01-15T10:30:00.000Z"
+        lastUsedAt:
+          type: [string, "null"]
+          format: date-time
+          description: |
+            ISO-8601 UTC timestamp of the most recent successful
+            authentication. `null` for keys that have never been
+            used. Updated best-effort on every authenticated request.
+          example: "2026-04-18T22:14:33.123Z"
+        rateLimit:
+          type: [object, "null"]
+          description: |
+            Snapshot of the current per-key rate-limit budget. The
+            same numbers are also surfaced on the `X-RateLimit-*`
+            response headers (see §3.3 of `docs/api/versioning.md`).
+            `null` only on the (unlikely) older deployments that
+            haven't yet adopted the rate-limit contract.
+          required: [limit, remaining, resetUnixSeconds]
+          properties:
+            limit:
+              type: integer
+              minimum: 1
+              description: Maximum requests allowed in the current fixed window.
+              example: 120
+            remaining:
+              type: integer
+              minimum: 0
+              description: Requests still available in the current window.
+              example: 117
+            resetUnixSeconds:
+              type: integer
+              description: Unix-seconds (UTC) when the window resets.
+              example: 1739887200
 
     ProviderStatus:
       type: string

@@ -38,7 +38,7 @@ import { applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { applyRequestIdHeader, resolveRequestId } from "@/lib/api/request-id";
 import { auditApiRequest } from "@/lib/api/audit-api";
 
-const API_VERSION = "1.3.0";
+const API_VERSION = "1.4.0";
 
 export async function GET(request: Request): Promise<NextResponse> {
   const requestId = resolveRequestId(request);

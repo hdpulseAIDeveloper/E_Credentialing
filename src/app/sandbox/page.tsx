@@ -153,6 +153,40 @@ curl -L https://your-host/api/v1/postman.json \\
           </p>
         </section>
 
+        <section className="mt-12 rounded-xl border border-cyan-200 bg-cyan-50 p-6">
+          <h2 className="text-xl font-bold text-gray-900">
+            API key introspection (GET /api/v1/me)
+          </h2>
+          <p className="mt-2 text-sm text-gray-700">
+            Pairs with <code className="font-mono">/health</code> to make
+            "is my key configured correctly?" a one-call answer. Returns
+            the key's name, granted scopes, lifecycle timestamps, and
+            current rate-limit budget — never the bearer key itself.
+            Available since spec <code className="font-mono">1.4.0</code>;
+            requires any active bearer key but no specific scope.
+          </p>
+          <pre className="mt-3 overflow-x-auto rounded bg-white border border-cyan-200 p-3 text-xs">
+            <code>{`curl -s https://your-host/api/v1/me \\
+  -H "Authorization: Bearer $ECRED_API_KEY" | jq .
+
+# {
+#   "keyId": "ck_test_abc",
+#   "name": "Production prod-east",
+#   "scopes": ["providers:read", "sanctions:read"],
+#   "createdAt": "2026-01-15T10:30:00.000Z",
+#   "expiresAt": "2027-01-15T10:30:00.000Z",
+#   "lastUsedAt": "2026-04-18T22:14:33.123Z",
+#   "rateLimit": { "limit": 120, "remaining": 117,
+#                  "resetUnixSeconds": 1739887200 }
+# }`}</code>
+          </pre>
+          <p className="mt-3 text-xs text-gray-600">
+            TypeScript SDK: <code className="font-mono">await client.me()</code>{" "}
+            returns the same shape, fully typed off{" "}
+            <code className="font-mono">components.schemas.Me</code>.
+          </p>
+        </section>
+
         <section className="mt-12 rounded-xl border border-purple-200 bg-purple-50 p-6">
           <h2 className="text-xl font-bold text-gray-900">
             Request correlation (X-Request-Id)

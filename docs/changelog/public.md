@@ -17,6 +17,29 @@ Anti-weakening: never delete a release. Strike-through a published
 note instead and add a follow-up release if the underlying claim
 turned out to be incorrect.
 
+## 2026-04-18 — v1.9.0 (API)
+
+### Added
+- **API key introspection — `GET /api/v1/me`.** The canonical
+  "what can my API key actually do?" check. Returns the key's
+  `keyId`, human-readable `name`, granted `scopes` (filtered to
+  the stable vocabulary), `createdAt`, `expiresAt` (or `null`
+  for keys that never expire), `lastUsedAt`, and a snapshot of
+  the current rate-limit budget. Like `/health`, requires only
+  a valid bearer key — no specific scope needed — so it's the
+  natural follow-up call when debugging "why am I getting 403?"
+  problems. Documented in the OpenAPI 3.1 spec at
+  `/api/v1/openapi.yaml` (apiVersion `1.4.0`), available in the
+  TypeScript SDK as `client.me()`, and present in the Postman
+  collection at `/api/v1/postman.json`. **Non-breaking minor
+  bump** under the published API versioning policy.
+
+### Improved
+- **One-call key debugging.** Customers no longer need to dig
+  into our admin UI to confirm which scopes they have or when
+  their key expires — the SDK call returns exactly what the
+  server sees.
+
 ## 2026-04-18 — v1.8.0 (API)
 
 ### Added
