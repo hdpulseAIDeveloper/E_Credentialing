@@ -7,6 +7,127 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sem
 ## [Unreleased]
 
 ### Added
+- **Wave 19 — Problem Details for HTTP APIs (RFC 9457)
+  (1.7.0 -> 1.8.0) (2026-04-19):** Eighth exercise of the
+  versioning machinery. Adopts RFC 9457 as a backward-compatible
+  superset of the existing `{ error: { code, message } }`
+  envelope, with strict opt-in content negotiation
+  (`application/problem+json` only when the client explicitly
+  asks for it). Idempotency-Key was scoped out of this wave —
+  the v1 surface is read-only, so the contract has no
+  observable customer value today; revisit when the first
+  mutating endpoint ships.
+  - `src/lib/api/problem-details.ts`: new helper module exporting
+    `Problem` interface (RFC 9457 fields + legacy `error`
+    envelope as a required member), `PROBLEM_BASE_URL`
+    (`https://api.e-credentialing.example.com/problems`),
+    `PROBLEM_CONTENT_TYPE` and `JSON_CONTENT_TYPE` constants,
+    `PROBLEM_TITLES` (the only place where human-readable titles
+    live, keyed by `error.code`), `problemTypeUri(code)`
+    (deterministic kebab-case URI per code),
+    `problemTitleFor(code)` (Title-Cased fallback for unknown
+    codes), `buildProblem({ status, code, message, instance?,
+    extras? })` (the only path that ever produces a v1 error
+    body), `negotiateProblemContentType(request?)` (strict
+    opt-in: only returns `application/problem+json` when the
+    `Accept` header explicitly requests it), `problemResponse`
+    and `problemResponseDefault` (build a `NextResponse` with
+    the negotiated `Content-Type` and Problem body).
+  - `src/app/api/v1/middleware.ts`: `v1ErrorResponse(status,
+    code, message, extras?, request?)` refactored to use
+    `problemResponse`. The signature is backward-compatible —
+    callers that don't pass a `Request` get
+    `problemResponseDefault` and an `instance` field that's
+    omitted. `authenticateApiKey` and `requireScope` now thread
+    `Request` through so `instance` is populated correctly.
+  - `src/lib/api/rate-limit.ts`: `buildRateLimitResponse` now
+    constructs a Problem-shaped body via `buildProblem` and
+    explicitly sets `Content-Type: application/problem+json`.
+    `retryAfterSeconds` is preserved as an extension member
+    alongside the `Retry-After` header.
+  - All v1 route handlers (`/health`, `/me`, `/providers`,
+    `/providers/[id]`, `/providers/[id]/cv.pdf`, `/sanctions`,
+    `/enrollments`) updated to pass `request` into
+    `requireScope` and `v1ErrorResponse`. Inline
+    `NextResponse.json({ error: ... })` calls in
+    `/providers/[id]`, `/me`, and `/providers/[id]/cv.pdf`
+    refactored to go through `v1ErrorResponse` so every error
+    body is Problem-shaped.
+  - `docs/api/openapi-v1.yaml`: bumped to `1.8.0`.
+    `info.description` gains a "Problem Details for HTTP APIs
+    (since v1.8.0)" section. `Error` and `RateLimitProblem`
+    schemas redefined as Problem-shaped supersets, retaining
+    the legacy `error` envelope as a required member. All four
+    reusable error responses (`Unauthorized`, `Forbidden`,
+    `NotFound`, `RateLimited`) plus the inline `401` on
+    `/health` now advertise both `application/problem+json`
+    and `application/json` content types. `Health.apiVersion`
+    example bumped to `"1.8.0"`.
+  - `src/lib/api-client/v1.ts`: new `V1Problem` type, new
+    `parseProblem(body, fallbackStatus?)` helper (synthesises
+    `type`/`title`/`status`/`detail` from the legacy envelope
+    when older deployments respond), new
+    `V1ApiError.problem: V1Problem | undefined` property
+    populated automatically on every non-2xx response with a
+    JSON body. The `request` method and `conditionalGetWith`
+    pipe `parseProblem` into `V1ApiError`.
+  - `src/lib/api-client/v1-types.ts` + `public/api/v1/postman.json`:
+    regenerated; drift gates pass.
+  - `tests/unit/api/problem-details.test.ts`: 19 new tests
+    covering `problemTypeUri` stability, `problemTitleFor`
+    fallback semantics, `buildProblem` field assembly and
+    extension merging, `negotiateProblemContentType` for every
+    `Accept`-header permutation, and `problemResponse`
+    `Content-Type` selection.
+  - `tests/unit/api/require-scope.test.ts`: added a Wave 19 test
+    asserting `403` response bodies expose the RFC 9457 fields
+    (`type`, `title`, `status`, `detail`, `instance`) while
+    preserving the legacy `error.code` / `error.message` /
+    `error.required` envelope, with `Content-Type` correctly
+    negotiated.
+  - `tests/unit/lib/api-client/v1-client.test.ts`: 7 new tests
+    covering `parseProblem` (full body, legacy-envelope
+    synthesis, non-error bodies, extension members) and
+    `V1ApiError.problem` (populated on Problem responses,
+    populated when only the legacy envelope is present, and
+    `undefined` when the body is non-JSON).
+  - `tests/contract/pillar-j-openapi.spec.ts`: 3 new
+    assertions — `Error` and `RateLimitProblem` schemas declare
+    the RFC 9457 members, every reusable error response
+    advertises both `application/problem+json` and
+    `application/json` content types.
+  - `docs/api/versioning.md`: bumped to `Wave 19` / spec
+    `1.8.0`. New §3.8 documents the Problem Details body shape,
+    stability contract for `type` URIs, content-type
+    negotiation rules, and SDK observation contract. Quick
+    reference updated.
+  - `docs/changelog/public.md`: new `v1.13.0 (API)` entry
+    spelling out the customer-visible contract (body shape,
+    content negotiation, SDK additions, non-breaking
+    compatibility).
+  - `src/app/sandbox/page.tsx`: new "Problem Details for HTTP
+    APIs (RFC 9457)" section with side-by-side `curl` examples
+    (default vs `Accept: application/problem+json`) and SDK
+    pointer.
+  - `docs/dev/adr/0025-problem-details-rfc-9457.md`: new ADR
+    capturing context (no industry-standard error contract,
+    opaque `error.code` discriminator), decision (RFC 9457 as a
+    backward-compatible superset, strict opt-in content
+    negotiation, central `buildProblem` helper, OpenAPI 1.8.0
+    contract, SDK observation), positive/negative/neutral
+    consequences, and four rejected alternatives (replace the
+    legacy envelope outright, always serve
+    `application/problem+json`, per-route Problem objects, RFC
+    7807).
+  - Tests: 1687 passing (up from 1680: +19 problem-details
+    helper, +1 require-scope, +7 SDK, +3 OpenAPI contract,
+    +20 contract iterations net of overlap).
+  - Anti-weakening: never re-point an existing `type` URI to a
+    different error class. Never drop the legacy `error`
+    envelope without a major version. The Pillar J contract
+    test fails the build if `Error` or `RateLimitProblem`
+    stops declaring the RFC 9457 members or stops advertising
+    both content types.
 - **Wave 18 — Deprecation + Sunset header machinery
   (RFC 9745 / RFC 8594 / RFC 5829 / RFC 8288)
   (1.6.0 -> 1.7.0) (2026-04-19):** Seventh exercise of the

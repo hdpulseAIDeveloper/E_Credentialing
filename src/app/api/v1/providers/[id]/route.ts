@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { authenticateApiKey, requireScope } from "../../middleware";
+import { authenticateApiKey, requireScope, v1ErrorResponse } from "../../middleware";
 import { applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { applyRequestIdHeader, resolveRequestId } from "@/lib/api/request-id";
 import {
@@ -27,7 +27,7 @@ export async function GET(
     );
   }
 
-  const scopeError = requireScope(auth, "providers:read");
+  const scopeError = requireScope(auth, "providers:read", request);
   if (scopeError) {
     return applyDeprecationByRoute(
       applyRequestIdHeader(scopeError, requestId),
@@ -85,10 +85,7 @@ export async function GET(
     return applyDeprecationByRoute(
       applyRequestIdHeader(
         applyRateLimitHeaders(
-          NextResponse.json(
-            { error: { code: "not_found", message: "Provider not found" } },
-            { status: 404 },
-          ),
+          v1ErrorResponse(404, "not_found", "Provider not found", {}, request),
           auth.rateLimit,
         ),
         requestId,

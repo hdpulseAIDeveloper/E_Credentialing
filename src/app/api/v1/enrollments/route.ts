@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const scopeError = requireScope(auth, "enrollments:read");
+  const scopeError = requireScope(auth, "enrollments:read", request);
   if (scopeError) {
     return applyDeprecationByRoute(
       applyRequestIdHeader(scopeError, requestId),

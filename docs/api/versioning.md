@@ -1,11 +1,13 @@
 # Public REST API — Versioning, Deprecation, and Sunset Policy
 
-- **Status:** v1 — current stable (spec `1.7.0`)
-- **Last reviewed:** 2026-04-19 (Wave 18)
+- **Status:** v1 — current stable (spec `1.8.0`)
+- **Last reviewed:** 2026-04-19 (Wave 19)
 - **Related:**
   ADR [0020](../dev/adr/0020-openapi-v1-spec.md) (OpenAPI spec),
   ADR [0022](../dev/adr/0022-public-rest-v1-sdk.md) (TypeScript SDK),
   ADR [0023](../dev/adr/0023-api-versioning-policy.md) (this policy),
+  ADR [0024](../dev/adr/0024-deprecation-sunset-headers.md) (deprecation headers),
+  ADR [0025](../dev/adr/0025-problem-details-rfc-9457.md) (Problem Details),
   [`docs/api/openapi-v1.yaml`](openapi-v1.yaml).
 
 This document is the **contract** between the platform and any
@@ -387,6 +389,67 @@ opt-in, requiring `If-None-Match` (i.e. returning `412 Precondition
 Failed` on absence), or breaking the weak comparison contract
 would all be breaking changes and require a `/api/v2/`.
 
+### 3.8 Problem Details for HTTP APIs (since spec v1.8.0)
+
+Every error response from `/api/v1/*` ships an
+[RFC 9457](https://datatracker.ietf.org/doc/html/rfc9457) Problem
+Details body. The body is a **superset** of the legacy `error`
+envelope, so existing clients that read `body.error.code` /
+`body.error.message` continue to work unchanged.
+
+**Body shape** (all error statuses — 401, 403, 404, 410, 429, 5xx):
+
+```json
+{
+  "type": "https://api.e-credentialing.example.com/problems/insufficient-scope",
+  "title": "Insufficient scope",
+  "status": 403,
+  "detail": "API key lacks required scope: providers:read",
+  "instance": "/api/v1/providers/abc123",
+  "error": {
+    "code": "insufficient_scope",
+    "message": "API key lacks required scope: providers:read",
+    "required": "providers:read"
+  }
+}
+```
+
+**Stability contract:**
+
+- The `type` URI for a given error code is **permanent**. We will
+  never re-point `…/problems/insufficient-scope` to mean a different
+  error class. New error classes get new URIs.
+- The legacy `error` envelope (with the same `code`, `message`, and
+  any `extras` we previously emitted) stays at the same path inside
+  every error body. New consumers SHOULD switch on `type`; existing
+  consumers MAY keep reading `error.code`.
+- `instance` is the request path (without query string) that
+  produced the problem.
+
+**Content-Type negotiation** (RFC 9457 §3):
+
+- Clients that send `Accept: application/problem+json` receive
+  `Content-Type: application/problem+json`.
+- Clients that send `Accept: application/json`, `*/*`, or no
+  `Accept` header receive `Content-Type: application/json`. The
+  body is byte-identical; only the media-type parameter changes.
+
+**SDK observation contract:**
+
+- `parseProblem(body)` from `@e-credentialing/api-client` accepts
+  any v1 error JSON — Problem-shaped or legacy — and returns a
+  normalised `V1Problem`. When the body is the legacy envelope
+  only, the function synthesises `type`/`title`/`status`/`detail`
+  from `error.code`/`error.message` and the response status.
+- `V1ApiError.problem` is populated on every non-2xx response with
+  a JSON body. Code that needs to react to a specific error class
+  reads `err.problem?.type` (a stable URI), not the English
+  `message` string.
+
+Removing or repurposing a `type` URI, dropping the legacy `error`
+envelope, or changing the status mapping for an existing `code`
+would all be breaking changes and require a `/api/v2/`.
+
 ## 4. Major-version overlap window
 
 When `/api/v2` ships:
@@ -449,6 +512,7 @@ The following invariants MUST be preserved:
 - "What request-id headers must I emit?" → §3.5.
 - "How do I emit pagination Link headers?" → §3.6.
 - "How do I add ETag support to a new endpoint?" → §3.7.
+- "What error-body shape do I emit?" → §3.8 (Problem Details).
 - "How do I document this deprecation in the spec?" → §3.2.
 - "When can I ship `/api/v2`?" → After at least one of:
   - Required customer feature that can't ship in v1, OR

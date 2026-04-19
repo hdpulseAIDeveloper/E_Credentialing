@@ -153,6 +153,57 @@ curl -L https://your-host/api/v1/postman.json \\
           </p>
         </section>
 
+        <section className="mt-12 rounded-xl border border-amber-200 bg-amber-50 p-6">
+          <h2 className="text-xl font-bold text-gray-900">
+            Problem Details for HTTP APIs (RFC 9457)
+          </h2>
+          <p className="mt-2 text-sm text-gray-700">
+            Every error response from{" "}
+            <code className="font-mono">/api/v1/*</code> ships a
+            Problem-shaped JSON body (since spec{" "}
+            <code className="font-mono">1.8.0</code>). The body is a
+            superset of the existing{" "}
+            <code className="font-mono">{`{ error: { code, message } }`}</code>{" "}
+            envelope, so existing parsers keep working unchanged.
+          </p>
+          <pre className="mt-3 overflow-x-auto rounded bg-white border border-amber-200 p-3 text-xs">
+            <code>{`# Default — Accept: */* or absent — Content-Type: application/json
+curl -i https://your-host/api/v1/providers/missing \\
+  -H "Authorization: Bearer $ECRED_API_KEY"
+# HTTP/1.1 404 Not Found
+# Content-Type: application/json
+# {
+#   "type": "https://api.e-credentialing.example.com/problems/not-found",
+#   "title": "Not found",
+#   "status": 404,
+#   "detail": "Provider not found",
+#   "instance": "/api/v1/providers/missing",
+#   "error": { "code": "not_found", "message": "Provider not found" }
+# }
+
+# Opt-in — Accept: application/problem+json — Content-Type flips
+curl -i https://your-host/api/v1/providers/missing \\
+  -H "Authorization: Bearer $ECRED_API_KEY" \\
+  -H "Accept: application/problem+json"
+# HTTP/1.1 404 Not Found
+# Content-Type: application/problem+json
+# (body byte-identical to the example above)`}</code>
+          </pre>
+          <p className="mt-3 text-xs text-gray-600">
+            TypeScript SDK:{" "}
+            <code className="font-mono">parseProblem(body)</code>{" "}
+            normalises any v1 error JSON (Problem-shaped or legacy)
+            into a{" "}
+            <code className="font-mono">V1Problem</code>. On any
+            non-2xx response,{" "}
+            <code className="font-mono">V1ApiError.problem</code> is
+            populated automatically — switch on{" "}
+            <code className="font-mono">err.problem?.type</code> for
+            stable, machine-readable error classes instead of parsing
+            the English message.
+          </p>
+        </section>
+
         <section className="mt-12 rounded-xl border border-rose-200 bg-rose-50 p-6">
           <h2 className="text-xl font-bold text-gray-900">
             Deprecation + Sunset headers (RFC 9745 / RFC 8594)

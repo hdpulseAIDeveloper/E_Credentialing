@@ -175,11 +175,58 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
-         * @description Canonical v1 error envelope. The body of every non-2xx response
-         *     from `/api/v1/*` follows this shape. Clients (including the
-         *     in-tree TypeScript SDK) parse `error.code` and `error.message`.
+         * @description Canonical v1 error body. Since v1.8.0 every non-2xx response
+         *     body is an RFC 9457 Problem object that ALSO carries the
+         *     legacy `{ error: { code, message, ...extras } }` envelope as
+         *     an extension member, so existing SDKs continue to read
+         *     `body.error.code` unchanged. New clients SHOULD read the
+         *     top-level RFC 9457 fields (`type`, `title`, `status`,
+         *     `detail`, `instance`).
+         *
+         *     The Content-Type is `application/problem+json` per RFC 9457
+         *     §3, except when the caller's `Accept` header excludes it —
+         *     in which case the same body is returned with
+         *     `Content-Type: application/json`.
          */
         Error: {
+            /**
+             * Format: uri
+             * @description Stable URI per error code. Per RFC 9457 §3.1.1 this is
+             *     "the primary identifier for the problem type". Changing
+             *     this URI for an existing code is a breaking change.
+             * @example https://essen-credentialing.example/errors/not-found
+             */
+            type: string;
+            /**
+             * @description Short human-readable summary. Per RFC 9457 §3.1.3 this
+             *     SHOULD NOT change between occurrences of the problem.
+             * @example Resource not found
+             */
+            title: string;
+            /**
+             * @description HTTP status code, mirrored into the body for consumers
+             *     who only see the body (e.g. behind proxies that strip
+             *     status). MUST equal the response status.
+             * @example 404
+             */
+            status: number;
+            /**
+             * @description Human-readable explanation specific to this occurrence.
+             *     Mirrors `error.message`.
+             * @example Provider not found
+             */
+            detail: string;
+            /**
+             * @description URI reference identifying the specific occurrence —
+             *     typically the request path that triggered the error.
+             * @example /api/v1/providers/abc
+             */
+            instance?: string;
+            /**
+             * @description Legacy envelope, preserved verbatim for backward
+             *     compatibility. Removing this is a breaking change that
+             *     requires a new major version.
+             */
             error: {
                 /**
                  * @description Stable machine-readable identifier for the failure
@@ -203,12 +250,38 @@ export interface components {
             };
         };
         /**
-         * @description Body of a `429 Too Many Requests` response. Extends `Error`
-         *     with a `retryAfterSeconds` field that mirrors the
-         *     `Retry-After` header so SDKs that don't read response headers
-         *     can still back off correctly.
+         * @description Body of a `429 Too Many Requests` response. Same RFC 9457
+         *     Problem shape as `Error` (since v1.8.0), with an additional
+         *     top-level `retryAfterSeconds` extension member that mirrors
+         *     the `Retry-After` header so SDKs that don't read response
+         *     headers can still back off correctly.
          */
         RateLimitProblem: {
+            /**
+             * Format: uri
+             * @example https://essen-credentialing.example/errors/rate-limited
+             */
+            type: string;
+            /** @example Rate limit exceeded */
+            title: string;
+            /**
+             * @example 429
+             * @constant
+             */
+            status: 429;
+            /** @example Rate limit of 120 requests/min exceeded. Retry in 7s. */
+            detail: string;
+            /** @example /api/v1/providers */
+            instance?: string;
+            /**
+             * @description Seconds until the next request is allowed. Always matches
+             *     the `Retry-After` header. Top-level extension member per
+             *     RFC 9457 §3.2 so callers that don't parse the legacy
+             *     `error` envelope can still find it.
+             * @example 7
+             */
+            retryAfterSeconds: number;
+            /** @description Legacy envelope, preserved. */
             error: {
                 /**
                  * @example rate_limited
@@ -251,7 +324,7 @@ export interface components {
             keyId: string;
             /**
              * @description Semver version of the v1 surface (matches `info.version`).
-             * @example 1.7.0
+             * @example 1.8.0
              */
             apiVersion: string;
             /**
@@ -451,7 +524,7 @@ export interface components {
         };
     };
     responses: {
-        /** @description Missing or invalid API key. */
+        /** @description Missing or invalid API key. Body is RFC 9457 Problem (since v1.8.0). */
         Unauthorized: {
             headers: {
                 "X-Request-Id": components["headers"]["RequestId"];
@@ -461,10 +534,11 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
+                "application/problem+json": components["schemas"]["Error"];
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description API key valid but lacks the required scope. */
+        /** @description API key valid but lacks the required scope. Body is RFC 9457 Problem (since v1.8.0). */
         Forbidden: {
             headers: {
                 "X-Request-Id": components["headers"]["RequestId"];
@@ -474,10 +548,11 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
+                "application/problem+json": components["schemas"]["Error"];
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description Resource not found. */
+        /** @description Resource not found. Body is RFC 9457 Problem (since v1.8.0). */
         NotFound: {
             headers: {
                 "X-Request-Id": components["headers"]["RequestId"];
@@ -487,6 +562,7 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
+                "application/problem+json": components["schemas"]["Error"];
                 "application/json": components["schemas"]["Error"];
             };
         };
@@ -535,6 +611,7 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
+                "application/problem+json": components["schemas"]["RateLimitProblem"];
                 "application/json": components["schemas"]["RateLimitProblem"];
             };
         };
@@ -713,7 +790,7 @@ export interface operations {
                 };
             };
             304: components["responses"]["NotModified"];
-            /** @description Missing, invalid, expired, or revoked API key. */
+            /** @description Missing, invalid, expired, or revoked API key. Body is RFC 9457 Problem (since v1.8.0). */
             401: {
                 headers: {
                     "X-Request-Id": components["headers"]["RequestId"];
@@ -723,6 +800,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/problem+json": components["schemas"]["Error"];
                     "application/json": components["schemas"]["Error"];
                 };
             };

@@ -35,7 +35,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { authenticateApiKey, API_SCOPES } from "../middleware";
+import { authenticateApiKey, API_SCOPES, v1ErrorResponse } from "../middleware";
 import { applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { applyRequestIdHeader, resolveRequestId } from "@/lib/api/request-id";
 import { auditApiRequest } from "@/lib/api/audit-api";
@@ -78,10 +78,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   if (!row) {
     return applyDeprecationByRoute(
       applyRequestIdHeader(
-        NextResponse.json(
-          { error: { code: "not_found", message: "API key not found" } },
-          { status: 404 },
-        ),
+        v1ErrorResponse(404, "not_found", "API key not found", {}, request),
         requestId,
       ),
       "GET",

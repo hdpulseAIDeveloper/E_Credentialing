@@ -17,6 +17,75 @@ Anti-weakening: never delete a release. Strike-through a published
 note instead and add a follow-up release if the underlying claim
 turned out to be incorrect.
 
+## 2026-04-19 — v1.13.0 (API)
+
+### Added
+- **Problem Details for HTTP APIs (RFC 9457).** Every error
+  response from `/api/v1/*` now carries a Problem-shaped JSON
+  body — a superset of the existing `{ error: { code, message } }`
+  envelope. The new top-level members are:
+  - `type` — stable absolute URI for the error class
+    (e.g. `https://api.e-credentialing.example.com/problems/insufficient-scope`).
+    Two distinct errors will never share a `type`; clients can
+    switch on it without parsing English.
+  - `title` — short, human-readable label
+    (e.g. `"Insufficient scope"`).
+  - `status` — numeric HTTP status, mirroring the response line.
+  - `detail` — human-readable, request-specific explanation
+    (matches the legacy `error.message`).
+  - `instance` — the request path that produced the problem
+    (e.g. `/api/v1/providers/abc123`).
+
+  The legacy `error: { code, message, ...extras }` envelope is
+  preserved verbatim under the same key, so existing integrations
+  continue to work. New clients SHOULD switch on `type` and read
+  `detail`/`status` directly.
+- **Content-Type negotiation.** Clients that send
+  `Accept: application/problem+json` receive
+  `Content-Type: application/problem+json` (per RFC 9457 §3).
+  All other clients — including those that send
+  `Accept: application/json`, `*/*`, or no `Accept` header —
+  continue to receive `Content-Type: application/json`. The body
+  is byte-identical in either case; only the media type
+  parameter changes. This keeps every existing parser working
+  unchanged.
+- **Rate-limit errors are Problem-shaped too.** `429 Too Many
+  Requests` responses now ship a Problem body with
+  `type=…/problems/rate-limited` and the existing
+  `retryAfterSeconds` extension member preserved alongside the
+  `Retry-After` header.
+- **TypeScript SDK exposes `parseProblem()` + `V1ApiError.problem`.**
+  Two new dependency-free integrations in
+  `@e-credentialing/api-client`:
+  - `parseProblem(body)` accepts any v1 error JSON (Problem-shaped
+    or legacy envelope) and returns a normalised `V1Problem` —
+    synthesising `type`/`title`/`status`/`detail` from the legacy
+    envelope when older deployments respond.
+  - `V1ApiError.problem` is now populated on every non-2xx
+    response with a JSON body, so error-handling code can read
+    `err.problem.type` to switch on machine-stable URIs without
+    reparsing.
+
+### Improved
+- **OpenAPI spec bumped to `v1.8.0`.** `Error` and
+  `RateLimitProblem` schemas now describe both the RFC 9457
+  members and the legacy envelope explicitly, so generated
+  clients (TypeScript, Postman, Schemathesis) understand both
+  shapes. All four reusable error responses (`Unauthorized`,
+  `Forbidden`, `NotFound`, `RateLimited`) plus the inline `401`
+  on `/health` now advertise both `application/problem+json` and
+  `application/json` content types.
+- **`docs/api/versioning.md` §3.8** documents the Problem
+  Details contract — what `type` URIs we promise to keep stable,
+  how content negotiation works, and how clients should detect
+  it without breaking against legacy deployments.
+
+### Compatibility
+- **Non-breaking** for every existing client. The legacy
+  `error: { code, message }` envelope is still present at the
+  same path inside every error body. Clients that ignore unknown
+  members (the recommended posture) see no change in behavior.
+
 ## 2026-04-19 — v1.12.0 (API)
 
 ### Added

@@ -416,6 +416,67 @@ describe("pillar-J: OpenAPI 3.1 contract", () => {
     });
   });
 
+  describe("Wave 19: RFC 9457 Problem Details contract", () => {
+    it("declares an Error schema that includes the RFC 9457 standard members", () => {
+      const error = (SPEC.components?.schemas?.Error as
+        | { properties?: Record<string, unknown> }
+        | undefined);
+      expect(error, "missing components.schemas.Error").toBeTruthy();
+      const props = error!.properties ?? {};
+      for (const required of ["type", "title", "status", "detail", "error"]) {
+        expect(
+          required in props,
+          `Error schema missing RFC 9457 member '${required}'`,
+        ).toBe(true);
+      }
+    });
+
+    it("declares a RateLimitProblem schema that includes RFC 9457 members + retryAfterSeconds", () => {
+      const rlp = (SPEC.components?.schemas?.RateLimitProblem as
+        | { properties?: Record<string, unknown> }
+        | undefined);
+      expect(rlp, "missing components.schemas.RateLimitProblem").toBeTruthy();
+      const props = rlp!.properties ?? {};
+      for (const required of ["type", "title", "status", "detail", "error", "retryAfterSeconds"]) {
+        expect(
+          required in props,
+          `RateLimitProblem schema missing member '${required}'`,
+        ).toBe(true);
+      }
+    });
+
+    it("advertises application/problem+json on every reusable error response", () => {
+      const responses = (SPEC as {
+        components?: {
+          responses?: Record<
+            string,
+            { content?: Record<string, unknown> }
+          >;
+        };
+      }).components?.responses ?? {};
+      const failures: string[] = [];
+      for (const name of ["Unauthorized", "Forbidden", "NotFound", "RateLimited"]) {
+        const r = responses[name];
+        if (!r) {
+          failures.push(`components.responses.${name} missing`);
+          continue;
+        }
+        const ct = r.content ?? {};
+        if (!ct["application/problem+json"]) {
+          failures.push(
+            `components.responses.${name} missing application/problem+json content`,
+          );
+        }
+        if (!ct["application/json"]) {
+          failures.push(
+            `components.responses.${name} missing application/json content (legacy)`,
+          );
+        }
+      }
+      expect(failures, failures.join("\n")).toEqual([]);
+    });
+  });
+
   describe("anti-PHI guard", () => {
     /**
      * Walks the spec and collects every property name that appears

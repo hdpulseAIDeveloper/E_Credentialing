@@ -29,6 +29,7 @@
  *      not `120`); fetch parsers depend on this.
  */
 import { NextResponse } from "next/server";
+import { buildProblem, PROBLEM_CONTENT_TYPE } from "@/lib/api/problem-details";
 
 interface Bucket {
   windowStartMs: number;
@@ -142,20 +143,19 @@ export function rateLimit(
  * response when it wants to attach more headers (e.g. `WWW-Authenticate`).
  */
 export function buildRateLimitResponse(state: RateLimitState): NextResponse {
-  const response = NextResponse.json(
-    {
-      error: {
-        code: "rate_limited",
-        message: `Rate limit of ${state.limit} requests/min exceeded. Retry in ${state.retryAfterSeconds}s.`,
-        retryAfterSeconds: state.retryAfterSeconds,
-      },
+  const message = `Rate limit of ${state.limit} requests/min exceeded. Retry in ${state.retryAfterSeconds}s.`;
+  const body = buildProblem({
+    status: 429,
+    code: "rate_limited",
+    message,
+    extras: { retryAfterSeconds: state.retryAfterSeconds },
+  });
+  const response = NextResponse.json(body, {
+    status: 429,
+    headers: {
+      "Retry-After": String(state.retryAfterSeconds),
+      "Content-Type": PROBLEM_CONTENT_TYPE,
     },
-    {
-      status: 429,
-      headers: {
-        "Retry-After": String(state.retryAfterSeconds),
-      },
-    },
-  );
+  });
   return applyRateLimitHeaders(response, state);
 }

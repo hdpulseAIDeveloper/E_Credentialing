@@ -44,7 +44,7 @@ import {
 } from "@/lib/api/etag";
 import { applyDeprecationByRoute } from "@/lib/api/deprecation";
 
-const API_VERSION = "1.7.0";
+const API_VERSION = "1.8.0";
 const ROUTE_PATH = "/api/v1/health";
 
 export async function GET(request: Request): Promise<NextResponse> {

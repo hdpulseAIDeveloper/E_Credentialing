@@ -15,9 +15,11 @@ import {
   parseLinkHeader,
   parseEtag,
   parseDeprecation,
+  parseProblem,
   conditionalGetWith,
   type V1Deprecation,
   type V1DeprecationContext,
+  type V1Problem,
 } from "../../../../src/lib/api-client/v1";
 
 interface MockResponse {
@@ -613,5 +615,155 @@ describe("V1Client", () => {
     await expect(client.listSanctions()).rejects.toThrowError(
       /HTTP 502 on GET \/api\/v1\/sanctions/,
     );
+  });
+
+  // ---- Wave 19: RFC 9457 Problem Details ----
+
+  describe("parseProblem", () => {
+    it("parses a full Problem body into a typed object", () => {
+      const body = {
+        type: "https://h.example/errors/not-found",
+        title: "Resource not found",
+        status: 404,
+        detail: "Provider not found",
+        instance: "/api/v1/providers/abc",
+        error: { code: "not_found", message: "Provider not found" },
+      };
+      const p = parseProblem(body);
+      expect(p).toBeDefined();
+      expect(p!.type).toBe("https://h.example/errors/not-found");
+      expect(p!.title).toBe("Resource not found");
+      expect(p!.status).toBe(404);
+      expect(p!.detail).toBe("Provider not found");
+      expect(p!.instance).toBe("/api/v1/providers/abc");
+      expect(p!.error.code).toBe("not_found");
+    });
+
+    it("synthesises top-level fields when only the legacy envelope is present", () => {
+      const p = parseProblem(
+        { error: { code: "unauthorized", message: "boom" } },
+        401,
+      );
+      expect(p).toBeDefined();
+      expect(p!.status).toBe(401);
+      expect(p!.title).toBe("unauthorized");
+      expect(p!.detail).toBe("boom");
+      expect(p!.type).toContain("unauthorized");
+    });
+
+    it("returns undefined when the body has no error envelope", () => {
+      expect(parseProblem({ data: "ok" })).toBeUndefined();
+      expect(parseProblem(null)).toBeUndefined();
+      expect(parseProblem("string")).toBeUndefined();
+      expect(parseProblem({ error: "not-an-object" })).toBeUndefined();
+    });
+
+    it("preserves extension members at top level (e.g. retryAfterSeconds on 429)", () => {
+      const body = {
+        type: "https://h/errors/rate-limited",
+        title: "Rate limit exceeded",
+        status: 429,
+        detail: "back off",
+        retryAfterSeconds: 7,
+        error: { code: "rate_limited", message: "back off", retryAfterSeconds: 7 },
+      };
+      const p = parseProblem(body);
+      expect(p!.retryAfterSeconds).toBe(7);
+      expect(p!.error.retryAfterSeconds).toBe(7);
+    });
+  });
+
+  it("V1ApiError carries a parsed Problem body for non-2xx responses", async () => {
+    const problemBody: V1Problem = {
+      type: "https://h.example/errors/insufficient-scope",
+      title: "Insufficient scope",
+      status: 403,
+      detail: "missing providers:read",
+      instance: "/api/v1/providers",
+      error: {
+        code: "insufficient_scope",
+        message: "missing providers:read",
+        required: "providers:read",
+      },
+    };
+    const fetchSpy = makeFetch([
+      {
+        status: 403,
+        body: JSON.stringify(problemBody),
+        headers: { "content-type": "application/problem+json" },
+      },
+    ]);
+    const client = new V1Client({
+      baseUrl: "https://api.example.com",
+      apiKey: "k",
+      fetch: fetchSpy as unknown as typeof fetch,
+    });
+    try {
+      await client.listProviders();
+      throw new Error("expected V1ApiError");
+    } catch (e) {
+      const err = e as V1ApiError;
+      expect(err.status).toBe(403);
+      expect(err.code).toBe("insufficient_scope");
+      expect(err.problem).toBeDefined();
+      expect(err.problem!.type).toBe(
+        "https://h.example/errors/insufficient-scope",
+      );
+      expect(err.problem!.title).toBe("Insufficient scope");
+      expect(err.problem!.detail).toBe("missing providers:read");
+      expect(err.problem!.instance).toBe("/api/v1/providers");
+      expect(err.problem!.error.required).toBe("providers:read");
+    }
+  });
+
+  it("V1ApiError accepts legacy { error: {...} } envelope from older deployments", async () => {
+    const fetchSpy = makeFetch([
+      {
+        status: 401,
+        body: JSON.stringify({
+          error: { code: "unauthorized", message: "Unauthorized" },
+        }),
+        headers: { "content-type": "application/json" },
+      },
+    ]);
+    const client = new V1Client({
+      baseUrl: "https://api.example.com",
+      apiKey: "k",
+      fetch: fetchSpy as unknown as typeof fetch,
+    });
+    try {
+      await client.health();
+      throw new Error("expected V1ApiError");
+    } catch (e) {
+      const err = e as V1ApiError;
+      expect(err.status).toBe(401);
+      expect(err.code).toBe("unauthorized");
+      // Legacy envelope -> synthesised Problem (parseProblem fallback path).
+      expect(err.problem).toBeDefined();
+      expect(err.problem!.detail).toBe("Unauthorized");
+      expect(err.problem!.title).toBe("unauthorized");
+    }
+  });
+
+  it("V1ApiError.problem is undefined when the body is non-JSON", async () => {
+    const fetchSpy = makeFetch([
+      {
+        status: 502,
+        body: "<html>Bad Gateway</html>",
+        headers: { "content-type": "text/html" },
+      },
+    ]);
+    const client = new V1Client({
+      baseUrl: "https://api.example.com",
+      apiKey: "k",
+      fetch: fetchSpy as unknown as typeof fetch,
+    });
+    try {
+      await client.listSanctions();
+      throw new Error("expected V1ApiError");
+    } catch (e) {
+      const err = e as V1ApiError;
+      expect(err.problem).toBeUndefined();
+    }
   });
 });

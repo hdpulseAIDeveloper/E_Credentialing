@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: E-Credentialing CVO Platform — Public REST API v1
-  version: "1.7.0"
+  version: "1.8.0"
   summary: Read-only public REST API for the E-Credentialing CVO platform.
   description: |
     The v1 surface is intentionally read-only. Every request requires
@@ -59,6 +59,21 @@ info:
     headers via `parseDeprecation(headers)` and emits a one-time
     `console.warn` per process so customers find out before the
     sunset wall-clock fires.
+
+    Problem Details for HTTP APIs (since v1.8.0): every error
+    response body is now an RFC 9457 Problem object — `type`
+    (stable URI per error code), `title` (short human-readable),
+    `status` (mirror of HTTP status), `detail` (occurrence-specific
+    message), and optional `instance` (the request path that
+    triggered the error). The legacy `{ error: { code, message,
+    ...extras } }` envelope is preserved verbatim inside the same
+    body, so existing SDKs continue to read `body.error.code`
+    unchanged. The Content-Type defaults to
+    `application/problem+json` per RFC 9457 §3, except when the
+    caller's `Accept` header explicitly excludes it. Status codes
+    are unchanged. The TypeScript SDK exposes `parseProblem(body)`
+    and `V1ApiError.problem` for typed access; raw fetch callers
+    can read either shape.
 
     Wave 8 (2026-04-18). See ADR 0020 and `docs/qa/per-pillar/pillar-j-api.md`.
   contact:
@@ -133,13 +148,15 @@ paths:
               schema: { $ref: "#/components/schemas/Health" }
         "304": { $ref: "#/components/responses/NotModified" }
         "401":
-          description: Missing, invalid, expired, or revoked API key.
+          description: Missing, invalid, expired, or revoked API key. Body is RFC 9457 Problem (since v1.8.0).
           headers:
             X-Request-Id: { $ref: "#/components/headers/RequestId" }
             Deprecation: { $ref: "#/components/headers/Deprecation" }
             Sunset: { $ref: "#/components/headers/Sunset" }
             Link: { $ref: "#/components/headers/Link" }
           content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Error" }
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
         "429": { $ref: "#/components/responses/RateLimited" }
@@ -439,33 +456,39 @@ components:
 
   responses:
     Unauthorized:
-      description: Missing or invalid API key.
+      description: Missing or invalid API key. Body is RFC 9457 Problem (since v1.8.0).
       headers:
         X-Request-Id: { $ref: "#/components/headers/RequestId" }
         Deprecation: { $ref: "#/components/headers/Deprecation" }
         Sunset: { $ref: "#/components/headers/Sunset" }
         Link: { $ref: "#/components/headers/Link" }
       content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Error" }
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     Forbidden:
-      description: API key valid but lacks the required scope.
+      description: API key valid but lacks the required scope. Body is RFC 9457 Problem (since v1.8.0).
       headers:
         X-Request-Id: { $ref: "#/components/headers/RequestId" }
         Deprecation: { $ref: "#/components/headers/Deprecation" }
         Sunset: { $ref: "#/components/headers/Sunset" }
         Link: { $ref: "#/components/headers/Link" }
       content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Error" }
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     NotFound:
-      description: Resource not found.
+      description: Resource not found. Body is RFC 9457 Problem (since v1.8.0).
       headers:
         X-Request-Id: { $ref: "#/components/headers/RequestId" }
         Deprecation: { $ref: "#/components/headers/Deprecation" }
         Sunset: { $ref: "#/components/headers/Sunset" }
         Link: { $ref: "#/components/headers/Link" }
       content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Error" }
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     NotModified:
@@ -521,6 +544,8 @@ components:
         Link:
           $ref: "#/components/headers/Link"
       content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/RateLimitProblem" }
         application/json:
           schema: { $ref: "#/components/schemas/RateLimitProblem" }
 
@@ -631,15 +656,63 @@ components:
   schemas:
     Error:
       type: object
-      required: [error]
+      required: [type, title, status, detail, error]
       description: |
-        Canonical v1 error envelope. The body of every non-2xx response
-        from `/api/v1/*` follows this shape. Clients (including the
-        in-tree TypeScript SDK) parse `error.code` and `error.message`.
+        Canonical v1 error body. Since v1.8.0 every non-2xx response
+        body is an RFC 9457 Problem object that ALSO carries the
+        legacy `{ error: { code, message, ...extras } }` envelope as
+        an extension member, so existing SDKs continue to read
+        `body.error.code` unchanged. New clients SHOULD read the
+        top-level RFC 9457 fields (`type`, `title`, `status`,
+        `detail`, `instance`).
+
+        The Content-Type is `application/problem+json` per RFC 9457
+        §3, except when the caller's `Accept` header excludes it —
+        in which case the same body is returned with
+        `Content-Type: application/json`.
       properties:
+        type:
+          type: string
+          format: uri
+          description: |
+            Stable URI per error code. Per RFC 9457 §3.1.1 this is
+            "the primary identifier for the problem type". Changing
+            this URI for an existing code is a breaking change.
+          example: "https://essen-credentialing.example/errors/not-found"
+        title:
+          type: string
+          description: |
+            Short human-readable summary. Per RFC 9457 §3.1.3 this
+            SHOULD NOT change between occurrences of the problem.
+          example: "Resource not found"
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+          description: |
+            HTTP status code, mirrored into the body for consumers
+            who only see the body (e.g. behind proxies that strip
+            status). MUST equal the response status.
+          example: 404
+        detail:
+          type: string
+          description: |
+            Human-readable explanation specific to this occurrence.
+            Mirrors `error.message`.
+          example: "Provider not found"
+        instance:
+          type: string
+          description: |
+            URI reference identifying the specific occurrence —
+            typically the request path that triggered the error.
+          example: "/api/v1/providers/abc"
         error:
           type: object
           required: [code, message]
+          description: |
+            Legacy envelope, preserved verbatim for backward
+            compatibility. Removing this is a breaking change that
+            requires a new major version.
           properties:
             code:
               type: string
@@ -662,16 +735,44 @@ components:
 
     RateLimitProblem:
       type: object
-      required: [error]
+      required: [type, title, status, detail, error, retryAfterSeconds]
       description: |
-        Body of a `429 Too Many Requests` response. Extends `Error`
-        with a `retryAfterSeconds` field that mirrors the
-        `Retry-After` header so SDKs that don't read response headers
-        can still back off correctly.
+        Body of a `429 Too Many Requests` response. Same RFC 9457
+        Problem shape as `Error` (since v1.8.0), with an additional
+        top-level `retryAfterSeconds` extension member that mirrors
+        the `Retry-After` header so SDKs that don't read response
+        headers can still back off correctly.
       properties:
+        type:
+          type: string
+          format: uri
+          example: "https://essen-credentialing.example/errors/rate-limited"
+        title:
+          type: string
+          example: "Rate limit exceeded"
+        status:
+          type: integer
+          const: 429
+          example: 429
+        detail:
+          type: string
+          example: "Rate limit of 120 requests/min exceeded. Retry in 7s."
+        instance:
+          type: string
+          example: "/api/v1/providers"
+        retryAfterSeconds:
+          type: integer
+          minimum: 1
+          example: 7
+          description: |
+            Seconds until the next request is allowed. Always matches
+            the `Retry-After` header. Top-level extension member per
+            RFC 9457 §3.2 so callers that don't parse the legacy
+            `error` envelope can still find it.
         error:
           type: object
           required: [code, message, retryAfterSeconds]
+          description: Legacy envelope, preserved.
           properties:
             code:
               type: string
@@ -718,7 +819,7 @@ components:
         apiVersion:
           type: string
           description: Semver version of the v1 surface (matches `info.version`).
-          example: "1.7.0"
+          example: "1.8.0"
         time:
           type: string
           format: date-time

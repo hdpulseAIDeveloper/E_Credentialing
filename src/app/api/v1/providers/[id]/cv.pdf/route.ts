@@ -22,7 +22,7 @@
 
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { authenticateApiKey, requireScope } from "../../../middleware";
+import { authenticateApiKey, requireScope, v1ErrorResponse } from "../../../middleware";
 import { applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { applyRequestIdHeader, resolveRequestId } from "@/lib/api/request-id";
 import { auditApiRequest } from "@/lib/api/audit-api";
@@ -38,7 +38,7 @@ export async function GET(
   const requestId = resolveRequestId(request);
   const auth = await authenticateApiKey(request);
   if (!auth.valid) return applyRequestIdHeader(auth.error!, requestId);
-  const scopeError = requireScope(auth, "providers:cv");
+  const scopeError = requireScope(auth, "providers:cv", request);
   if (scopeError) return applyRequestIdHeader(scopeError, requestId);
 
   const { id } = await params;
@@ -56,10 +56,7 @@ export async function GET(
     });
     return applyRequestIdHeader(
       applyRateLimitHeaders(
-        NextResponse.json(
-          { error: { code: "not_found", message: "Provider not found" } },
-          { status: 404 },
-        ),
+        v1ErrorResponse(404, "not_found", "Provider not found", {}, request),
         auth.rateLimit,
       ),
       requestId,
@@ -114,10 +111,7 @@ export async function GET(
     });
     return applyRequestIdHeader(
       applyRateLimitHeaders(
-        NextResponse.json(
-          { error: { code: "cv_generation_failed", message: "Failed to generate CV PDF" } },
-          { status: 500 },
-        ),
+        v1ErrorResponse(500, "cv_generation_failed", "Failed to generate CV PDF", {}, request),
         auth.rateLimit,
       ),
       requestId,

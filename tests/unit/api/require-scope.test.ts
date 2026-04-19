@@ -44,6 +44,34 @@ describe("requireScope", () => {
     expect(res).toBeNull();
   });
 
+  it("403 body is RFC 9457 Problem-shaped (since Wave 19 / spec v1.8.0)", async () => {
+    const req = new Request("https://h/api/v1/providers", {
+      headers: { accept: "application/problem+json" },
+    });
+    const res = requireScope(
+      { valid: true, keyId: "k1", permissions: { "providers:read": false } },
+      "providers:read",
+      req,
+    );
+    expect(res!.status).toBe(403);
+    expect(res!.headers.get("content-type")).toBe("application/problem+json");
+    const body = (await res!.json()) as {
+      type: string;
+      title: string;
+      status: number;
+      detail: string;
+      instance: string;
+      error: { code: string; message: string; required: string };
+    };
+    expect(body.type).toContain("/errors/insufficient-scope");
+    expect(body.title).toBe("Insufficient scope");
+    expect(body.status).toBe(403);
+    expect(body.detail).toContain("providers:read");
+    expect(body.instance).toBe("/api/v1/providers");
+    expect(body.error.code).toBe("insufficient_scope");
+    expect(body.error.required).toBe("providers:read");
+  });
+
   it("exposes every scope listed in docs/api/authentication.md", () => {
     expect(API_SCOPES).toContain("providers:read");
     expect(API_SCOPES).toContain("sanctions:read");

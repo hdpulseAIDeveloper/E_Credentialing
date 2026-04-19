@@ -110,6 +110,18 @@ export class V1ApiError extends Error {
    * `V1ClientOptions.onDeprecated = () => undefined`).
    */
   readonly deprecation: V1Deprecation | undefined;
+  /**
+   * Parsed RFC 9457 Problem Details object (since spec v1.8.0). Present
+   * whenever the response body is JSON-shaped — which is the entire
+   * v1 contract. Mirrors the response status, the canonical `type`
+   * URI for the error code, the human-readable `title`, the
+   * occurrence-specific `detail`, and (when the server set it) the
+   * `instance` request path. The legacy `code` / `message` fields on
+   * `V1ApiError` continue to work and are sourced from
+   * `problem.error.code` / `problem.error.message` for backward
+   * compatibility.
+   */
+  readonly problem: V1Problem | undefined;
 
   constructor(
     status: number,
@@ -118,6 +130,7 @@ export class V1ApiError extends Error {
     rateLimit?: V1RateLimit,
     requestId?: string,
     deprecation?: V1Deprecation,
+    problem?: V1Problem,
   ) {
     super(message);
     this.name = "V1ApiError";
@@ -126,7 +139,85 @@ export class V1ApiError extends Error {
     this.rateLimit = rateLimit;
     this.requestId = requestId;
     this.deprecation = deprecation;
+    this.problem = problem;
   }
+}
+
+/**
+ * RFC 9457 Problem Details object as emitted by `/api/v1/*` since
+ * spec v1.8.0. The body is a strict superset of the legacy
+ * `{ error: { code, message, ...extras } }` envelope, so older code
+ * that reads `problem.error.code` continues to work; new code SHOULD
+ * read the top-level `type` / `title` / `status` / `detail` fields.
+ */
+export interface V1Problem {
+  /** Stable URI per error code (RFC 9457 §3.1.1). */
+  type: string;
+  /** Short human-readable summary (RFC 9457 §3.1.3). */
+  title: string;
+  /** HTTP status, mirrored into the body (RFC 9457 §3.1.2). */
+  status: number;
+  /** Occurrence-specific human-readable detail (RFC 9457 §3.1.4). */
+  detail: string;
+  /** URI reference (typically request path) for the specific occurrence. */
+  instance?: string;
+  /** Legacy envelope, preserved verbatim. */
+  error: { code: string; message: string; [extra: string]: unknown };
+  /** RFC 9457 §3.2 extension members (e.g. `retryAfterSeconds` on 429). */
+  [extension: string]: unknown;
+}
+
+/**
+ * Parse a JSON body into the canonical `V1Problem` shape. Returns
+ * `undefined` when the body is not a Problem (e.g. older deployments
+ * on spec < 1.8.0 that returned only the legacy `{ error }` envelope —
+ * those are accepted too as a degraded form). The function is
+ * tolerant: missing top-level RFC 9457 fields are filled in from the
+ * legacy `error` envelope where possible so callers can rely on
+ * `problem.title` / `problem.detail` always being present.
+ */
+export function parseProblem(
+  body: unknown,
+  fallbackStatus?: number,
+): V1Problem | undefined {
+  if (body === null || typeof body !== "object") return undefined;
+  const record = body as Record<string, unknown>;
+  const errorField = record.error;
+  const errorObj =
+    errorField !== null && typeof errorField === "object"
+      ? (errorField as { code?: unknown; message?: unknown; [k: string]: unknown })
+      : undefined;
+  const code = typeof errorObj?.code === "string" ? errorObj.code : undefined;
+  const message = typeof errorObj?.message === "string" ? errorObj.message : undefined;
+  if (!errorObj || code === undefined || message === undefined) {
+    return undefined;
+  }
+  const status = typeof record.status === "number" ? record.status : fallbackStatus ?? 0;
+  const type =
+    typeof record.type === "string"
+      ? record.type
+      : `urn:e-credentialing:errors:${code}`;
+  const title = typeof record.title === "string" ? record.title : code;
+  const detail = typeof record.detail === "string" ? record.detail : message;
+  const instance = typeof record.instance === "string" ? record.instance : undefined;
+  const errorExtras: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(errorObj)) {
+    if (k === "code" || k === "message") continue;
+    errorExtras[k] = v;
+  }
+  const out: V1Problem = {
+    type,
+    title,
+    status,
+    detail,
+    error: { code, message, ...errorExtras },
+  };
+  if (instance !== undefined) out.instance = instance;
+  for (const [k, v] of Object.entries(record)) {
+    if (k === "type" || k === "title" || k === "status" || k === "detail" || k === "instance" || k === "error") continue;
+    out[k] = v;
+  }
+  return out;
 }
 
 /**
@@ -256,12 +347,18 @@ export class V1Client {
     if (!res.ok) {
       let code: string | undefined;
       let message = `HTTP ${res.status} on ${method} ${path}`;
+      let problem: V1Problem | undefined;
       try {
-        const body = (await res.json()) as {
-          error?: { code?: string; message?: string };
-        };
-        if (body?.error?.message) message = body.error.message;
-        code = body?.error?.code;
+        const body = (await res.json()) as unknown;
+        problem = parseProblem(body, res.status);
+        if (problem) {
+          message = problem.detail || problem.error.message || message;
+          code = problem.error.code;
+        } else if (body && typeof body === "object" && "error" in (body as object)) {
+          const err = (body as { error?: { code?: string; message?: string } }).error;
+          if (err?.message) message = err.message;
+          code = err?.code;
+        }
       } catch {
         // Non-JSON error body is fine - the HTTP message is enough.
       }
@@ -272,6 +369,7 @@ export class V1Client {
         parseRateLimit(res.headers),
         res.headers.get("x-request-id") ?? undefined,
         deprecation,
+        problem,
       );
     }
     return (await res.json()) as T;
@@ -553,12 +651,18 @@ export async function conditionalGetWith<T>(
   if (!res.ok) {
     let code: string | undefined;
     let message = `HTTP ${res.status} on GET ${path}`;
+    let problem: V1Problem | undefined;
     try {
-      const body = (await res.json()) as {
-        error?: { code?: string; message?: string };
-      };
-      if (body?.error?.message) message = body.error.message;
-      code = body?.error?.code;
+      const body = (await res.json()) as unknown;
+      problem = parseProblem(body, res.status);
+      if (problem) {
+        message = problem.detail || problem.error.message || message;
+        code = problem.error.code;
+      } else if (body && typeof body === "object" && "error" in (body as object)) {
+        const err = (body as { error?: { code?: string; message?: string } }).error;
+        if (err?.message) message = err.message;
+        code = err?.code;
+      }
     } catch {
       // Non-JSON error body is fine.
     }
@@ -569,6 +673,7 @@ export async function conditionalGetWith<T>(
       parseRateLimit(res.headers),
       res.headers.get("x-request-id") ?? undefined,
       deprecation,
+      problem,
     );
   }
   const data = (await res.json()) as T;

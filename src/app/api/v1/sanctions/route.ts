@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const scopeError = requireScope(auth, "sanctions:read");
+  const scopeError = requireScope(auth, "sanctions:read", request);
   if (scopeError) {
     return applyDeprecationByRoute(
       applyRequestIdHeader(scopeError, requestId),

@@ -6,6 +6,7 @@ import {
   evaluateRateLimit,
   type RateLimitState,
 } from "@/lib/api/rate-limit";
+import { problemResponse } from "@/lib/api/problem-details";
 
 export interface ApiKeyAuthResult {
   valid: boolean;
@@ -28,7 +29,13 @@ export async function authenticateApiKey(request: Request): Promise<ApiKeyAuthRe
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return {
       valid: false,
-      error: v1ErrorResponse(401, "missing_authorization", "Missing or invalid Authorization header. Use Bearer <api-key>"),
+      error: v1ErrorResponse(
+        401,
+        "missing_authorization",
+        "Missing or invalid Authorization header. Use Bearer <api-key>",
+        {},
+        request,
+      ),
     };
   }
 
@@ -36,7 +43,7 @@ export async function authenticateApiKey(request: Request): Promise<ApiKeyAuthRe
   if (rawKey.length < 16) {
     return {
       valid: false,
-      error: v1ErrorResponse(401, "invalid_api_key", "Invalid API key format"),
+      error: v1ErrorResponse(401, "invalid_api_key", "Invalid API key format", {}, request),
     };
   }
   const keyHash = createHash("sha256").update(rawKey).digest("hex");
@@ -45,14 +52,14 @@ export async function authenticateApiKey(request: Request): Promise<ApiKeyAuthRe
   if (!apiKey || !apiKey.isActive) {
     return {
       valid: false,
-      error: v1ErrorResponse(401, "invalid_api_key", "Invalid or revoked API key"),
+      error: v1ErrorResponse(401, "invalid_api_key", "Invalid or revoked API key", {}, request),
     };
   }
 
   if (apiKey.expiresAt && apiKey.expiresAt < new Date()) {
     return {
       valid: false,
-      error: v1ErrorResponse(401, "expired_api_key", "API key has expired"),
+      error: v1ErrorResponse(401, "expired_api_key", "API key has expired", {}, request),
     };
   }
 
@@ -88,9 +95,10 @@ export async function authenticateApiKey(request: Request): Promise<ApiKeyAuthRe
 export function requireScope(
   auth: ApiKeyAuthResult,
   scope: string,
+  request?: Request | null,
 ): NextResponse | null {
   if (!auth.valid || !auth.permissions) {
-    return v1ErrorResponse(401, "unauthorized", "Unauthorized");
+    return v1ErrorResponse(401, "unauthorized", "Unauthorized", {}, request);
   }
   if (auth.permissions[scope] !== true) {
     return v1ErrorResponse(
@@ -98,6 +106,7 @@ export function requireScope(
       "insufficient_scope",
       `This API key is missing the '${scope}' scope`,
       { required: scope },
+      request,
     );
   }
   return null;
@@ -106,26 +115,58 @@ export function requireScope(
 /**
  * Build a v1-shaped JSON error response.
  *
- * Standard envelope across the entire `/api/v1/*` surface:
+ * Wave 19+: every error body is a strict superset of the legacy
+ * envelope plus the RFC 9457 Problem Details fields:
  *
- *   { "error": { "code": "...", "message": "...", ...extras } }
+ *   {
+ *     "type":     "https://essen-credentialing.example/errors/<code>",
+ *     "title":    "Insufficient scope",
+ *     "status":   403,
+ *     "detail":   "<message>",
+ *     "instance": "/api/v1/providers/abc",
+ *     "error":    { "code": "...", "message": "...", ...extras },
+ *     ...extras
+ *   }
  *
- * This is the contract the OpenAPI `Error` schema describes and the
- * one the TypeScript SDK (`V1ApiError`) parses to surface
- * `error.code` and `error.message`. **Never** flatten or rename
- * these fields without bumping `info.version` and following the
- * deprecation policy in `docs/api/versioning.md`.
+ * The Content-Type is `application/problem+json` per RFC 9457 §3,
+ * unless the caller explicitly accepts only `application/json` —
+ * in which case the same body is returned with that media type.
+ *
+ * The legacy `error.code` / `error.message` envelope MUST stay (see
+ * `src/lib/api/problem-details.ts` anti-weakening rule §1). The
+ * TypeScript SDK (`V1ApiError`) reads both shapes, so old SDKs
+ * continue to work unchanged.
+ *
+ * If you have access to the `Request` object, prefer the 5-arg form
+ * with a `request` argument so the Content-Type can be negotiated.
+ * The 4-arg form (no request) defaults to `application/problem+json`,
+ * which is safe for every existing caller.
  */
 export function v1ErrorResponse(
   status: number,
   code: string,
   message: string,
   extras: Record<string, unknown> = {},
+  request?: Request | null,
 ): NextResponse {
-  return NextResponse.json(
-    { error: { code, message, ...extras } },
-    { status },
-  );
+  const instance =
+    request?.url !== undefined ? safeRequestPath(request.url) : undefined;
+  return problemResponse(request, {
+    status,
+    code,
+    message,
+    instance,
+    extras,
+  });
+}
+
+function safeRequestPath(url: string): string | undefined {
+  try {
+    const parsed = new URL(url);
+    return parsed.pathname + (parsed.search ?? "");
+  } catch {
+    return undefined;
+  }
 }
 
 /**
