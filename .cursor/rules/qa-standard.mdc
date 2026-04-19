@@ -1,152 +1,55 @@
 ---
-description: HDPulseAI Comprehensive QA Test Layer is the binding testing standard for this repo
+description: HDPulseAI QA Standard — binding test/build/ship gate (forwarder; canonical spec in docs/qa/STANDARD.md or ~/.cursor/rules/qa-standard-global.mdc)
 alwaysApply: true
 ---
 
-# QA Standard (BINDING)
+# HDPulseAI QA Standard — per-repo pin
 
-This repo is governed by the **HDPulseAI QA Standard** at
-[docs/qa/STANDARD.md](mdc:docs/qa/STANDARD.md). The per-PR checklist is
-[docs/qa/definition-of-done.md](mdc:docs/qa/definition-of-done.md). Both apply
-to every change you produce in this repo.
+<!-- managed-by: HDPulseAI standards bootstrap (scripts/standards/bootstrap-repo.mjs) -->
 
-## You MUST, on every code change
+This repository is governed by the **HDPulseAI Comprehensive QA Test Layer**.
+The canonical, versioned spec is resolved in this priority order:
 
-- Add or update at least one spec under the relevant pillar folder
-  (`tests/e2e/<smoke|rbac|phi-scope|flows|a11y|visual|responsive|security|
-  contract|external|time|concurrency|files|compliance|observability|live-stack>/**`,
-  `tests/contract/**`, `tests/perf/**`, `tests/security/**`, `tests/data/**`,
-  `tests/observability/**`, or `tests/docs/**`). Pillars are listed in
-  `docs/qa/STANDARD.md` §2 (A–S, version 1.2.0+). **Pillar S — Live-Stack
-  Reality Gate** (added 2026-04-19, [ADR 0028](mdc:docs/dev/adr/0028-live-stack-reality-gate.md))
-  is REQUIRED for every PR that touches `src/server/auth.ts`,
-  `src/middleware.ts`, `prisma/**`, `Dockerfile.*`, `docker-compose.*.yml`,
-  `.env*`, `scripts/web-entrypoint.sh`, `src/lib/api/error-catalog.ts`, or
-  any `src/app/api/auth/**` route. **Pillar S Surface 7 — dev-loop
-  performance invariant** (added 2026-04-19 in STANDARD.md §11 / DEF-0014)
-  is REQUIRED for every PR that touches `next.config.mjs`, `package.json`
-  `scripts.dev*`, `scripts/dev/warm-routes.mjs`,
-  `scripts/dev/dev-with-warmup.mjs`, or `docker-compose.dev.yml`.
-- Run `npm run qa:inventory` if you added a route, link, REST endpoint, tRPC
-  procedure, bot, webhook, scheduled job, or form. Commit the regenerated
-  inventories under `docs/qa/inventories/`.
-- Add a per-screen card at `docs/qa/per-screen/<slug>.md` for any new route,
-  with `Linked specs:` populated.
-- Add a per-flow card at `docs/qa/per-flow/<slug>.md` for any new user flow,
-  with `Linked specs:` populated.
-- Keep `scripts/qa/check-coverage.ts` green.
+1. `docs/qa/STANDARD.md` in this repo (if present — currently **present**).
+2. `~/.cursor/rules/qa-standard-global.mdc` (always-on global default; `alwaysApply: true`).
 
-## You MUST treat as HARD FAILURES (never warnings)
+The standard is **binding on every change**. Highlights:
 
-1. Any browser console `error`.
-2. Any React hydration warning
-   (`Expected server HTML to contain a matching …`).
-3. Any uncaught `TypeError: Cannot read properties of undefined (reading 'call')`
-   or other unhandled exception.
-4. Any 5xx from a first-party route, tRPC procedure, or webhook.
-5. Any axe-core `serious`/`critical` violation on a touched route.
-6. Any PHI field appearing in a response served to a role that should not see
-   it (Operations, RCM/Billing, providers viewing other providers, public API).
-7. **(STANDARD.md §4 (11), added 1.2.0)** Any pending Prisma migration or
-   schema drift against the deployed database
-   (`npm run qa:migrations` red).
-8. **(STANDARD.md §4 (12), added 1.2.0)** Any seeded staff role failing
-   the live CSRF + `/api/auth/callback/credentials` round-trip on the
-   deployed stack (`npm run qa:live-stack` red).
-9. **(STANDARD.md §4 (13), added 1.2.0)** Any cold Dockerfile rebuild
-   failure across any compose file
-   (`npm run qa:dockerfile -- --cold` red).
-10. **(STANDARD.md §4 (14), added 1.2.0)** Stale named-volume contents
-    shadowing the deployed image (Pillar S `--volume-probe` red).
-11. **(STANDARD.md §4 (15) / §11, added 1.3.0)** Lazy-compile dev-loop
-    regression. The default `dev` script MUST invoke
-    `next dev --turbo`, `dev:warm` MUST pre-warm BOTH static AND
-    dynamic routes from `route-inventory.json` on container startup,
-    and after warming every probed route MUST return in
-    **≤ 2000 ms** on a measured re-fetch
-    (`npm run qa:live-stack:perf` red, or
-    `qa:live-stack:full` red, or any container log missing the
-    `[warm] done:` line). Closes DEF-INFRA-0001 and DEF-0014. The
-    binding rule + anti-weakening clauses live in STANDARD.md §11.
+- **19 testing pillars (A–S).** Pillar S is the live-stack reality gate
+  (ADR 0028 in the canonical repo `E_Credentialing`). Every change MUST
+  add or update at least one spec under the relevant pillar folder
+  (`tests/e2e/<pillar>/`).
+- **Pillar S Surface 7 (dev-loop performance baseline)** — every dev
+  server boot uses the project's fastest available compiler (Turbopack
+  for Next.js, Vite for Vite-based projects, Remix's compiler for Remix,
+  etc.) **and** warms every static AND every dynamic route at startup.
+  A 2000 ms re-fetch budget on warmed routes is enforced by
+  `scripts/qa/live-stack-smoke.mjs --dev-perf` (or the framework
+  equivalent in non-Next.js repos).
+- **15 §4 hard-fail conditions** — listed in `docs/qa/STANDARD.md` §4
+  (or in the global rule). They MUST fail the build, the PR check, and
+  the deploy gate — never be downgraded to warnings.
+- **Anti-weakening** — no `.skip`, `.todo`, `.fixme`, no
+  `@ts-expect-error`, no `eslint-disable-next-line` to dodge a failing
+  test. Every defect closure MUST carry the §4.2 attestation.
+- **Headline reporting block** — every QA report MUST start with
+  `Routes covered: X of Y; Roles exercised: X of N; Live stack: <SHA>;
+  migrations: N pending; sign-in matrix: …; dev-perf: p95=Y ms (budget 2000)`.
 
-## You MUST report results using the headline block (coverage FIRST)
+If `docs/qa/STANDARD.md` does not exist in this repo yet, treat the
+global rule as binding and propose creating the in-repo file the first
+time the repo ships a deployable artifact.
 
-```
-Routes covered:    X of Y
-Roles exercised:   X of N
-Pillars touched:   <A–S IDs>
-Pillars green:     <A–S IDs>
-Pillars not run:   <A–S IDs>      (must be empty for release)
-Live stack:        <commit SHA running in container> | migrations: 0 pending | sign-in matrix: ADMIN/MANAGER/SPECIALIST/COMMITTEE_MEMBER all green
-Pass / Fail / Skip: P / F / S
-```
+## You MUST also
 
-A pass/fail count without coverage is **not** a valid report. Any "Not Run"
-entry for a covered pillar counts as a **fail** of the gate, not a pass. The
-legacy report shape `Pass: 33, Fail: 0, Not Run: 223` is explicitly forbidden
-(see `STANDARD.md` §10.1). The newer "all green static gates while sign-in
-is broken on the deployed stack" report shape is also forbidden (see
-`STANDARD.md` §10.2 / DEF-0009 / ADR 0028) — every release report MUST
-include the `Live stack:` line and that line MUST reflect a real
-`npm run qa:live-stack` run, not a hand-edit.
+- Read `AGENTS.md` (if present) for repo-specific overrides.
+- Read `CLAUDE.md` (if present) for Claude Code-specific overrides.
+- Read `.github/copilot-instructions.md` (if present) for VSCode + GitHub
+  Copilot-specific overrides — same content, different surface.
 
-## You MUST NOT
+## Out of scope for this forwarder
 
-- Mark a feature "tested" without BOTH automation AND a per-screen/per-flow
-  card with `Linked specs:` populated.
-- Fall back to an HTTP-only probe (e.g. `docs/testing/run_master_test_plan.py`)
-  and call the result "passing" when the browser layer would have caught the
-  issue.
-- Add a mutation that bypasses `writeAuditLog`.
-- Return PHI to the public API or to roles that should not see it.
-
-## Fix-Until-Green loop (BINDING — STANDARD.md §4.1)
-
-If any spec fails or any §4 hard-fail condition fires, you MUST:
-
-1. **Capture** evidence: spec name + path, console error, stack trace,
-   `trace.zip`, screenshot, video, network HAR for any 5xx, browser, role,
-   route at time of fail.
-2. **File a defect card** at [docs/qa/defects/DEF-####.md](mdc:docs/qa/defects)
-   using [the template](mdc:docs/qa/defects/_TEMPLATE.md).
-3. **Diagnose root cause.** Fix priority: (a) production code →
-   (b) genuinely-wrong assertion → (c) flaky fixture. Never weaken.
-4. **Apply minimum fix.** One root cause per commit. Update the DEF card.
-5. **Re-run the FULL pillar**, not just the single spec. Smoke (A) re-runs
-   on every fix regardless. Cross-cutting fixes re-run every pillar that
-   exercises the touched layer.
-6. **Loop** until green OR 3 attempts on the same root cause have failed.
-
-**Attempt cap: N=3 per root cause.** After 3 unsuccessful attempts: STOP,
-update the DEF card with every attempt + output, escalate to the user with
-the evidence, and do **not** mark the work done.
-
-## Anti-weakening (BINDING — STANDARD.md §4.2)
-
-A red spec MUST NOT be turned green by:
-
-- Weakening assertions (`toBe` → `toBeTruthy`, etc.).
-- Deleting / renaming out of glob / `.skip` / `.todo` / `.fixme` / `xtest` /
-  `xit` / `describe.skip`.
-- Widening selectors (`locator('a')`, `getByRole('button')` without name).
-- Swallowing errors (`try { } catch {}`, `.catch(() => {})`, `expect.soft`,
-  `test.fail`).
-- Silencing with `@ts-expect-error` or `eslint-disable-next-line`.
-- Mocking the failing path without proving the mock matches production.
-- Raising timeouts to mask races.
-- Softening strict equality to substring / regex match.
-- Lowering coverage thresholds in any pillar config.
-- Editing `scripts/qa/check-coverage.ts` or inventories to silence a
-  complaint.
-
-Each is, by itself, a violation and grounds for revert. Legitimate fixes:
-(1) fix the production code, (2) fix a genuinely-wrong assertion (cite doc
-in DEF card), (3) fix a flaky fixture (3 consecutive green runs in DEF card).
-
-## Read order before edits
-
-1. [CLAUDE.md](mdc:CLAUDE.md)
-2. [docs/qa/STANDARD.md](mdc:docs/qa/STANDARD.md)
-3. [docs/qa/definition-of-done.md](mdc:docs/qa/definition-of-done.md)
-4. [AGENTS.md](mdc:AGENTS.md)
-5. [docs/system-prompt.md](mdc:docs/system-prompt.md)
+This file is intentionally a forwarder. Do **not** edit content rules into
+this file directly; edit `docs/qa/STANDARD.md` (or, for cross-repo
+defaults, `~/.cursor/rules/qa-standard-global.mdc`). This file will be
+overwritten by the next `scripts/standards/bootstrap-repo.mjs` run.

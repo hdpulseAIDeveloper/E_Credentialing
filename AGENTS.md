@@ -1,3 +1,49 @@
+# AI Agent Guidance — HDPulseAI Standards (forwarder)
+
+<!-- managed-by: HDPulseAI standards bootstrap (scripts/standards/bootstrap-repo.mjs) -->
+
+This repository is governed by the **HDPulseAI Comprehensive QA Test
+Layer**. Resolve the canonical spec in this priority order:
+
+1. `docs/qa/STANDARD.md` in this repo (if present — currently **present**).
+2. The global default at `~/.cursor/rules/qa-standard-global.mdc`.
+
+## Binding rules in scope for every change
+
+- 19 testing pillars (A–S). Pillar S = live-stack reality gate.
+- 15 §4 hard-fail conditions (browser console error, hydration warning,
+  uncaught exception, 5xx, axe serious/critical, PHI leakage, broken
+  link, contract drift, compliance regression, orphaned inventory,
+  pending Prisma migrations, dead seed-account login, cold Dockerfile
+  build regression, stale named-volume contents, **lazy-compile dev
+  loop**).
+- Pillar S Surface 7 dev-loop performance baseline: framework's fastest
+  default compiler + dynamic-route warming + 2000 ms re-fetch budget.
+- Anti-weakening (§4.2) — no `.skip`, no `.todo`, no widening
+  selectors to dodge a failing assertion, no raised timeouts to mask
+  races, no `@ts-expect-error` / `eslint-disable-next-line` shortcuts.
+- Headline reporting block on every QA report (see
+  `docs/qa/STANDARD.md` §3 / §10.1).
+
+## Cross-tool surfaces this rule applies to
+
+- Cursor — `.cursor/rules/qa-standard.mdc` (per-repo) and
+  `~/.cursor/rules/qa-standard-global.mdc` (global, `alwaysApply: true`).
+- VSCode + GitHub Copilot — `.github/copilot-instructions.md`.
+- Claude Code — `CLAUDE.md`.
+- Codex / Continue / Cline / Windsurf / Cody — this file (`AGENTS.md`).
+
+## Forwarder note
+
+This file is the version installed by
+`scripts/standards/bootstrap-repo.mjs` from the canonical repo
+`E_Credentialing`. If this repo needs repo-specific agent guidance,
+add it **below** this section — the bootstrap will preserve any content
+that is not part of the standard pin.
+
+
+---
+
 # AGENTS.md
 
 **Audience:** every AI coding agent operating on this repository — Claude Code,
