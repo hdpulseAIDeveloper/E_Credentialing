@@ -113,7 +113,7 @@ If the harness uncovers a 5xx that reproduces every run:
    minimal failing input.
 3. Fix the route handler. The regression test should now pass; rerun
    the fuzz harness to confirm no new related failures.
-4. Add a customer-facing entry under `public/changelog.md` (the
-   feed that powers `/changelog`) if the fix changes any externally
-   observable behaviour, and bump `info.version` in
+4. Add a customer-facing entry under `docs/changelog/public.md`
+   (the feed that powers `/changelog`) if the fix changes any
+   externally observable behaviour, and bump `info.version` in
    `docs/api/openapi-v1.yaml`.

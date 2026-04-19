@@ -119,6 +119,40 @@ const { data, pagination } = await client.listProviders({
           </p>
         </section>
 
+        <section className="mt-12 rounded-xl border border-amber-200 bg-amber-50 p-6">
+          <h2 className="text-xl font-bold text-gray-900">
+            Postman / Insomnia / Bruno collection
+          </h2>
+          <p className="mt-2 text-sm text-gray-700">
+            One-click import — every documented endpoint pre-wired with
+            Bearer auth and a <code className="font-mono">{`{{base_url}}`}</code>{" "}
+            variable so you point one field at your environment:
+          </p>
+          <pre className="mt-3 overflow-x-auto rounded bg-white border border-amber-200 p-3 text-xs">
+            <code>{`# Download the Postman v2.1 collection
+curl -L https://your-host/api/v1/postman.json \\
+  -o ecredentialing-v1.postman_collection.json
+
+# In Postman: File -> Import -> select the file
+# Then set the {{api_key}} environment variable to your key.`}</code>
+          </pre>
+          <p className="mt-3 text-xs text-gray-600">
+            The collection is regenerated from{" "}
+            <code className="font-mono">docs/api/openapi-v1.yaml</code> on
+            every CI run; a contract test (Pillar J) fails the build if the
+            spec adds an endpoint that the collection doesn't cover.
+          </p>
+          <p className="mt-3 text-xs text-gray-600">
+            Versioning + deprecation policy:{" "}
+            <code className="font-mono">docs/api/versioning.md</code> is the
+            canonical contract. Active deprecations always surface as{" "}
+            <code className="font-mono">Deprecation</code>,{" "}
+            <code className="font-mono">Sunset</code>, and{" "}
+            <code className="font-mono">Link: rel=&quot;successor-version&quot;</code> response
+            headers (RFC 9745 / 8594 / 8288).
+          </p>
+        </section>
+
         <section className="mt-12 rounded-xl bg-gray-900 text-white p-8">
           <h2 className="text-xl font-bold">Quick start</h2>
           <p className="mt-2 text-gray-300">

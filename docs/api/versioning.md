@@ -1,0 +1,217 @@
+# Public REST API — Versioning, Deprecation, and Sunset Policy
+
+- **Status:** v1 — current stable
+- **Last reviewed:** 2026-04-18 (Wave 11)
+- **Related:**
+  ADR [0020](../dev/adr/0020-openapi-v1-spec.md) (OpenAPI spec),
+  ADR [0022](../dev/adr/0022-public-rest-v1-sdk.md) (TypeScript SDK),
+  ADR [0023](../dev/adr/0023-api-versioning-policy.md) (this policy),
+  [`docs/api/openapi-v1.yaml`](openapi-v1.yaml).
+
+This document is the **contract** between the platform and any
+external consumer of the `/api/v1/*` surface. It is the source of
+truth for what counts as a breaking change, what notice we owe
+customers, and how the wire-format signals deprecation.
+
+## TL;DR
+
+| Question | Answer |
+|---|---|
+| How is a version named? | URL prefix: `/api/v1/...`. No header negotiation. |
+| When does a new major version ship? | When we'd otherwise need a breaking change. |
+| How long do we run two majors in parallel? | **At least 12 months** after the new major is generally available. |
+| How do we tell customers something is going away? | `Deprecation: true` + `Sunset: <RFC 9745 date>` + `Link: <new>; rel="successor-version"` headers + a `/changelog` entry **at least 90 days** before sunset. |
+| What's a breaking change? | See [§2](#2-what-counts-as-a-breaking-change). |
+
+## 1. Versioning model
+
+We use **URL-path versioning** (`/api/v1/...`, `/api/v2/...` once it
+ships). This is the most common pattern in the wider API ecosystem
+(Stripe, Twilio, GitHub) and the easiest to reason about for
+consumers behind corporate proxies, log aggregators, and WAFs.
+
+We do NOT use:
+
+- `Accept: application/vnd.platform.v2+json` content negotiation —
+  invisible to most ops tooling.
+- Query-parameter versioning (`?v=2`) — easy to drop in proxies.
+- Date-stamped versioning (`/api/2026-04-18/...`) — high cognitive
+  load for customers and forces them to track a moving target.
+
+### 1.1 What `info.version` in the OpenAPI spec means
+
+The `info.version` field in `docs/api/openapi-v1.yaml` follows
+**SemVer 2.0** within a major:
+
+- **Patch** (`1.2.3` → `1.2.4`): docs-only changes, typo fixes.
+- **Minor** (`1.2.0` → `1.3.0`): backwards-compatible additions —
+  new optional fields, new endpoints, new optional query params,
+  new enum values added to a response (see §2 caveats).
+- **Major** (`1.x.x` → `2.0.0`): breaking changes — these only ship
+  in a brand-new URL prefix (`/api/v2/`).
+
+A consumer pinned to `/api/v1/*` will never see a major bump on
+their URL; they'll see minor/patch bumps freely.
+
+## 2. What counts as a breaking change
+
+### 2.1 Always breaking (require a new major + 12-month parallel run)
+
+- Removing an endpoint.
+- Removing a property from a response payload.
+- Renaming any property (URL path segment, query param, header,
+  body field, schema name).
+- Changing the type of a property (e.g. `string` → `number`).
+- Adding a new **required** request property or query param.
+- Tightening any input validation (e.g. shortening a maximum length).
+- Changing pagination defaults (`limit` from 25 → 10).
+- Changing the meaning of an existing enum value.
+- Changing the HTTP status code or error `code` for a previously
+  documented error case.
+
+### 2.2 Sometimes breaking (treat as breaking unless coordinated)
+
+- **Adding a new enum value** to a response: customers using
+  exhaustive switch statements will break. We mitigate by
+  documenting on the relevant schema that consumers MUST treat
+  unknown enum values as the closest known value or as
+  `"UNKNOWN"`. Adding a new value is then *minor*, not major.
+- **Adding a new required header on responses**: technically
+  additive but we treat it as breaking because some HTTP clients
+  reject unexpected headers in strict modes.
+
+### 2.3 Never breaking (free at any time)
+
+- Adding new endpoints.
+- Adding new optional query params.
+- Adding new optional request body properties.
+- Adding new properties to a response payload (consumers MUST
+  ignore unknown response properties — JSON forward-compat).
+- Adding new examples / docs to the OpenAPI spec.
+- Performance improvements that don't change the wire shape.
+- Bug fixes that bring behaviour into line with what the spec
+  already documents.
+
+## 3. Deprecation lifecycle
+
+When we decide to remove something:
+
+```
+T = decision-to-deprecate
+
+T + 0      Deprecation header starts on responses to that endpoint
+           Public /changelog entry under category "deprecation"
+           OpenAPI spec adds `deprecated: true` on the operation/property
+
+T + 90d    Earliest possible Sunset date (RFC 9745)
+           If sunset shipping, response includes:
+             Deprecation: true
+             Sunset: Wed, 17 Jul 2026 00:00:00 GMT
+             Link: </api/v2/...>; rel="successor-version"
+
+T + Sunset Endpoint returns 410 Gone for at least 30 days,
+           then is fully removed.
+```
+
+### 3.1 Header contract
+
+When an endpoint is deprecated, every successful response from it
+MUST include:
+
+| Header | Value | Reference |
+|---|---|---|
+| `Deprecation` | `true` | [RFC 9745](https://www.rfc-editor.org/rfc/rfc9745) |
+| `Sunset` | RFC 7231 date — when the endpoint will start returning 410 | [RFC 8594](https://www.rfc-editor.org/rfc/rfc8594) |
+| `Link` | `<successor-url>; rel="successor-version"` | [RFC 8288](https://www.rfc-editor.org/rfc/rfc8288) |
+| `Link` | `<changelog-url>; rel="deprecation"; type="text/html"` | RFC 8288 |
+
+Exactly one `Sunset`, exactly one `successor-version` link. If the
+successor lives in a future major (`/api/v2/...`), the URL there.
+If the successor is just another v1 endpoint, that URL.
+
+### 3.2 OpenAPI spec contract
+
+The same operation in `docs/api/openapi-v1.yaml` MUST get:
+
+```yaml
+get:
+  summary: List providers
+  deprecated: true
+  description: |
+    **Deprecated 2026-04-18, sunset 2026-07-17.** Use
+    `/api/v2/providers` (`GET`) instead. See the
+    public changelog (`/changelog`) for migration guidance.
+```
+
+A future contract test (Wave 12 candidate) will assert that any
+operation marked `deprecated: true` in the spec also serves the
+required headers at runtime.
+
+## 4. Major-version overlap window
+
+When `/api/v2` ships:
+
+- We commit to running **both** `/api/v1` and `/api/v2` for
+  **at least 12 months** after `v2` is generally available.
+- `/api/v1` operations remain in the OpenAPI spec for the full
+  overlap window. The spec gains `info.x-version-status: "supported"`
+  on v1 and `"current"` on v2 during the overlap.
+- All `/api/v1/*` responses gain a `Deprecation: true` header on
+  day one of the overlap, even if the specific endpoint hasn't
+  changed semantics. Customers MUST take this as the migration
+  signal.
+- We commit to a **migration runbook** in
+  `docs/dev/runbooks/api-migration-v1-to-v2.md` published on day
+  one of the overlap.
+
+## 5. Communication
+
+- **Public changelog at `/changelog`** is the source of truth for
+  customer-visible API changes. Every deprecation, every breaking
+  change in a new major, and every behavioural change goes there.
+- **OpenAPI spec** is the machine-readable mirror. Bump
+  `info.version` on every shipped change.
+- **Email to customers with active API keys** for deprecations
+  with `Sunset < T + 180d`.
+
+## 6. Anti-weakening rules
+
+The following invariants MUST be preserved:
+
+1. **No silent breaking changes.** If `npm run sdk:check` would
+   fail because the regenerated `v1-types.ts` lost a property,
+   that's a breaking change that needs a new major — fix the
+   spec, don't just regenerate.
+2. **The 12-month overlap window is non-negotiable.** Internal
+   roadmap pressure does not shrink it.
+3. **`Deprecation` + `Sunset` headers MUST be present** before any
+   endpoint can return `410 Gone`. The runbook in `docs/dev/runbooks/api-migration-v1-to-v2.md`
+   (Wave 12 candidate) will host the deploy checklist that enforces this.
+4. **Customers with active API keys MUST be emailed** for any
+   deprecation with `Sunset` within 180 days. The mailing list is
+   driven by `api_keys.organization` ownership.
+5. **This document MUST NOT be edited without an ADR.** Any
+   relaxation to any of the above rules is, by definition, an
+   architectural change.
+
+## 7. Quick reference for engineers
+
+- "Is this change breaking?" → §2.
+- "How long until I can delete this endpoint?" → §3 (90 days
+  minimum after `Deprecation`-header-on date).
+- "What headers do I need on a deprecated endpoint?" → §3.1.
+- "How do I document this deprecation in the spec?" → §3.2.
+- "When can I ship `/api/v2`?" → After at least one of:
+  - Required customer feature that can't ship in v1, OR
+  - Critical safety fix that requires a wire-format change.
+  Then commit to the 12-month parallel-run window from §4.
+
+## 8. See also
+
+- [`docs/api/openapi-v1.yaml`](openapi-v1.yaml) — current v1 spec
+- [Public changelog source](../changelog/public.md) — customer-visible feed (rendered at `/changelog`)
+- ADR [0020](../dev/adr/0020-openapi-v1-spec.md) — spec authoring decision
+- ADR [0022](../dev/adr/0022-public-rest-v1-sdk.md) — SDK + drift gate
+- ADR [0023](../dev/adr/0023-api-versioning-policy.md) — this policy
+- Runbook [SDK generation](../dev/runbooks/sdk-generation.md)
+- Runbook [Schemathesis fuzz](../dev/runbooks/schemathesis-fuzz.md)

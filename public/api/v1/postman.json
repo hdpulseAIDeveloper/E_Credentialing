@@ -1,0 +1,234 @@
+{
+  "info": {
+    "name": "E-Credentialing CVO Platform — Public REST API v1 (v1.0.0)",
+    "description": "The v1 surface is intentionally read-only. Every request requires\na Bearer API key with the appropriate scope; every request is\naudited; PHI fields (SSN, DOB, DEA, personal address, notes) are\nNEVER returned regardless of scope.\n\nFor a no-auth playground using synthetic data, see\n`/api/sandbox/v1/*` (documented at `/sandbox`).\n\nWave 8 (2026-04-18). See ADR 0020 and `docs/qa/per-pillar/pillar-j-api.md`.\n\nAuto-generated from `docs/api/openapi-v1.yaml`.\nDo not hand-edit — regenerate via `npm run postman:gen`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{api_key}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://your-host",
+      "type": "string",
+      "description": "Base URL of your environment, no trailing slash."
+    },
+    {
+      "key": "api_key",
+      "value": "",
+      "type": "string",
+      "description": "Bearer API key. Issued via /admin/api-keys."
+    }
+  ],
+  "item": [
+    {
+      "name": "enrollments",
+      "item": [
+        {
+          "name": "listEnrollments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/enrollments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "enrollments"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "payer",
+                  "value": "",
+                  "description": "Case-insensitive substring filter on payer name.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List payer enrollments"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "providers",
+      "item": [
+        {
+          "name": "getProvider",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/providers/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "providers",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "<id>",
+                  "description": "Path variable derived from OpenAPI {id}."
+                }
+              ]
+            },
+            "description": "Get one provider (full envelope, no PHI)"
+          },
+          "response": []
+        },
+        {
+          "name": "getProviderCv",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/providers/:id/cv.pdf",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "providers",
+                ":id",
+                "cv.pdf"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "<id>",
+                  "description": "Path variable derived from OpenAPI {id}."
+                }
+              ]
+            },
+            "description": "Streams a fully-formed Curriculum Vitae as `application/pdf`.\nRequires the `providers:cv` scope. The CV includes only data\ncommonly published in CVs (name, NPI, provider type, education,\nlicensure, board certs, hospital privileges, work history,\nCME log) — never SSN, DOB, DEA, or personal addresses.\n"
+          },
+          "response": []
+        },
+        {
+          "name": "listProviders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/providers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "providers"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "npi",
+                  "value": "",
+                  "description": "Exact-match NPI filter.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns a paginated list of providers. Supports filtering by\n`status` and `npi`. PHI is never included.\n"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "sanctions",
+      "item": [
+        {
+          "name": "listSanctions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sanctions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sanctions"
+              ],
+              "query": [
+                {
+                  "key": "providerId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "result",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List sanctions checks"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

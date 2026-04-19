@@ -334,6 +334,14 @@
     "dynamic": false
   },
   {
+    "route": "/api/v1/postman.json",
+    "file": "src/app/api/v1/postman.json/route.ts",
+    "methods": [
+      "GET"
+    ],
+    "dynamic": false
+  },
+  {
     "route": "/api/v1/providers",
     "file": "src/app/api/v1/providers/route.ts",
     "methods": [

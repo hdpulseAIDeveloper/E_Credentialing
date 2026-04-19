@@ -43,14 +43,17 @@ function inventoryRouteToOpenApi(route: string): string {
   return route.replace(/\[([^\]]+)\]/g, "{$1}");
 }
 
-// The OpenAPI document does not describe its own delivery endpoints
-// (`/api/v1/openapi.yaml` and the Wave 9 JSON mirror
-// `/api/v1/openapi.json`) — they would be circular references. The
+// The OpenAPI document does not describe its own delivery channels:
+//   - `/api/v1/openapi.yaml` (Wave 8 — RFC 9512 source of truth)
+//   - `/api/v1/openapi.json` (Wave 9 — JSON mirror)
+//   - `/api/v1/postman.json` (Wave 11 — Postman v2.1 collection)
+// Documenting them in the spec would be a circular reference. The
 // list below is the SOLE permitted exclusion. Adding any other entry
 // here is a code-smell review item.
 const SPEC_DELIVERY_ROUTES = new Set([
   "/api/v1/openapi.yaml",
   "/api/v1/openapi.json",
+  "/api/v1/postman.json",
 ]);
 
 const V1_ROUTES = (apiInventory as ApiEntry[]).filter(
