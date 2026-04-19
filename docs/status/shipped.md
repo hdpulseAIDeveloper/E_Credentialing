@@ -35,7 +35,7 @@ or (b) a single yes/no decision for the named owner.
 | TLS posture verifier (cert validity, expiry, HSTS) | [`scripts/ops/prod-tls-check.py`](../../scripts/ops/prod-tls-check.py) | B-008 |
 | Azure Blob private-only verifier | [`scripts/azure/verify-blob-private.ts`](../../scripts/azure/verify-blob-private.ts) | B-002 |
 | Entra ID MFA-policy verifier (read-only Graph) | [`scripts/ops/entra-mfa-status.py`](../../scripts/ops/entra-mfa-status.py) | B-004 |
-| Typed Key Vault `SECRETS` catalog | [`src/lib/secrets/index.ts`](../../src/lib/secrets/index.ts) + [unit test](../../tests/unit/lib/secrets.test.ts) | B-005 |
+| Typed Key Vault `SECRETS` catalog | [`src/lib/secrets/index.ts`](../../src/lib/secrets/index.ts) + [unit test](../../tests/unit/lib/secrets/index.test.ts) | B-005 |
 | NCQA criterion baseline (`v0-public-baseline`, 30 rows) | [`scripts/seed/ncqa-baseline.csv`](../../scripts/seed/ncqa-baseline.csv) | B-006 |
 | Legal review packet builder | [`scripts/legal/build-review-packet.ts`](../../scripts/legal/build-review-packet.ts) | B-007 |
 
@@ -67,7 +67,7 @@ design system with anti-weakening guardrails.
 |---|---|---|
 | `DocumentService`, `BotService`, `SanctionsService`, `RecredentialingService`, `RosterService` | [`src/server/services/`](../../src/server/services/) | Routers now thin pass-throughs. |
 | TanStack-powered `<DataTable>` v2 | [`src/components/ui/data-table.tsx`](../../src/components/ui/data-table.tsx) + [tests](../../tests/unit/components/data-table.test.tsx) | Sortable, filterable, virtualized. |
-| `ThemeProvider` + `ThemeToggle` (light/dark/system) | [`src/components/theme/`](../../src/components/theme/) + [tests](../../tests/unit/components/theme-provider.test.tsx) | Wired into `app/layout.tsx`. |
+| `ThemeProvider` + `ThemeToggle` (light/dark/system) | [`src/components/theme-provider.tsx`](../../src/components/theme-provider.tsx) + [`src/components/ui/theme-toggle.tsx`](../../src/components/ui/theme-toggle.tsx) + [tests](../../tests/unit/components/theme-provider.test.tsx) | Wired into `app/layout.tsx`. |
 | `no-raw-color` ESLint rule + RuleTester suite | [`eslint-rules/no-raw-color.js`](../../eslint-rules/no-raw-color.js) | Hex/rgb in `className` is a build error. |
 | Lite Storybook (CSF + render harness) | [`stories/`](../../stories/) + [`tests/unit/stories/render-stories.test.tsx`](../../tests/unit/stories/render-stories.test.tsx) | Every story renders without throwing in CI. |
 | ADR | [`docs/dev/adr/0015-design-system.md`](../dev/adr/0015-design-system.md) | |
@@ -95,11 +95,11 @@ it's secure, and stand it up reproducibly.
 
 | Sub-wave | Theme | Headlines |
 |---|---|---|
-| 4.1 | Telemetry stack | Sentry + Application Insights + Prometheus (`prom-client`) + Grafana dashboard. ADR [0013](../dev/adr/0013-telemetry-stack.md). [`docs/dev/observability.md`](../dev/observability.md). |
-| 4.2 | Performance baseline | k6 perf suites under [`tests/perf/`](../../tests/perf/); Postgres index audit committed under [`docs/dev/db-index-audit.md`](../dev/db-index-audit.md). |
+| 4.1 | Telemetry stack | Sentry + Application Insights + Prometheus (`prom-client`) + Grafana dashboard. ADR [0013](../dev/adr/0013-observability-stack.md). [`docs/dev/observability.md`](../dev/observability.md). |
+| 4.2 | Performance baseline | k6 perf suites under [`tests/perf/`](../../tests/perf/); Postgres index audit captured in [`docs/dev/performance.md`](../dev/performance.md). |
 | 4.3 | Security baseline | OWASP ZAP baseline + active scans (`scripts/qa/zap-*`); gitleaks pre-commit hook; CI job on PRs. |
 | 4.4 | Visual regression | Per-browser Playwright baselines under [`tests/e2e/visual/__screenshots__/`](../../tests/e2e/visual/). |
-| 4.5 | Infra-as-Code | Full Azure Bicep modules under [`infra/bicep/`](../../infra/bicep/); `azd up` provisions Container Apps, Postgres Flexible Server, Cache for Redis, Key Vault, ACR, Log Analytics. |
+| 4.5 | Infra-as-Code | Full Azure Bicep modules under [`infra/`](../../infra/) ([`main.bicep`](../../infra/main.bicep) + [`modules/`](../../infra/modules/)); `azd up` provisions Container Apps, Postgres Flexible Server, Cache for Redis, Key Vault, ACR, Log Analytics. |
 
 ---
 

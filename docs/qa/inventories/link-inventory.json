@@ -150,6 +150,11 @@
     "external": false
   },
   {
+    "href": "/changelog",
+    "file": "src/app/sandbox/page.tsx",
+    "external": false
+  },
+  {
     "href": "/changelog.rss",
     "file": "src/app/changelog/page.tsx",
     "external": false

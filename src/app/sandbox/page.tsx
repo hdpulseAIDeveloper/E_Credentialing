@@ -62,6 +62,25 @@ export default function SandboxPage() {
           </div>
         </section>
 
+        <section className="mt-12 rounded-xl border border-blue-200 bg-blue-50 p-6">
+          <h2 className="text-xl font-bold text-gray-900">OpenAPI 3.1 spec</h2>
+          <p className="mt-2 text-sm text-gray-700">
+            The full machine-readable contract for{" "}
+            <code className="font-mono">/api/v1/*</code> is published as
+            an OpenAPI 3.1 document. Point Postman, Insomnia, or your
+            generator at:
+          </p>
+          <pre className="mt-3 overflow-x-auto rounded bg-white border border-blue-200 p-3 text-xs">
+            <code>curl -s https://your-host/api/v1/openapi.yaml | yq .</code>
+          </pre>
+          <p className="mt-3 text-xs text-gray-600">
+            Source of truth lives at{" "}
+            <code className="font-mono">docs/api/openapi-v1.yaml</code>{" "}
+            in the repository. Versioned with the platform; changes are
+            announced in the public <Link href="/changelog" className="underline text-blue-700">changelog</Link>.
+          </p>
+        </section>
+
         <section className="mt-12 rounded-xl bg-gray-900 text-white p-8">
           <h2 className="text-xl font-bold">Quick start</h2>
           <p className="mt-2 text-gray-300">

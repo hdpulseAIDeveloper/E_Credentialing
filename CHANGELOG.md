@@ -7,6 +7,37 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sem
 ## [Unreleased]
 
 ### Added
+- **Wave 8 — OpenAPI 3.1 spec for the public REST v1 surface (2026-04-18):**
+  - `docs/api/openapi-v1.yaml` — hand-authored OpenAPI 3.1 contract
+    for `/api/v1/providers`, `/api/v1/providers/{id}`,
+    `/api/v1/providers/{id}/cv.pdf`, `/api/v1/sanctions`, and
+    `/api/v1/enrollments`. Documents Bearer (API-key) auth, scopes,
+    pagination, `ProviderSummary` / `ProviderDetail` / `Sanction` /
+    `Enrollment` schemas, and an explicit PHI-exclusion promise in
+    the `info.description`.
+  - `src/app/api/v1/openapi.yaml/route.ts` — new Next.js route handler
+    that serves the spec at `/api/v1/openapi.yaml` with media type
+    `application/yaml; charset=utf-8` (RFC 9512). File contents are
+    cached in process memory.
+  - `src/app/sandbox/page.tsx` — new "Machine-readable contract"
+    section above the synthetic playground, with a `curl` snippet
+    pointing at the new endpoint and a link back to `/changelog`.
+  - `tests/contract/pillar-j-openapi.spec.ts` — Pillar J iterator
+    contract over `api-inventory.json`. 23 tests: parses the YAML,
+    validates `openapi: 3.1.x`, checks `info.title` / `info.version`,
+    asserts every inventoried `/api/v1/*` route + method is present
+    in the spec (one permitted exclusion: the spec-delivery endpoint
+    itself), and walks every parsed schema `properties` block to
+    enforce that no PHI field name (`ssn`, `dateOfBirth`, `dob`,
+    `deaNumber`, `personalAddress`, etc.) is exposed.
+  - `package.json` — `js-yaml` and `@types/js-yaml` added as
+    devDependencies (installed with `--legacy-peer-deps`).
+  - `docs/dev/adr/0020-openapi-v1-spec.md` — ADR describing the
+    decision to hand-edit the spec, the anti-weakening rules
+    (iterator-driven contract test, schema-property PHI walk,
+    single-entry exclusion list), and Wave 9 candidates
+    (Schemathesis fuzz + Redocly HTML render).
+
 - **Wave 7 — Phase 1.5 roadmap consolidation (2026-04-18):**
   - `docs/development-plan.md` — added Phase 1.5 (Commercial-Readiness
     Band, Waves 0–6) to the executive summary and as a new full

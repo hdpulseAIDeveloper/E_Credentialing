@@ -2,7 +2,7 @@
 
 ```
 Routes covered:    66 of 66
-API cells covered: 52 of 52
+API cells covered: 53 of 53
 tRPC covered:      219 of 219
 Per-screen cards:  66 of 66
 Pillars touched:   A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R
@@ -22,7 +22,7 @@ Pillars not run:   (none)
 | G | Cross-browser & responsive | 1 |
 | H | Performance, load & soak | 1 |
 | I | Security & DAST | 1 |
-| J | API contract | 3 |
+| J | API contract | 4 |
 | K | External integration | 1 |
 | L | Time-shifted scenarios | 1 |
 | M | Data integrity, migrations, backup & DR | 1 |
