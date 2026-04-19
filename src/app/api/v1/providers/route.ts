@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/server/db";
 import { authenticateApiKey, requireScope } from "../middleware";
@@ -12,8 +13,32 @@ import {
 } from "@/lib/api/etag";
 import { applyDeprecationByRoute } from "@/lib/api/deprecation";
 import { auditApiRequest } from "@/lib/api/audit-api";
+import { parseQuery } from "@/lib/api/validation";
 
 const ROUTE_PATH = "/api/v1/providers";
+
+const PROVIDER_STATUS_VALUES = [
+  "INVITED",
+  "ONBOARDING_IN_PROGRESS",
+  "DOCUMENTS_PENDING",
+  "VERIFICATION_IN_PROGRESS",
+  "COMMITTEE_READY",
+  "COMMITTEE_IN_REVIEW",
+  "APPROVED",
+  "DENIED",
+  "DEFERRED",
+  "INACTIVE",
+] as const;
+
+const PROVIDERS_QUERY_SCHEMA = z.object({
+  status: z.enum(PROVIDER_STATUS_VALUES).optional(),
+  npi: z
+    .string()
+    .regex(/^\d{10}$/, "npi must be a 10-digit NPI")
+    .optional(),
+  page: z.coerce.number().int().min(1).max(1_000_000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+});
 
 export async function GET(request: Request) {
   const requestId = resolveRequestId(request);
@@ -35,14 +60,21 @@ export async function GET(request: Request) {
     );
   }
 
-  const url = new URL(request.url);
-  const status = url.searchParams.get("status");
-  const npi = url.searchParams.get("npi");
-  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
-  const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "25")));
+  const queryResult = parseQuery(request, PROVIDERS_QUERY_SCHEMA);
+  if (!queryResult.ok) {
+    return applyDeprecationByRoute(
+      applyRequestIdHeader(
+        applyRateLimitHeaders(queryResult.response, auth.rateLimit),
+        requestId,
+      ),
+      "GET",
+      ROUTE_PATH,
+    );
+  }
+  const { status, npi, page, limit } = queryResult.data;
 
   const where: Prisma.ProviderWhereInput = {};
-  if (status) where.status = status as Prisma.ProviderWhereInput["status"];
+  if (status) where.status = status;
   if (npi) where.npi = npi;
 
   const [total, providers] = await Promise.all([
@@ -79,7 +111,12 @@ export async function GET(request: Request) {
       path: "/api/v1/providers",
       status: 304,
       resultCount: 0,
-      query: { status, npi, page: String(page), limit: String(limit) },
+      query: {
+        status: status ?? null,
+        npi: npi ?? null,
+        page: String(page),
+        limit: String(limit),
+      },
       requestId,
     });
     return applyDeprecationByRoute(
@@ -98,7 +135,12 @@ export async function GET(request: Request) {
     path: "/api/v1/providers",
     status: 200,
     resultCount: providers.length,
-    query: { status, npi, page: String(page), limit: String(limit) },
+    query: {
+      status: status ?? null,
+      npi: npi ?? null,
+      page: String(page),
+      limit: String(limit),
+    },
     requestId,
   });
 

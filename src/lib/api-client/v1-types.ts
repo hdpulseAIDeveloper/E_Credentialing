@@ -298,6 +298,86 @@ export interface components {
                 retryAfterSeconds: number;
             };
         };
+        /**
+         * @description One field-level validation failure. Stable wire shape since
+         *     v1.9.0; the `code` value is the underlying Zod issue code
+         *     and is part of the contract — never renamed without a
+         *     SemVer bump.
+         */
+        ValidationFieldError: {
+            /**
+             * @description Dot-joined path inside the parsed query parameters
+             *     (e.g. `"limit"`, `"page"`, `"filters.status"`). Empty
+             *     string when the failure is on the root.
+             * @example limit
+             */
+            field: string;
+            /**
+             * @description Stable Zod issue code. Common values include
+             *     `too_small`, `too_big`, `invalid_enum_value`,
+             *     `invalid_type`, `invalid_string`. Renaming any code
+             *     here is a breaking change.
+             * @example too_big
+             */
+            code: string;
+            /**
+             * @description Human-readable English explanation.
+             * @example Number must be less than or equal to 100
+             */
+            message: string;
+        };
+        /**
+         * @description Body of a `400 Bad Request` validation failure. Same RFC 9457
+         *     Problem shape as `Error` (since v1.8.0), with an additional
+         *     top-level `errors[]` extension member listing every
+         *     offending parameter in the request. Available since v1.9.0.
+         *
+         *     The `type` URI is always
+         *     `…/errors/invalid-request`. The `errors[]` array is
+         *     non-empty (a 400 with zero errors would be incoherent).
+         *     Multiple invalid parameters in one request surface as
+         *     multiple entries — clients no longer need to retry once
+         *     per fix. The legacy `error: { code: "invalid_request",
+         *     message }` envelope is preserved at the same path as every
+         *     other v1 error.
+         */
+        ValidationProblem: {
+            /**
+             * Format: uri
+             * @example https://essen-credentialing.example/errors/invalid-request
+             * @constant
+             */
+            type: "https://essen-credentialing.example/errors/invalid-request";
+            /**
+             * @example Invalid request
+             * @constant
+             */
+            title: "Invalid request";
+            /**
+             * @example 400
+             * @constant
+             */
+            status: 400;
+            /** @example Request validation failed */
+            detail: string;
+            /** @example /api/v1/providers */
+            instance?: string;
+            /**
+             * @description Non-empty list of field-level validation failures.
+             *     Top-level extension member per RFC 9457 §3.2.
+             */
+            errors: components["schemas"]["ValidationFieldError"][];
+            /** @description Legacy envelope, preserved. */
+            error: {
+                /**
+                 * @example invalid_request
+                 * @constant
+                 */
+                code: "invalid_request";
+                /** @example Request validation failed */
+                message: string;
+            };
+        };
         Pagination: {
             page: number;
             limit: number;
@@ -324,7 +404,7 @@ export interface components {
             keyId: string;
             /**
              * @description Semver version of the v1 surface (matches `info.version`).
-             * @example 1.8.0
+             * @example 1.9.0
              */
             apiVersion: string;
             /**
@@ -613,6 +693,30 @@ export interface components {
             content: {
                 "application/problem+json": components["schemas"]["RateLimitProblem"];
                 "application/json": components["schemas"]["RateLimitProblem"];
+            };
+        };
+        /**
+         * @description Request validation failed (since v1.9.0). Body is an RFC 9457
+         *     Problem of `type` `…/errors/invalid-request` with a non-empty
+         *     `errors[]` extension array describing every offending query
+         *     parameter in one response. Status is always 400. The legacy
+         *     `error: { code: "invalid_request", message }` envelope is
+         *     preserved at the same path as every other v1 error.
+         */
+        BadRequest: {
+            headers: {
+                "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
+                "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
+                "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
+                "X-Request-Id": components["headers"]["RequestId"];
+                Deprecation: components["headers"]["Deprecation"];
+                Sunset: components["headers"]["Sunset"];
+                Link: components["headers"]["Link"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ValidationProblem"];
+                "application/json": components["schemas"]["ValidationProblem"];
             };
         };
     };
@@ -917,6 +1021,7 @@ export interface operations {
                 };
             };
             304: components["responses"]["NotModified"];
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             429: components["responses"]["RateLimited"];
@@ -1081,6 +1186,7 @@ export interface operations {
                 };
             };
             304: components["responses"]["NotModified"];
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             429: components["responses"]["RateLimited"];
@@ -1143,6 +1249,7 @@ export interface operations {
                 };
             };
             304: components["responses"]["NotModified"];
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             429: components["responses"]["RateLimited"];

@@ -17,6 +17,90 @@ Anti-weakening: never delete a release. Strike-through a published
 note instead and add a follow-up release if the underlying claim
 turned out to be incorrect.
 
+## 2026-04-19 — v1.14.0 (API)
+
+### Added
+- **Server-side request validation with field-level error reporting.**
+  Query parameters on `/api/v1/providers`, `/api/v1/sanctions`, and
+  `/api/v1/enrollments` are now validated against a typed schema
+  before any database work is attempted. When validation fails, the
+  API returns `400 Bad Request` instead of silently coercing or
+  ignoring the bad input. Examples that now surface as a 400:
+  `?page=0`, `?page=-1`, `?limit=99999`, `?limit=foo`, and
+  `?status=NOT_A_REAL_STATUS`. Previously, some of these were
+  silently clamped, others were ignored, and the wrong subset of
+  rows was returned with a `200 OK` — a long-standing source of
+  customer support tickets.
+- **`ValidationProblem` response shape.** The 400 body is a
+  superset of the RFC 9457 `Problem` shape introduced in v1.13.0,
+  with two new pieces of guaranteed structure:
+  - `type` is always
+    `https://essen-credentialing.example/errors/invalid-request`.
+    Match on the suffix `/errors/invalid-request` to identify
+    validation failures regardless of the deployment hostname.
+  - `errors[]` is a non-empty array. Every entry has three string
+    fields: `field` (dot-joined path inside the parameters,
+    e.g. `"limit"` or `"page"`), `code` (stable Zod issue code such
+    as `too_small`, `too_big`, `invalid_type`, `invalid_enum_value`,
+    `invalid_string`), and `message` (human-readable English
+    explanation). All offending parameters are reported in one
+    response, so clients no longer need to retry once per fix.
+  The legacy `error: { code: "invalid_request", message }` envelope
+  is preserved at the same path as every other v1 error.
+- **`BadRequest` reusable response in the OpenAPI spec.** The
+  hand-authored OpenAPI document now declares
+  `components.responses.BadRequest`, referenced from every list
+  operation that performs query validation. SDK and Postman
+  consumers pick up the new shape automatically on the next
+  regeneration.
+- **TypeScript SDK exposes `V1ValidationProblem` +
+  `isValidationProblem()`.** Two new dependency-free integrations in
+  `@e-credentialing/api-client`:
+  - `V1ValidationProblem` — narrow type with `status: 400` and a
+    required `errors: V1ValidationFieldError[]` array.
+  - `isValidationProblem(problem)` — type guard that matches on
+    both the stable `type` URI suffix AND the `errors[]` array
+    shape, so a future server that emits `errors[]` on a
+    non-validation Problem will not accidentally match. After a
+    `V1ApiError` is thrown, do
+    `if (err.problem && isValidationProblem(err.problem)) { … }`
+    and TypeScript narrows `err.problem.errors` for you.
+
+### Improved
+- **Versioning policy & sandbox documentation.** `docs/api/versioning.md`
+  gains a §3.9 explaining the validation contract (which routes,
+  which fields, which Zod codes are stable). The public sandbox at
+  `/sandbox` adds a new "Server-side request validation" section
+  with a copy-pasteable `curl` example showing the 400 body shape.
+- **Correction of v1.13.0 documentation.** The v1.13.0 release note
+  below described content-type negotiation as
+  "`Accept: application/json` returns `Content-Type: application/json`."
+  That description was wrong: the actual implementation aggressively
+  emits `application/problem+json` whenever the client accepts JSON
+  in any form (`application/json`, `application/problem+json`, or
+  `*/*`), and only falls back to `application/json` when the
+  `Accept` header explicitly excludes both JSON variants. No
+  behavior changed; only the documentation is being corrected. See
+  `docs/api/versioning.md` §3.8 for the authoritative description.
+  Similarly, the v1.13.0 note used the placeholder hostname
+  `api.e-credentialing.example.com/problems/...` for `type` URIs;
+  the actual URIs are
+  `essen-credentialing.example/errors/...`. Match on the path
+  suffix (e.g. `/errors/insufficient-scope`), not the hostname.
+
+### Compatibility
+- This is a strictly additive minor bump (v1.13.0 → v1.14.0). The
+  validation contract narrows the set of inputs the server
+  accepts, but every request that v1.13.0 returned `200` for still
+  returns `200`. The narrowing only converts previously-undefined
+  behavior (silent clamping, silent rejection) into an explicit,
+  machine-readable 400. Clients that always sent valid pagination
+  and filters see no change.
+- The 400 body is a superset of the v1.13.0 `Problem` shape; SDKs
+  on v1.13.0 see `parseProblem()` return a `V1Problem` with a
+  populated `errors` extension member they can ignore safely.
+- Spec version: `1.8.0` → `1.9.0`.
+
 ## 2026-04-19 — v1.13.0 (API)
 
 ### Added

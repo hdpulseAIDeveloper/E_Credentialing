@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: E-Credentialing CVO Platform — Public REST API v1
-  version: "1.8.0"
+  version: "1.9.0"
   summary: Read-only public REST API for the E-Credentialing CVO platform.
   description: |
     The v1 surface is intentionally read-only. Every request requires
@@ -74,6 +74,20 @@ info:
     are unchanged. The TypeScript SDK exposes `parseProblem(body)`
     and `V1ApiError.problem` for typed access; raw fetch callers
     can read either shape.
+
+    Server-side request validation (since v1.9.0): every paginated
+    list endpoint validates its query parameters with a strict Zod
+    schema before touching the database. Invalid input returns a
+    `400 Bad Request` Problem with `type` =
+    `…/errors/invalid-request` and a non-empty `errors[]` extension
+    array — each entry is `{ field, code, message }` where `field`
+    is the dot-joined query parameter path, `code` is a stable Zod
+    issue code (`too_small`, `too_big`, `invalid_enum_value`,
+    `invalid_type`, `invalid_string`, etc.), and `message` is the
+    English explanation. Multiple invalid parameters in one request
+    surface as multiple entries in `errors[]` — clients no longer
+    need to retry once per fix. The legacy `error` envelope and
+    `application/problem+json` content negotiation are unchanged.
 
     Wave 8 (2026-04-18). See ADR 0020 and `docs/qa/per-pillar/pillar-j-api.md`.
   contact:
@@ -244,6 +258,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ProvidersPage" }
         "304": { $ref: "#/components/responses/NotModified" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/RateLimited" }
@@ -357,6 +372,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/SanctionsPage" }
         "304": { $ref: "#/components/responses/NotModified" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/RateLimited" }
@@ -394,6 +410,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/EnrollmentsPage" }
         "304": { $ref: "#/components/responses/NotModified" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/RateLimited" }
@@ -548,6 +565,27 @@ components:
           schema: { $ref: "#/components/schemas/RateLimitProblem" }
         application/json:
           schema: { $ref: "#/components/schemas/RateLimitProblem" }
+    BadRequest:
+      description: |
+        Request validation failed (since v1.9.0). Body is an RFC 9457
+        Problem of `type` `…/errors/invalid-request` with a non-empty
+        `errors[]` extension array describing every offending query
+        parameter in one response. Status is always 400. The legacy
+        `error: { code: "invalid_request", message }` envelope is
+        preserved at the same path as every other v1 error.
+      headers:
+        X-RateLimit-Limit: { $ref: "#/components/headers/RateLimitLimit" }
+        X-RateLimit-Remaining: { $ref: "#/components/headers/RateLimitRemaining" }
+        X-RateLimit-Reset: { $ref: "#/components/headers/RateLimitReset" }
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+        Deprecation: { $ref: "#/components/headers/Deprecation" }
+        Sunset: { $ref: "#/components/headers/Sunset" }
+        Link: { $ref: "#/components/headers/Link" }
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ValidationProblem" }
+        application/json:
+          schema: { $ref: "#/components/schemas/ValidationProblem" }
 
   headers:
     RequestId:
@@ -789,6 +827,93 @@ components:
                 Seconds until the next request is allowed. Always
                 matches the `Retry-After` header.
 
+    ValidationFieldError:
+      type: object
+      required: [field, code, message]
+      description: |
+        One field-level validation failure. Stable wire shape since
+        v1.9.0; the `code` value is the underlying Zod issue code
+        and is part of the contract — never renamed without a
+        SemVer bump.
+      properties:
+        field:
+          type: string
+          description: |
+            Dot-joined path inside the parsed query parameters
+            (e.g. `"limit"`, `"page"`, `"filters.status"`). Empty
+            string when the failure is on the root.
+          example: "limit"
+        code:
+          type: string
+          description: |
+            Stable Zod issue code. Common values include
+            `too_small`, `too_big`, `invalid_enum_value`,
+            `invalid_type`, `invalid_string`. Renaming any code
+            here is a breaking change.
+          example: "too_big"
+        message:
+          type: string
+          description: Human-readable English explanation.
+          example: "Number must be less than or equal to 100"
+
+    ValidationProblem:
+      type: object
+      required: [type, title, status, detail, errors, error]
+      description: |
+        Body of a `400 Bad Request` validation failure. Same RFC 9457
+        Problem shape as `Error` (since v1.8.0), with an additional
+        top-level `errors[]` extension member listing every
+        offending parameter in the request. Available since v1.9.0.
+
+        The `type` URI is always
+        `…/errors/invalid-request`. The `errors[]` array is
+        non-empty (a 400 with zero errors would be incoherent).
+        Multiple invalid parameters in one request surface as
+        multiple entries — clients no longer need to retry once
+        per fix. The legacy `error: { code: "invalid_request",
+        message }` envelope is preserved at the same path as every
+        other v1 error.
+      properties:
+        type:
+          type: string
+          format: uri
+          const: "https://essen-credentialing.example/errors/invalid-request"
+          example: "https://essen-credentialing.example/errors/invalid-request"
+        title:
+          type: string
+          const: "Invalid request"
+          example: "Invalid request"
+        status:
+          type: integer
+          const: 400
+          example: 400
+        detail:
+          type: string
+          example: "Request validation failed"
+        instance:
+          type: string
+          example: "/api/v1/providers"
+        errors:
+          type: array
+          minItems: 1
+          description: |
+            Non-empty list of field-level validation failures.
+            Top-level extension member per RFC 9457 §3.2.
+          items:
+            $ref: "#/components/schemas/ValidationFieldError"
+        error:
+          type: object
+          required: [code, message]
+          description: Legacy envelope, preserved.
+          properties:
+            code:
+              type: string
+              const: "invalid_request"
+              example: "invalid_request"
+            message:
+              type: string
+              example: "Request validation failed"
+
     Pagination:
       type: object
       required: [page, limit, total, totalPages]
@@ -819,7 +944,7 @@ components:
         apiVersion:
           type: string
           description: Semver version of the v1 surface (matches `info.version`).
-          example: "1.8.0"
+          example: "1.9.0"
         time:
           type: string
           format: date-time

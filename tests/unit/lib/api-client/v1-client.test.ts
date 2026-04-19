@@ -17,9 +17,12 @@ import {
   parseDeprecation,
   parseProblem,
   conditionalGetWith,
+  isValidationProblem,
+  VALIDATION_PROBLEM_TYPE_SUFFIX,
   type V1Deprecation,
   type V1DeprecationContext,
   type V1Problem,
+  type V1ValidationProblem,
 } from "../../../../src/lib/api-client/v1";
 
 interface MockResponse {
@@ -764,6 +767,131 @@ describe("V1Client", () => {
     } catch (e) {
       const err = e as V1ApiError;
       expect(err.problem).toBeUndefined();
+    }
+  });
+});
+
+describe("isValidationProblem (Wave 20)", () => {
+  it("returns true for a Problem whose type ends with the validation suffix and has errors[]", () => {
+    const problem: V1Problem = {
+      type: `https://essen-credentialing.example${VALIDATION_PROBLEM_TYPE_SUFFIX}`,
+      title: "Bad Request",
+      status: 400,
+      detail: "Request validation failed",
+      instance: "/api/v1/providers",
+      error: { code: "invalid_request", message: "Request validation failed" },
+      errors: [
+        { field: "page", code: "too_small", message: "Number must be greater than or equal to 1" },
+      ],
+    };
+    expect(isValidationProblem(problem)).toBe(true);
+    if (isValidationProblem(problem)) {
+      const validation: V1ValidationProblem = problem;
+      expect(validation.status).toBe(400);
+      expect(validation.errors[0]?.field).toBe("page");
+      expect(validation.errors[0]?.code).toBe("too_small");
+    }
+  });
+
+  it("returns false when the type URI does not end with the validation suffix", () => {
+    const problem: V1Problem = {
+      type: "https://essen-credentialing.example/errors/unauthorized",
+      title: "Unauthorized",
+      status: 401,
+      detail: "API key required",
+      error: { code: "unauthorized", message: "API key required" },
+      errors: [{ field: "x", code: "y", message: "z" }],
+    };
+    expect(isValidationProblem(problem)).toBe(false);
+  });
+
+  it("returns false when status is not 400 even if type matches", () => {
+    const problem: V1Problem = {
+      type: `https://essen-credentialing.example${VALIDATION_PROBLEM_TYPE_SUFFIX}`,
+      title: "Unprocessable Entity",
+      status: 422,
+      detail: "Bad payload",
+      error: { code: "invalid_request", message: "Bad payload" },
+      errors: [{ field: "x", code: "y", message: "z" }],
+    };
+    expect(isValidationProblem(problem)).toBe(false);
+  });
+
+  it("returns false when errors[] is missing or not an array", () => {
+    const noErrors: V1Problem = {
+      type: `https://essen-credentialing.example${VALIDATION_PROBLEM_TYPE_SUFFIX}`,
+      title: "Bad Request",
+      status: 400,
+      detail: "Request validation failed",
+      error: { code: "invalid_request", message: "Request validation failed" },
+    };
+    expect(isValidationProblem(noErrors)).toBe(false);
+
+    const wrongShape: V1Problem = {
+      type: `https://essen-credentialing.example${VALIDATION_PROBLEM_TYPE_SUFFIX}`,
+      title: "Bad Request",
+      status: 400,
+      detail: "Request validation failed",
+      error: { code: "invalid_request", message: "Request validation failed" },
+      errors: "nope" as unknown as V1ValidationProblem["errors"],
+    };
+    expect(isValidationProblem(wrongShape)).toBe(false);
+  });
+
+  it("returns false when errors[] entries are missing required string fields", () => {
+    const problem: V1Problem = {
+      type: `https://essen-credentialing.example${VALIDATION_PROBLEM_TYPE_SUFFIX}`,
+      title: "Bad Request",
+      status: 400,
+      detail: "Request validation failed",
+      error: { code: "invalid_request", message: "Request validation failed" },
+      errors: [{ field: "page", code: 42 as unknown as string, message: "bad" }],
+    };
+    expect(isValidationProblem(problem)).toBe(false);
+  });
+
+  it("flows through V1ApiError.problem when the server returns a validation problem", async () => {
+    const validationProblem: V1ValidationProblem = {
+      type: `https://essen-credentialing.example${VALIDATION_PROBLEM_TYPE_SUFFIX}`,
+      title: "Bad Request",
+      status: 400,
+      detail: "Request validation failed",
+      instance: "/api/v1/providers",
+      error: { code: "invalid_request", message: "Request validation failed" },
+      errors: [
+        { field: "page", code: "too_small", message: "Number must be greater than or equal to 1" },
+        { field: "limit", code: "invalid_type", message: "Expected number, received nan" },
+      ],
+    };
+    const fetchSpy = makeFetch([
+      {
+        status: 400,
+        body: JSON.stringify({
+          ...validationProblem,
+          error: { code: "invalid_request", message: "Request validation failed" },
+        }),
+        headers: { "content-type": "application/problem+json" },
+      },
+    ]);
+    const client = new V1Client({
+      baseUrl: "https://api.example.com",
+      apiKey: "k",
+      fetch: fetchSpy as unknown as typeof fetch,
+    });
+    try {
+      await client.listProviders();
+      throw new Error("expected V1ApiError");
+    } catch (e) {
+      const err = e as V1ApiError;
+      expect(err.status).toBe(400);
+      expect(err.code).toBe("invalid_request");
+      expect(err.problem).toBeDefined();
+      expect(err.problem && isValidationProblem(err.problem)).toBe(true);
+      if (err.problem && isValidationProblem(err.problem)) {
+        expect(err.problem.errors).toHaveLength(2);
+        expect(err.problem.errors[0]?.field).toBe("page");
+        expect(err.problem.errors[1]?.code).toBe("invalid_type");
+      }
     }
   });
 });

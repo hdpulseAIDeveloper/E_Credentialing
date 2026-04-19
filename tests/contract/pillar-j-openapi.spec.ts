@@ -477,6 +477,92 @@ describe("pillar-J: OpenAPI 3.1 contract", () => {
     });
   });
 
+  describe("Wave 20: server-side request validation contract (RFC 9457 + Zod)", () => {
+    it("declares a ValidationFieldError schema with field/code/message strings", () => {
+      const vfe = (SPEC.components?.schemas?.ValidationFieldError as
+        | { properties?: Record<string, { type?: string }>; required?: string[] }
+        | undefined);
+      expect(vfe, "missing components.schemas.ValidationFieldError").toBeTruthy();
+      const props = vfe!.properties ?? {};
+      for (const required of ["field", "code", "message"]) {
+        expect(
+          required in props,
+          `ValidationFieldError missing member '${required}'`,
+        ).toBe(true);
+        expect(props[required]?.type, `ValidationFieldError.${required} must be string`).toBe("string");
+      }
+      expect(vfe?.required ?? []).toEqual(
+        expect.arrayContaining(["field", "code", "message"]),
+      );
+    });
+
+    it("declares a ValidationProblem schema that extends Problem with a non-empty errors[] array", () => {
+      const vp = SPEC.components?.schemas?.ValidationProblem as
+        | {
+            allOf?: Array<{ $ref?: string }>;
+            properties?: Record<string, unknown>;
+            required?: string[];
+          }
+        | undefined;
+      expect(vp, "missing components.schemas.ValidationProblem").toBeTruthy();
+      const props = (vp?.properties ?? {}) as Record<
+        string,
+        {
+          type?: string;
+          const?: number;
+          items?: { $ref?: string };
+          minItems?: number;
+        }
+      >;
+      expect(props.errors, "ValidationProblem missing errors[] property").toBeTruthy();
+      expect(props.errors?.type).toBe("array");
+      expect(props.errors?.items?.$ref).toBe("#/components/schemas/ValidationFieldError");
+      expect(props.status?.const).toBe(400);
+      expect(vp?.required ?? []).toEqual(expect.arrayContaining(["errors"]));
+    });
+
+    it("declares a reusable BadRequest response with both JSON content types", () => {
+      const responses = (SPEC as {
+        components?: {
+          responses?: Record<string, { content?: Record<string, { schema?: { $ref?: string } }> }>;
+        };
+      }).components?.responses ?? {};
+      const br = responses.BadRequest;
+      expect(br, "missing components.responses.BadRequest").toBeTruthy();
+      const ct = br?.content ?? {};
+      expect(ct["application/problem+json"], "BadRequest missing application/problem+json").toBeTruthy();
+      expect(ct["application/json"], "BadRequest missing application/json (legacy)").toBeTruthy();
+      expect(ct["application/problem+json"]?.schema?.$ref).toBe(
+        "#/components/schemas/ValidationProblem",
+      );
+    });
+
+    it("attaches 400 BadRequest to every paginated list operation", () => {
+      const PAGINATED_LISTS: Array<[string, string]> = [
+        ["/api/v1/providers", "get"],
+        ["/api/v1/sanctions", "get"],
+        ["/api/v1/enrollments", "get"],
+      ];
+      const failures: string[] = [];
+      for (const [path, method] of PAGINATED_LISTS) {
+        const op = (SPEC.paths[path] as Record<string, unknown> | undefined)?.[method] as
+          | { responses?: Record<string, { $ref?: string }> }
+          | undefined;
+        const r400 = op?.responses?.["400"];
+        if (!r400) {
+          failures.push(`${method.toUpperCase()} ${path} missing 400 response`);
+          continue;
+        }
+        if (r400.$ref !== "#/components/responses/BadRequest") {
+          failures.push(
+            `${method.toUpperCase()} ${path} 400 must $ref BadRequest, got ${JSON.stringify(r400)}`,
+          );
+        }
+      }
+      expect(failures, failures.join("\n")).toEqual([]);
+    });
+  });
+
   describe("anti-PHI guard", () => {
     /**
      * Walks the spec and collects every property name that appears

@@ -167,13 +167,15 @@ curl -L https://your-host/api/v1/postman.json \\
             envelope, so existing parsers keep working unchanged.
           </p>
           <pre className="mt-3 overflow-x-auto rounded bg-white border border-amber-200 p-3 text-xs">
-            <code>{`# Default — Accept: */* or absent — Content-Type: application/json
+            <code>{`# Default — any client that accepts JSON in any form gets
+# Content-Type: application/problem+json (RFC 9457 §3 permits this:
+# a Problem body is a valid application/json document).
 curl -i https://your-host/api/v1/providers/missing \\
   -H "Authorization: Bearer $ECRED_API_KEY"
 # HTTP/1.1 404 Not Found
-# Content-Type: application/json
+# Content-Type: application/problem+json
 # {
-#   "type": "https://api.e-credentialing.example.com/problems/not-found",
+#   "type": "https://essen-credentialing.example/errors/not-found",
 #   "title": "Not found",
 #   "status": 404,
 #   "detail": "Provider not found",
@@ -181,13 +183,10 @@ curl -i https://your-host/api/v1/providers/missing \\
 #   "error": { "code": "not_found", "message": "Provider not found" }
 # }
 
-# Opt-in — Accept: application/problem+json — Content-Type flips
-curl -i https://your-host/api/v1/providers/missing \\
-  -H "Authorization: Bearer $ECRED_API_KEY" \\
-  -H "Accept: application/problem+json"
-# HTTP/1.1 404 Not Found
-# Content-Type: application/problem+json
-# (body byte-identical to the example above)`}</code>
+# Fallback — only when the client explicitly excludes both JSON
+# variants (e.g. Accept: text/plain) does Content-Type drop to
+# application/json. The body is byte-identical in either case;
+# only the media-type parameter changes.`}</code>
           </pre>
           <p className="mt-3 text-xs text-gray-600">
             TypeScript SDK:{" "}
@@ -201,6 +200,65 @@ curl -i https://your-host/api/v1/providers/missing \\
             <code className="font-mono">err.problem?.type</code> for
             stable, machine-readable error classes instead of parsing
             the English message.
+          </p>
+        </section>
+
+        <section className="mt-12 rounded-xl border border-orange-200 bg-orange-50 p-6">
+          <h2 className="text-xl font-bold text-gray-900">
+            Server-side request validation
+          </h2>
+          <p className="mt-2 text-sm text-gray-700">
+            Query parameters on every paginated list endpoint are
+            validated against a typed schema (since spec{" "}
+            <code className="font-mono">1.9.0</code>). Bad input now
+            produces an explicit{" "}
+            <code className="font-mono">400 Bad Request</code> with a{" "}
+            <code className="font-mono">ValidationProblem</code> body
+            instead of being silently clamped, ignored, or returning
+            the wrong subset of rows. All offending parameters are
+            reported in <em>one</em> response under the{" "}
+            <code className="font-mono">errors[]</code> extension
+            array — no need to retry once per fix.
+          </p>
+          <pre className="mt-3 overflow-x-auto rounded bg-white border border-orange-200 p-3 text-xs">
+            <code>{`# Multiple bad parameters in one request → one 400 with errors[]
+curl -i "https://your-host/api/v1/providers?page=0&limit=99999&status=NOPE" \\
+  -H "Authorization: Bearer $ECRED_API_KEY"
+# HTTP/1.1 400 Bad Request
+# Content-Type: application/problem+json
+# {
+#   "type": "https://essen-credentialing.example/errors/invalid-request",
+#   "title": "Invalid request",
+#   "status": 400,
+#   "detail": "Request validation failed",
+#   "instance": "/api/v1/providers",
+#   "errors": [
+#     { "field": "page",   "code": "too_small",          "message": "Number must be greater than or equal to 1" },
+#     { "field": "limit",  "code": "too_big",            "message": "Number must be less than or equal to 100" },
+#     { "field": "status", "code": "invalid_enum_value", "message": "Invalid enum value" }
+#   ],
+#   "error": { "code": "invalid_request", "message": "Request validation failed" }
+# }`}</code>
+          </pre>
+          <p className="mt-3 text-xs text-gray-600">
+            TypeScript SDK:{" "}
+            <code className="font-mono">isValidationProblem(err.problem)</code>{" "}
+            is a type guard that narrows{" "}
+            <code className="font-mono">V1Problem</code> to{" "}
+            <code className="font-mono">V1ValidationProblem</code> —
+            it checks both the stable{" "}
+            <code className="font-mono">type</code> URI suffix
+            (<code className="font-mono">/errors/invalid-request</code>) AND
+            the{" "}
+            <code className="font-mono">errors[]</code> array shape.
+            The Zod{" "}
+            <code className="font-mono">code</code> values
+            (<code className="font-mono">too_small</code>,{" "}
+            <code className="font-mono">too_big</code>,{" "}
+            <code className="font-mono">invalid_type</code>,{" "}
+            <code className="font-mono">invalid_enum_value</code>,
+            etc.) are part of the wire contract; renaming any one is
+            a SemVer breaking change.
           </p>
         </section>
 

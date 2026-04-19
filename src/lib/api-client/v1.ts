@@ -221,6 +221,70 @@ export function parseProblem(
 }
 
 /**
+ * One field-level validation failure as emitted on `400 Bad Request`
+ * responses since spec v1.9.0. The `code` value is the underlying
+ * Zod issue code and is part of the wire contract — common values
+ * include `too_small`, `too_big`, `invalid_enum_value`,
+ * `invalid_type`, `invalid_string`. Renaming any code here is a
+ * SemVer breaking change.
+ */
+export interface V1ValidationFieldError {
+  /**
+   * Dot-joined path inside the parsed query parameters
+   * (e.g. `"limit"`, `"page"`, `"filters.status"`). Empty string
+   * when the failure is on the root.
+   */
+  field: string;
+  /** Stable Zod issue code; see interface docstring. */
+  code: string;
+  /** Human-readable English explanation of the failure. */
+  message: string;
+}
+
+/**
+ * Specialisation of `V1Problem` for `400 Bad Request` validation
+ * failures (spec v1.9.0+). The `errors` extension array is non-empty;
+ * multiple invalid query parameters in one request surface as
+ * multiple entries so clients no longer need to retry once per fix.
+ */
+export interface V1ValidationProblem extends V1Problem {
+  status: 400;
+  errors: V1ValidationFieldError[];
+}
+
+/**
+ * Stable URI used by every validation Problem (spec v1.9.0+). Matches
+ * `…/errors/invalid-request` regardless of host. Use this constant
+ * instead of substring-matching `problem.type`.
+ */
+export const VALIDATION_PROBLEM_TYPE_SUFFIX = "/errors/invalid-request";
+
+/**
+ * Type guard: does this `V1Problem` carry a non-empty `errors[]`
+ * array, i.e. is it a 400 validation failure? Checks both the
+ * stable `type` URI suffix AND the `errors` array shape, so a
+ * future server that emits `errors[]` on a non-validation Problem
+ * won't accidentally match.
+ */
+export function isValidationProblem(
+  problem: V1Problem | undefined | null,
+): problem is V1ValidationProblem {
+  if (!problem) return false;
+  if (problem.status !== 400) return false;
+  if (!problem.type.endsWith(VALIDATION_PROBLEM_TYPE_SUFFIX)) return false;
+  const errors = (problem as { errors?: unknown }).errors;
+  if (!Array.isArray(errors) || errors.length === 0) return false;
+  for (const entry of errors) {
+    if (entry === null || typeof entry !== "object") return false;
+    const e = entry as Record<string, unknown>;
+    if (typeof e.field !== "string") return false;
+    if (typeof e.code !== "string") return false;
+    if (typeof e.message !== "string") return false;
+  }
+  return true;
+}
+
+/**
  * Decoded `X-RateLimit-*` (and `Retry-After`, on 429) headers.
  * Available on every successful and failed v1 response since spec
  * v1.2.0. Use `parseRateLimit(response.headers)` from a raw

@@ -1,13 +1,14 @@
 # Public REST API — Versioning, Deprecation, and Sunset Policy
 
-- **Status:** v1 — current stable (spec `1.8.0`)
-- **Last reviewed:** 2026-04-19 (Wave 19)
+- **Status:** v1 — current stable (spec `1.9.0`)
+- **Last reviewed:** 2026-04-19 (Wave 20)
 - **Related:**
   ADR [0020](../dev/adr/0020-openapi-v1-spec.md) (OpenAPI spec),
   ADR [0022](../dev/adr/0022-public-rest-v1-sdk.md) (TypeScript SDK),
   ADR [0023](../dev/adr/0023-api-versioning-policy.md) (this policy),
   ADR [0024](../dev/adr/0024-deprecation-sunset-headers.md) (deprecation headers),
   ADR [0025](../dev/adr/0025-problem-details-rfc-9457.md) (Problem Details),
+  ADR [0026](../dev/adr/0026-server-side-request-validation.md) (server-side request validation),
   [`docs/api/openapi-v1.yaml`](openapi-v1.yaml).
 
 This document is the **contract** between the platform and any
@@ -397,11 +398,11 @@ Details body. The body is a **superset** of the legacy `error`
 envelope, so existing clients that read `body.error.code` /
 `body.error.message` continue to work unchanged.
 
-**Body shape** (all error statuses — 401, 403, 404, 410, 429, 5xx):
+**Body shape** (all error statuses — 400, 401, 403, 404, 410, 429, 5xx):
 
 ```json
 {
-  "type": "https://api.e-credentialing.example.com/problems/insufficient-scope",
+  "type": "https://essen-credentialing.example/errors/insufficient-scope",
   "title": "Insufficient scope",
   "status": 403,
   "detail": "API key lacks required scope: providers:read",
@@ -417,8 +418,12 @@ envelope, so existing clients that read `body.error.code` /
 **Stability contract:**
 
 - The `type` URI for a given error code is **permanent**. We will
-  never re-point `…/problems/insufficient-scope` to mean a different
-  error class. New error classes get new URIs.
+  never re-point `…/errors/insufficient-scope` to mean a different
+  error class. New error classes get new URIs. The base URL is
+  configurable via `PROBLEM_BASE_URL` (default
+  `https://essen-credentialing.example/errors`); clients SHOULD
+  match on the path suffix (e.g. `/errors/insufficient-scope`),
+  not the hostname.
 - The legacy `error` envelope (with the same `code`, `message`, and
   any `extras` we previously emitted) stays at the same path inside
   every error body. New consumers SHOULD switch on `type`; existing
@@ -431,8 +436,27 @@ envelope, so existing clients that read `body.error.code` /
 - Clients that send `Accept: application/problem+json` receive
   `Content-Type: application/problem+json`.
 - Clients that send `Accept: application/json`, `*/*`, or no
-  `Accept` header receive `Content-Type: application/json`. The
-  body is byte-identical; only the media-type parameter changes.
+  `Accept` header **also** receive
+  `Content-Type: application/problem+json`. RFC 9457 §3 explicitly
+  permits this: a Problem body is a valid `application/json`
+  document, and serving the more specific media type whenever the
+  client accepts JSON in any form gives every JSON-aware consumer
+  the strongest type signal possible.
+- The only case in which the response falls back to
+  `Content-Type: application/json` is when the `Accept` header is
+  present AND explicitly excludes both
+  `application/problem+json` and `application/json` (for example,
+  `Accept: text/plain` or `Accept: application/xml`). The body is
+  byte-identical in either case; only the media-type parameter
+  changes. This keeps every existing parser working unchanged.
+
+> **Documentation note (Wave 20):** an earlier revision of this
+> section described the negotiation as "`Accept: application/json`
+> returns `Content-Type: application/json`." That description was
+> wrong — the implementation has always emitted
+> `application/problem+json` whenever the client accepts JSON in
+> any form. The text above is the authoritative description; the
+> v1.13.0 changelog entry has been corrected to match.
 
 **SDK observation contract:**
 
@@ -449,6 +473,100 @@ envelope, so existing clients that read `body.error.code` /
 Removing or repurposing a `type` URI, dropping the legacy `error`
 envelope, or changing the status mapping for an existing `code`
 would all be breaking changes and require a `/api/v2/`.
+
+### 3.9 Server-side request validation (since spec v1.9.0)
+
+Query parameters on every paginated list endpoint
+(`/api/v1/providers`, `/api/v1/sanctions`, `/api/v1/enrollments`)
+are validated against a typed schema **before** any database work
+is attempted. When validation fails, the API returns
+`400 Bad Request` with a `ValidationProblem` body — a strict
+superset of the `Problem` body in §3.8 with one additional
+extension member.
+
+**Inputs that trigger 400** (non-exhaustive):
+
+- `?page=0`, `?page=-1`, `?page=foo` — `page` must be an integer
+  ≥ 1.
+- `?limit=0`, `?limit=99999`, `?limit=foo` — `limit` must be an
+  integer between 1 and 100.
+- `?status=NOT_A_REAL_STATUS` — `status` must match the published
+  enum for that resource (see the OpenAPI spec).
+
+Previously, some of these inputs were silently clamped, others
+were silently ignored, and the server returned `200 OK` with the
+wrong subset of rows. The validation contract converts every
+case of previously-undefined behaviour into an explicit,
+machine-readable 400.
+
+**Body shape:**
+
+```json
+{
+  "type": "https://essen-credentialing.example/errors/invalid-request",
+  "title": "Invalid request",
+  "status": 400,
+  "detail": "Request validation failed",
+  "instance": "/api/v1/providers",
+  "errors": [
+    { "field": "page",  "code": "too_small",    "message": "Number must be greater than or equal to 1" },
+    { "field": "limit", "code": "invalid_type", "message": "Expected number, received nan" }
+  ],
+  "error": {
+    "code": "invalid_request",
+    "message": "Request validation failed"
+  }
+}
+```
+
+**Stability contract:**
+
+- The `type` URI is always
+  `<PROBLEM_BASE_URL>/invalid-request`; match on the suffix
+  `/errors/invalid-request` to identify validation failures
+  regardless of deployment.
+- `errors[]` is **non-empty**. Every entry has three string
+  fields: `field` (dot-joined path inside the parsed parameters,
+  e.g. `"limit"`, `"page"`, `"filters.status"`), `code`, and
+  `message`.
+- `code` values are the **stable Zod issue codes** —
+  `too_small`, `too_big`, `invalid_type`, `invalid_enum_value`,
+  `invalid_string`, `unrecognized_keys`, `custom`, etc. Renaming
+  any code is a SemVer breaking change. New codes MAY be added
+  in a minor; clients SHOULD treat unknown `code` values as
+  generic `invalid_request`.
+- All offending parameters are reported in **one** response.
+  Clients no longer need to retry once per fix.
+- The legacy `error: { code: "invalid_request", message }`
+  envelope stays at the same path as every other v1 error.
+
+**SDK observation contract:**
+
+- `V1ValidationProblem` extends `V1Problem` with `status: 400`
+  and a required `errors: V1ValidationFieldError[]` array.
+- `isValidationProblem(problem)` narrows a `V1Problem` to the
+  validation shape. It checks both the `type` URI suffix AND the
+  `errors[]` array shape, so a future server that emits
+  `errors[]` on a non-validation Problem will not accidentally
+  match. After a `V1ApiError` is thrown:
+
+  ```ts
+  try {
+    await client.listProviders({ page: 0 });
+  } catch (e) {
+    const err = e as V1ApiError;
+    if (err.problem && isValidationProblem(err.problem)) {
+      for (const issue of err.problem.errors) {
+        console.error(`${issue.field}: ${issue.message} (${issue.code})`);
+      }
+    }
+  }
+  ```
+
+Removing `errors[]`, dropping the legacy `error` envelope,
+renaming any stable Zod `code`, or expanding validation to
+previously-accepted inputs without a SemVer bump would all be
+breaking changes and require a `/api/v2/`.
 
 ## 4. Major-version overlap window
 
@@ -513,6 +631,7 @@ The following invariants MUST be preserved:
 - "How do I emit pagination Link headers?" → §3.6.
 - "How do I add ETag support to a new endpoint?" → §3.7.
 - "What error-body shape do I emit?" → §3.8 (Problem Details).
+- "How do I validate query parameters on a new endpoint?" → §3.9 (Server-side request validation).
 - "How do I document this deprecation in the spec?" → §3.2.
 - "When can I ship `/api/v2`?" → After at least one of:
   - Required customer feature that can't ship in v1, OR

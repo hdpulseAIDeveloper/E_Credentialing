@@ -7,6 +7,130 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sem
 ## [Unreleased]
 
 ### Added
+- **Wave 20 — Server-side request validation with Problem Details
+  (1.8.0 -> 1.9.0) (2026-04-19):** Ninth exercise of the
+  versioning machinery, and the first concrete consumer of the
+  RFC 9457 `Problem` body shipped in Wave 19. Three pre-existing
+  classes of silent footgun — `?page=0`/`?page=-1` silently
+  clamped to `1`, `?limit=99999` silently clamped to `100`, and
+  `?status=NOT_A_REAL_STATUS` silently dropped from the WHERE
+  clause returning the wrong subset of rows — now produce an
+  explicit, structured `400 Bad Request` with a non-empty
+  `errors[]` array reporting every offending parameter in one
+  response.
+  - `src/lib/api/validation.ts`: new helper module exporting
+    `VALIDATION_ERROR_CODE = "invalid_request"`,
+    `ValidationFieldError` interface (`field` / `code` / `message`
+    strings), `fieldPathFromZodIssue(issue)` (dot-joins
+    `issue.path`, returns `""` for root-level failures),
+    `issuesToFieldErrors(issues)` (Zod `ZodIssue[]` →
+    `ValidationFieldError[]`),
+    `validationProblemResponse(request, errors, detail?)` (builds
+    a Problem-shaped 400 with the `errors[]` extension array via
+    `buildProblem` from Wave 19, handles content-type
+    negotiation, attaches the request `pathname` as `instance`),
+    `ParseQueryResult<T>` discriminated union
+    (`{ ok: true, data } | { ok: false, response }`),
+    `parseQuery(request, schema)` (the top-level call site —
+    parses `URLSearchParams` into a plain object, runs
+    `schema.safeParse`, returns either typed data or a ready-to-
+    return 400 `NextResponse`), and a private `safePath(url)`
+    helper that strips query strings before they reach
+    `instance`.
+  - `src/app/api/v1/providers/route.ts`,
+    `src/app/api/v1/sanctions/route.ts`,
+    `src/app/api/v1/enrollments/route.ts`: each route now declares
+    a Zod schema for its query parameters
+    (`PROVIDERS_QUERY_SCHEMA`, `SANCTIONS_QUERY_SCHEMA`,
+    `ENROLLMENTS_QUERY_SCHEMA`) over enums sourced from the
+    Prisma schema (`PROVIDER_STATUS_VALUES`,
+    `SANCTIONS_RESULT_VALUES`, `ENROLLMENT_STATUS_VALUES`).
+    `parseQuery` is the first call inside each `GET` handler; on
+    failure the response is wrapped with the standard
+    `applyRateLimitHeaders` / `applyRequestIdHeader` /
+    `applyDeprecationByRoute` envelope so the failure is
+    indistinguishable from any other v1 error in terms of
+    correlation, observability, and deprecation signalling. The
+    `auditApiRequest` calls were tightened to handle `null` for
+    optional query parameters (e.g. `status ?? null`).
+  - `docs/api/openapi-v1.yaml`: bumped to `1.9.0`.
+    `info.description` gains a "Server-side request validation
+    (since v1.9.0)" section documenting `400 Bad Request`
+    responses, the `…/errors/invalid-request` `type` URI, the
+    `errors[]` extension array, the stable Zod issue codes, and
+    backward compatibility. New reusable response
+    `components.responses.BadRequest` references the new
+    `ValidationProblem` schema (and ships the legacy
+    `application/json` content variant alongside
+    `application/problem+json` for parser compatibility). New
+    schemas `ValidationFieldError` (required `field`/`code`/
+    `message` strings, `code` carries the Zod issue code) and
+    `ValidationProblem` (extends the v1.8.0 `Error`/`Problem`
+    shape with `errors: array (minItems: 1)` and pins
+    `type: const` to the validation URI and `status: const` to
+    `400`). `400` responses added to `listProviders`,
+    `listSanctions`, and `listEnrollments` operations. The
+    `/health` `apiVersion` example was bumped to `"1.9.0"`.
+  - `src/lib/api-client/v1-types.ts` + `public/api/v1/postman.json`:
+    regenerated; both drift gates pass.
+  - `src/lib/api-client/v1.ts`: extended with
+    `V1ValidationFieldError` interface (`field`/`code`/`message`),
+    `V1ValidationProblem` interface (extends `V1Problem`, pins
+    `status: 400`, requires `errors: V1ValidationFieldError[]`),
+    `VALIDATION_PROBLEM_TYPE_SUFFIX = "/errors/invalid-request"`
+    constant for stable suffix matching, and
+    `isValidationProblem(problem)` type guard that checks both
+    the `type` URI suffix AND the `errors[]` array shape (so a
+    future server that emits `errors[]` on a non-validation
+    Problem will not accidentally match).
+  - **Tests:** `tests/unit/api/validation.test.ts` (15 tests
+    covering `parseQuery` happy path + invalid coercion + enum
+    violations + multiple errors aggregation,
+    `validationProblemResponse` body shape + custom detail +
+    content-type negotiation + `instance` omission,
+    `fieldPathFromZodIssue`, and `issuesToFieldErrors`);
+    `tests/unit/lib/api-client/v1-client.test.ts` extended with
+    6 tests for `isValidationProblem` (positive case, wrong
+    suffix, wrong status, missing/non-array `errors`,
+    non-string entry fields, and end-to-end flow through
+    `V1ApiError.problem`); `tests/contract/pillar-j-openapi.spec.ts`
+    extended with 4 contract tests for the new schemas + reusable
+    response + per-operation 400 attachment. All gates green:
+    1735 vitest tests pass (up from 1710 in Wave 19, +25 net),
+    `npm run typecheck`, `npm run lint`, `npm run qa:gate` clean.
+  - **Documentation:** `docs/changelog/public.md` gains a
+    `v1.14.0 (API)` entry. `docs/api/versioning.md` is bumped to
+    `Status: spec 1.9.0` / `Last reviewed: Wave 20`, gains a new
+    §3.9 "Server-side request validation" with body shape and
+    SDK observation contract, gains an ADR 0026 cross-reference,
+    and the §3.8 Problem Details section is **corrected** in
+    two places: the example `type` URI now uses
+    `essen-credentialing.example/errors/...` (matching the
+    actual `PROBLEM_BASE_URL` env default) instead of the
+    placeholder `api.e-credentialing.example.com/problems/...`
+    that was in Wave 19's draft, and the content-type
+    negotiation description is rewritten to reflect the actual
+    behaviour (RFC 9457 §3 permits emitting
+    `application/problem+json` whenever the client accepts JSON
+    in any form, which is what the implementation has always
+    done; only an `Accept` header that explicitly excludes both
+    JSON variants triggers the `application/json` fallback). A
+    short note records the correction. The public `/changelog`
+    `v1.13.0` entry was annotated with the same correction in
+    an "Improved" subsection. `src/app/sandbox/page.tsx` Problem
+    Details section was updated to reflect the same two
+    corrections, and gains a new "Server-side request
+    validation" panel between Problem Details and the
+    Deprecation/Sunset section, with a copy-pasteable curl
+    example showing a single request with three bad parameters
+    producing a single 400 with three `errors[]` entries. New
+    ADR 0026 (`docs/dev/adr/0026-server-side-request-validation.md`)
+    captures the decision, the rejected alternatives (no
+    validator at all, hand-written per-route validators, opaque
+    400 with English message, separate `/validate` endpoint),
+    operational notes, and anti-weakening rules (errors[] MUST
+    stay non-empty; renaming a Zod code is breaking; tightening
+    validation is breaking, loosening is minor).
 - **Wave 19 — Problem Details for HTTP APIs (RFC 9457)
   (1.7.0 -> 1.8.0) (2026-04-19):** Eighth exercise of the
   versioning machinery. Adopts RFC 9457 as a backward-compatible

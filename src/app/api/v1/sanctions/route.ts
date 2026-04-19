@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/server/db";
 import { authenticateApiKey, requireScope } from "../middleware";
@@ -12,8 +13,18 @@ import {
 } from "@/lib/api/etag";
 import { applyDeprecationByRoute } from "@/lib/api/deprecation";
 import { auditApiRequest } from "@/lib/api/audit-api";
+import { parseQuery } from "@/lib/api/validation";
 
 const ROUTE_PATH = "/api/v1/sanctions";
+
+const SANCTIONS_RESULT_VALUES = ["CLEAR", "FLAGGED"] as const;
+
+const SANCTIONS_QUERY_SCHEMA = z.object({
+  providerId: z.string().min(1).max(64).optional(),
+  result: z.enum(SANCTIONS_RESULT_VALUES).optional(),
+  page: z.coerce.number().int().min(1).max(1_000_000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+});
 
 export async function GET(request: Request) {
   const requestId = resolveRequestId(request);
@@ -35,15 +46,22 @@ export async function GET(request: Request) {
     );
   }
 
-  const url = new URL(request.url);
-  const providerId = url.searchParams.get("providerId");
-  const result = url.searchParams.get("result");
-  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
-  const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "25")));
+  const queryResult = parseQuery(request, SANCTIONS_QUERY_SCHEMA);
+  if (!queryResult.ok) {
+    return applyDeprecationByRoute(
+      applyRequestIdHeader(
+        applyRateLimitHeaders(queryResult.response, auth.rateLimit),
+        requestId,
+      ),
+      "GET",
+      ROUTE_PATH,
+    );
+  }
+  const { providerId, result, page, limit } = queryResult.data;
 
   const where: Prisma.SanctionsCheckWhereInput = {};
   if (providerId) where.providerId = providerId;
-  if (result) where.result = result as Prisma.SanctionsCheckWhereInput["result"];
+  if (result) where.result = result;
 
   const [total, checks] = await Promise.all([
     db.sanctionsCheck.count({ where }),
@@ -77,7 +95,12 @@ export async function GET(request: Request) {
       path: "/api/v1/sanctions",
       status: 304,
       resultCount: 0,
-      query: { providerId, result, page: String(page), limit: String(limit) },
+      query: {
+        providerId: providerId ?? null,
+        result: result ?? null,
+        page: String(page),
+        limit: String(limit),
+      },
       requestId,
     });
     return applyDeprecationByRoute(
@@ -96,7 +119,12 @@ export async function GET(request: Request) {
     path: "/api/v1/sanctions",
     status: 200,
     resultCount: checks.length,
-    query: { providerId, result, page: String(page), limit: String(limit) },
+    query: {
+      providerId: providerId ?? null,
+      result: result ?? null,
+      page: String(page),
+      limit: String(limit),
+    },
     requestId,
   });
 
