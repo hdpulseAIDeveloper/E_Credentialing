@@ -24,6 +24,7 @@ public Error Catalog), and **continuous compliance**.
 | 1 | Core Platform Build | Apr 2026 (4 weeks) | **Complete** |
 | 1.5 | Commercial-Readiness Band (Waves 0–6) | Apr 16–18 2026 | **Complete** |
 | 1.6 | Public-API Hardening (Waves 7–21 + 21.5) | Apr 18–19 2026 | **Complete** |
+| 1.7 | QA-Hardening Wave (Pillar S + DEF-0008/0010/0011/0012/0013/0014) | Apr 19 2026 | **Complete** |
 | 2 | Integration Activation | May–Jun 2026 (8 weeks) | In progress |
 | 3 | Training & Pilot | Jul–Aug 2026 (8 weeks) | Planned |
 | 4 | Full Rollout & PARCS Sunset | Sep–Oct 2026 (8 weeks) | Planned |
@@ -126,6 +127,38 @@ Aggregate impact:
   public route without a code change to the test, removing the
   inventory/middleware drift class entirely once DEF-0008 is structurally
   fixed.
+
+This phase carried no production deploys.
+
+---
+
+## 2.7 Phase 1.7 — QA-Hardening Wave (2026-04-19, complete)
+
+**Window:** 2026-04-19 (single autonomous Cursor session).
+**Goal:** Close the structural gap that allowed DEF-0009 (sign-in
+dead on the deployed dev stack while every static gate was green)
+to ship to a user, and use the new live-stack gate to surface and
+fix every other class of "static-green / runtime-broken" defect
+the platform was carrying. This phase carried zero production
+deploys; every change landed on `master` and was validated against
+the live dev stack before the user saw it.
+
+| Sub-wave | Theme | Headline outcome | Defect / ADR |
+|---|---|---|---|
+| 1.7.0 | **Pillar S — Live-Stack Reality Gate** added as the 19th pillar (six initial surfaces). | `STANDARD.md` v1.2.0; new gate scripts (`live-stack-smoke.mjs`, `check-migration-drift.mjs`, `check-dockerfile-build.mjs`); `tests/e2e/live-stack/role-login-matrix.spec.ts`; `qa:gate` rewired to run live + static gates together; cold-Dockerfile + named-volume staleness become hard fails. | DEF-0009; [ADR 0028](dev/adr/0028-live-stack-reality-gate.md) |
+| 1.7.1 | **Single source of truth for public routes.** | New `src/lib/public-routes.ts`; `src/middleware.ts` and `scripts/qa/build-route-inventory.ts` both read from it; runtime allow-list and inventory `group:public` can no longer drift. | DEF-0008, DEF-0011 |
+| 1.7.2 | **Marketing homepage `<main>` landmark.** | `src/app/page.tsx` wraps hero / features / stats in `<main id="main">`; Pillar E + Pillar S Surface 5 invariant satisfied. | DEF-0010 |
+| 1.7.3 | **Public-API delivery surface hardened.** | `.dockerignore` narrowed (`docs/**` blanket replaced by explicit un-excludes for `docs/changelog/`, `docs/api/`, `docs/planning/`); the auto-generated Postman collection moved from `public/api/v1/postman.json` to `data/api/v1/postman.json` to dodge Next.js's static-vs-route URL collision; `docker-compose.dev.yml` gained the matching bind mounts; Pillar S Surface 5 grew explicit probes for `/api/v1/openapi.{json,yaml}`, `/api/v1/postman.json`, `/changelog.rss`. | DEF-0012, DEF-0013 |
+| 1.7.4 | **Pillar S Surface 7 — Dev-loop performance invariant.** | `STANDARD.md` v1.3.0 + new §11 "Dev-loop performance baseline" + new §4 hard-fail (15); Turbopack made the default `next dev` compiler; `scripts/dev/warm-routes.mjs` extended to also warm dynamic routes (sample id harvested from parent list page or synthetic UUID fallback); `scripts/qa/live-stack-smoke.mjs --dev-perf` enforces a 2000 ms re-fetch budget; new `qa:live-stack:perf` and rewritten `qa:live-stack:full` scripts. Mirrored into `.cursor/rules/qa-standard.mdc` and `~/.cursor/rules/qa-standard-global.mdc` so every sibling and future HDPulseAI repo inherits the standard automatically. | DEF-0014; [ADR 0029](dev/adr/0029-dev-loop-performance-baseline.md) |
+
+Aggregate impact:
+
+- **Pillar count:** 18 → 19 (added Pillar S).
+- **Hard-fail conditions:** 10 → 15 (added 11–15: schema/migration drift, dead seed account, cold Dockerfile build, named-volume staleness, lazy-compile dev loop).
+- **Defect ledger:** DEF-0008/0010/0011/0012/0013/0014 closed with anti-weakening attestations; DEF-0009 closed structurally.
+- **Live-stack gate output (post-fix):** `pass=32  fail=0  warn=0  notrun=0  EXIT=0` for `npm run qa:live-stack:full` against the dev stack with all seven surfaces green.
+- **Dev-loop p95:** Surface 7 measured re-fetch on a deterministic route mix is **425–989 ms** (vs the user-reported pre-fix `/providers/[id]` cold compile of **14,968 ms** — a 25–30× speedup that is now structurally pinned by the gate budget).
+- **Standards portability:** the global Cursor rule (`alwaysApply: true`) now carries the framework-agnostic dev-loop perf baseline, so every Cursor / Claude / Codex agent in any HDPulseAI repo on the development machine inherits the rule on the next invocation without per-repo opt-in.
 
 This phase carried no production deploys.
 

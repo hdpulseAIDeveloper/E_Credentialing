@@ -43,34 +43,53 @@ Follow this prompt top to bottom. When in doubt:
    actor owns the resource. Every API response strips PHI fields by default.
 6. **Quality bar (binding).** Every change you ship MUST satisfy the
    **HDPulseAI QA Standard — Comprehensive QA Test Layer** at
-   [docs/qa/STANDARD.md](qa/STANDARD.md) (version 1.2.0+, 2026-04-19),
+   [docs/qa/STANDARD.md](qa/STANDARD.md) (version **1.3.0+**, 2026-04-19),
    including the per-PR Definition of Done at
    [docs/qa/definition-of-done.md](qa/definition-of-done.md). The
    **19 testing pillars (A–S)** are not optional. **Pillar S — Live-Stack
    Reality Gate** ([ADR 0028](dev/adr/0028-live-stack-reality-gate.md))
    was added 2026-04-19 in response to DEF-0009 (sign-in dead on the
    deployed stack while every static gate was green); it probes the
-   deployed running system (HTTP-only, no browser required) for
-   bring-up health, schema/migration parity, role-by-role real CSRF
-   sign-in matrix, authenticated session probe, anonymous public-surface
-   invariants, Dockerfile cold-build sanity, and named-volume
-   staleness. The hard-fail conditions in `STANDARD.md` §4 (browser
-   console errors, hydration warnings, uncaught exceptions, 5xx, axe
+   deployed running system (HTTP-only, no browser required) across
+   **seven surfaces**: bring-up health (1), schema/migration parity (2),
+   role-by-role real CSRF sign-in matrix (3), authenticated session
+   probe (4), anonymous public-surface invariants including the
+   public-API artifacts (5), stack-version pin + named-volume
+   staleness (6), and **dev-loop performance invariant — a
+   2000 ms re-fetch budget on a deterministic cross-section of
+   warmed routes (7, added 2026-04-19 by
+   [ADR 0029](dev/adr/0029-dev-loop-performance-baseline.md) / DEF-0014).
+   Surface 7 is the structural detector for the recurring
+   "every link feels slow the first time" regression and is bound
+   to three implementation requirements: Turbopack as the default
+   `next dev` compiler, a startup warmer that pre-compiles every
+   static AND every dynamic route from `route-inventory.json`, and
+   a long-lived dev compile cache (`onDemandEntries:
+   { maxInactiveAge: 24h, pagesBufferLength: ≥200 }`).** The
+   hard-fail conditions in `STANDARD.md` §4 (browser console
+   errors, hydration warnings, uncaught exceptions, 5xx, axe
    serious/critical, PHI leakage, broken links, contract drift,
    compliance regressions, orphaned inventories, **pending Prisma
    migrations, dead seed-account login, cold Dockerfile build
-   regression, stale named-volume contents**) MUST fail the build, the
-   PR check, and the deploy gate — never a warning. Reports MUST lead
-   with the coverage headline from `STANDARD.md` §3 (Routes covered:
-   X of Y; Roles exercised: X of N; **Live stack: <commit SHA> |
-   migrations: N pending | sign-in matrix: …**) before any pass/fail
-   count. The legacy report shape "Pass: 33, Fail: 0, Not Run: 223" is
-   explicitly forbidden by `STANDARD.md` §10.1; the newer "all static
-   gates green while the deployed app is broken" report shape is
-   explicitly forbidden by `STANDARD.md` §10.2 / DEF-0009 / ADR 0028.
+   regression, stale named-volume contents, and lazy-compile dev
+   loop**) MUST fail the build, the PR check, and the deploy
+   gate — never a warning. Reports MUST lead with the coverage
+   headline from `STANDARD.md` §3 (Routes covered: X of Y; Roles
+   exercised: X of N; **Live stack: <commit SHA> | migrations:
+   N pending | sign-in matrix: …**) before any pass/fail count.
+   The legacy report shape "Pass: 33, Fail: 0, Not Run: 223" is
+   explicitly forbidden by `STANDARD.md` §10.1; the newer "all
+   static gates green while the deployed app is broken" report
+   shape is explicitly forbidden by `STANDARD.md` §10.2 / DEF-0009
+   / ADR 0028; the "dev experience silently degraded back to
+   webpack lazy-compile" failure mode is explicitly forbidden by
+   `STANDARD.md` §11 / DEF-0014 / ADR 0029.
    `npm run qa:gate` is the entry point and it now includes
    `qa:migrations` + `qa:live-stack` — green on the static path is
-   no longer green overall.
+   no longer green overall. The "fully green local dev"
+   convenience target is `npm run qa:live-stack:full` which
+   enables both the `--volume-probe` (Surface 6) and `--dev-perf`
+   (Surface 7) probes.
 
 When you finish a module, also produce:
 
@@ -710,6 +729,25 @@ ALLOW_DEPLOY=1
   `playwright test --config=playwright.prod.config.ts`. Pre-compiled
   routes mean Playwright never times out compiling on first request.
   This closed DEF-INFRA-0001 and is the only sanctioned way to run E2E.
+- **Dev-loop performance baseline (STANDARD.md §11 / ADR 0029 /
+  DEF-0014, added 2026-04-19):** the default `dev` script MUST be
+  `next dev --turbo -p 6015` (Turbopack). The dev container's
+  command MUST be `npm run dev:warm`, which spawns `next dev`
+  through `scripts/dev/dev-with-warmup.mjs` and, once
+  `/api/health` returns 200, runs `scripts/dev/warm-routes.mjs` to
+  pre-compile every static AND every dynamic route in
+  `route-inventory.json` (dynamic templates are warmed via a
+  sample id harvested from the parent list page or, failing that,
+  a synthetic UUID — the page MODULE compiles regardless of
+  whether the loader resolves a row). `next.config.mjs` MUST set
+  `onDemandEntries: { maxInactiveAge: 24h, pagesBufferLength: 200 }`
+  so a coffee break does not evict the cache the warmer just paid
+  to build. Pillar S Surface 7 (`scripts/qa/live-stack-smoke.mjs
+  --dev-perf`) enforces a 2000 ms re-fetch budget on a
+  deterministic cross-section of warmed routes; any breach is a
+  §4 (15) hard fail. Falling back to webpack (omitting `--turbo`
+  or setting `FORCE_WEBPACK=1`) requires an open defect card per
+  §11.3 anti-weakening rule (1).
 
 For the comprehensive test strategy and per-module test cases see
 [qa/test-strategy.md](qa/test-strategy.md), [qa/unit-testing.md](qa/unit-testing.md),
@@ -853,3 +891,4 @@ You have rebuilt the platform when:
 | 2026-04-17 | Documentation refresh | Initial comprehensive prompt; supersedes inline guidance in `CLAUDE.md`. |
 | 2026-04-18 | Cursor (autonomous Wave 7) | Added §10.3 (public surfaces shipped in Wave 5), §10.4 (auditor-package export), iterator-coverage and production-bundle E2E expectations in §0 and §15. A regenerator now builds the Wave 5–6 commercial-readiness band from day one rather than retrofitting it. Cross-references ADR 0017, ADR 0018, ADR 0019. |
 | 2026-04-19 | Documentation refresh (Wave 21 + 21.5) | Promoted the Public Error Catalog to Module 21. Rewrote §10.1 to require RFC 9457 Problem Details (`application/problem+json`) per ADR 0025/0026; added §10.5 covering the four catalog faces (registry / JSON list / JSON entry / public HTML pages) with the explicit middleware allow-list rule that closes DEF-0007 and the iterator anonymous-public-smoke spec that prevents its return. Added build-order step 21. Refreshed §19 references to include the QA Standard, the stakeholder brief, the OpenAPI contract, ADRs 0001–0027, and `status/shipped.md`. |
+| 2026-04-19 | Cursor (DEF-0014 Wave 22) | Bumped binding QA Standard reference to v1.3.0; expanded §0 quality-bar paragraph to enumerate Pillar S's seven surfaces (adding Surface 7 — dev-loop performance invariant, 2000 ms re-fetch budget) and the three implementation requirements that bind it (Turbopack default, dynamic-route warmer, long-lived `onDemandEntries` cache). Added §15 "Dev-loop performance baseline" bullet. Wired in `npm run qa:live-stack:full` as the canonical local-dev gate. Cross-references [ADR 0029](dev/adr/0029-dev-loop-performance-baseline.md) and `docs/qa/defects/DEF-0014.md`. |

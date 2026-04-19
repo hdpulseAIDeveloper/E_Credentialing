@@ -112,9 +112,11 @@ that meaningfully changes the platform without updating both as incomplete.
 | HIPAA summary | [compliance/hipaa.md](compliance/hipaa.md) |
 | CMS-0057-F Provider Directory | [compliance/cms-0057.md](compliance/cms-0057.md) |
 | Joint Commission NPG-12 | [compliance/jc-npg-12.md](compliance/jc-npg-12.md) |
-| QA Standard (binding) | [qa/STANDARD.md](qa/STANDARD.md) |
+| QA Standard (binding, v1.3.0) | [qa/STANDARD.md](qa/STANDARD.md) |
 | Per-PR Definition of Done | [qa/definition-of-done.md](qa/definition-of-done.md) |
 | Test strategy | [qa/test-strategy.md](qa/test-strategy.md) |
+| Live-Stack Reality Gate (Pillar S, ADR 0028) | [dev/adr/0028-live-stack-reality-gate.md](dev/adr/0028-live-stack-reality-gate.md) |
+| Dev-loop performance baseline (Surface 7, ADR 0029) | [dev/adr/0029-dev-loop-performance-baseline.md](dev/adr/0029-dev-loop-performance-baseline.md) |
 | Open defects + ledger | [qa/defects/index.md](qa/defects/index.md) |
 | Wave-by-wave delivery index | [status/shipped.md](status/shipped.md) |
 | Release notes | [../CHANGELOG.md](../CHANGELOG.md) (and [pm/change-log-policy.md](pm/change-log-policy.md) for the policy) |

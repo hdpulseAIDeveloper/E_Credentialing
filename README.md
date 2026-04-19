@@ -57,6 +57,34 @@ docker compose -f docker-compose.dev.yml up --build
 # Web on http://localhost:6015, worker on :6025
 ```
 
+The dev container's command is `npm run dev:warm`, which spawns
+`next dev --turbo` and pre-compiles every static AND every dynamic
+route from `route-inventory.json` so the user's first click never
+pays the cold-compile cost. This is binding per
+[ADR 0029](docs/dev/adr/0029-dev-loop-performance-baseline.md) /
+`docs/qa/STANDARD.md` §11. Validate locally with:
+
+```bash
+npm run qa:live-stack:full   # all 7 Pillar S surfaces (incl. dev-perf budget)
+```
+
+## Quality bar
+
+Every change MUST pass the **HDPulseAI QA Standard v1.3.0** at
+[docs/qa/STANDARD.md](docs/qa/STANDARD.md):
+
+- 19 testing pillars (A–S); Pillar S is the live-stack reality gate
+  ([ADR 0028](docs/dev/adr/0028-live-stack-reality-gate.md)),
+  Surface 7 enforces a 2000 ms dev-loop re-fetch budget
+  ([ADR 0029](docs/dev/adr/0029-dev-loop-performance-baseline.md)).
+- 15 §4 hard-fail conditions — including pending Prisma migrations,
+  dead seed accounts, cold Dockerfile build regressions, named-volume
+  staleness, and lazy-compile dev-loop regressions.
+- The per-PR Definition of Done is at
+  [docs/qa/definition-of-done.md](docs/qa/definition-of-done.md).
+- `npm run qa:gate` is the single entry point and includes both
+  `qa:migrations` and `qa:live-stack`.
+
 ## License & ownership
 
 Proprietary to ESSEN Health Care; built and maintained by HDPulseAI.

@@ -208,9 +208,34 @@ Scheduled jobs (defined in `src/server/jobs`):
 | AV scan unavailable | Upload fails closed | Show user upload error; retry policy; queue offline scan |
 | Blob unavailable | Upload / download error | Banner; document operations disabled |
 | AUDIT_HMAC_KEY missing in prod | Boot fails | Set via Key Vault and restart |
+| Stale named-volume Prisma client (DEF-0009 class) | Pillar S Surface 6: SHA1(host `node_modules/.prisma/client/schema.prisma`) ≠ SHA1(container) | `docker compose down -v` → `docker compose up --build`; `STANDARD.md` §10.2 hard fail |
+| Pending Prisma migrations against deployed DB | Pillar S Surface 2: `prisma migrate status` non-zero | `docker compose exec ecred-web npx prisma migrate deploy`; `STANDARD.md` §4 (11) hard fail |
+| Cold Dockerfile rebuild regression (e.g., `prisma generate` before `prisma/` is copied) | Pillar S `qa:dockerfile:cold`: `docker compose build --no-cache` fails | Fix step ordering; `STANDARD.md` §4 (13) hard fail |
+| Lazy-compile dev loop (DEF-0014 class) | Pillar S Surface 7: warmed-route re-fetch p100 > 2000 ms | Confirm Turbopack default in `package.json`/`scripts/dev/dev-with-warmup.mjs`; confirm `npm run dev:warm` is the dev container command; confirm `next.config.mjs` `onDemandEntries` cache budget; `STANDARD.md` §11 / §4 (15) hard fail |
 
-## 11. Change history
+## 11. Dev-loop performance baseline
 
+| Knob | Required setting | Why |
+|---|---|---|
+| Default `next dev` compiler | Turbopack (`next dev --turbo`) — set in `package.json#scripts.dev` and `scripts/dev/dev-with-warmup.mjs` | Webpack lazy-compile is the recurring root cause of "every link feels slow"; Turbopack moves typical per-route compile from 5–15 s to 0.1–0.5 s on this codebase. |
+| Startup warmer | `npm run dev:warm` runs `scripts/dev/warm-routes.mjs` after `/api/health` is 200 | A user's first click would otherwise pay the cold compile cost. |
+| Dynamic-route coverage | Warmer expands every `route-inventory.json` entry with `dynamic: true`, harvesting a sample id from the parent list page or substituting a synthetic UUID | DEF-0014 root cause #1 — only static routes were being warmed, so `/providers/[id]` etc. still cost 14 s on first click. |
+| Compile cache lifetime | `next.config.mjs` → `onDemandEntries: { maxInactiveAge: 86_400_000, pagesBufferLength: 200 }` | A 10-minute coffee break would otherwise evict the cache the warmer just paid to build. |
+| Performance budget | Pillar S Surface 7 measured re-fetch p100 < 2000 ms | Detector for any future regression of any of the above. |
+| Convenience target | `npm run qa:live-stack:full` (enables `--volume-probe` + `--dev-perf`) | One command runs the full local-dev gate. |
+
+See [ADR 0029](../dev/adr/0029-dev-loop-performance-baseline.md),
+`docs/qa/STANDARD.md` §11, and `docs/qa/defects/DEF-0014.md` for the
+binding contract and the anti-weakening rules.
+
+## 12. Change history
+
+- 2026-04-19 — Wave 22 / DEF-0014 refresh: added §10 failure rows for
+  the four live-stack failure classes (stale named-volume Prisma client,
+  pending migrations, cold Dockerfile regression, lazy-compile dev
+  loop); added §11 "Dev-loop performance baseline" capturing the five
+  binding knobs and the Surface 7 budget; cross-linked ADR 0028
+  (Pillar S) and ADR 0029 (dev-perf baseline).
 - 2026-04-19 — Wave 21 + 21.5 documentation refresh: added the Public
   Surfaces section under §3 (data flows) covering `/`, `/cvo`,
   `/pricing`, `/sandbox`, `/changelog`, `/legal/*`, and the new

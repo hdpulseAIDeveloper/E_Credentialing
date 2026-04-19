@@ -124,7 +124,12 @@ Decisions: technical → [`dev/adr/`](../dev/adr/), non-technical →
 
 ### …a QA engineer or tester
 The binding standard is **[`qa/STANDARD.md`](../qa/STANDARD.md)**
-(18 testing pillars A–R; hard-fail conditions; coverage headline format).
+(v1.3.0 — **19 testing pillars (A–S)**, including Pillar S — Live-Stack
+Reality Gate ([ADR 0028](../dev/adr/0028-live-stack-reality-gate.md))
+with seven surfaces, the seventh being the dev-loop performance
+invariant ([ADR 0029](../dev/adr/0029-dev-loop-performance-baseline.md));
+**15 hard-fail conditions**; coverage headline format with the mandatory
+`Live stack:` line).
 Per-PR DoD: **[`qa/definition-of-done.md`](../qa/definition-of-done.md)**.
 Strategy: [`qa/test-strategy.md`](../qa/test-strategy.md). Per-screen
 cards: [`qa/per-screen/`](../qa/per-screen/). Per-flow cards:

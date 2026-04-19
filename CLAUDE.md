@@ -11,32 +11,52 @@ Both apply to every code change you make.
 
 Every change you produce MUST:
 
-1. Be covered by at least one spec under the relevant pillar(s) A–R
-   (see `STANDARD.md` §2). The spec lives under `tests/e2e/<pillar>/**`,
-   `tests/contract/**`, `tests/perf/**`, `tests/security/**`, `tests/data/**`,
-   `tests/observability/**`, or `tests/docs/**` as appropriate.
+1. Be covered by at least one spec under the relevant pillar(s) **A–S**
+   (see `STANDARD.md` §2 — 19 pillars; **Pillar S — Live-Stack Reality
+   Gate** was added 2026-04-19 by [ADR 0028](docs/dev/adr/0028-live-stack-reality-gate.md)
+   and grew **Surface 7 — dev-loop performance invariant** by
+   [ADR 0029](docs/dev/adr/0029-dev-loop-performance-baseline.md)). The
+   spec lives under `tests/e2e/<pillar>/**`, `tests/contract/**`,
+   `tests/perf/**`, `tests/security/**`, `tests/data/**`,
+   `tests/observability/**`, `tests/e2e/live-stack/**`, or
+   `tests/docs/**` as appropriate.
 2. Pass the smoke pillar (`tests/e2e/smoke/**`) before you claim "done".
 3. Add a per-screen card under `docs/qa/per-screen/<slug>.md` for any new
    route, and a per-flow card under `docs/qa/per-flow/<slug>.md` for any new
    user flow. Cards without `Linked specs:` count as missing coverage.
 4. Update the inventories under `docs/qa/inventories/` (regenerate via
    `npm run qa:inventory`) so `scripts/qa/check-coverage.ts` stays green.
-5. Treat the following as **hard failures**, never as warnings:
+5. Treat the following as **hard failures**, never as warnings (see
+   `STANDARD.md` §4 (1)–(15)):
    - any browser console `error`,
    - any React hydration warning (`Expected server HTML to contain a matching …`),
    - any uncaught `TypeError: Cannot read properties of undefined (reading 'call')`,
    - any 5xx from a first-party route, tRPC procedure, or webhook,
    - any axe-core `serious`/`critical` violation,
-   - any PHI leakage to a role that should not see it.
+   - any PHI leakage to a role that should not see it,
+   - any pending Prisma migration against the dev DB (`npm run qa:migrations`),
+   - any seeded staff role unable to sign in via the live CSRF + credentials
+     round-trip on the deployed stack (`npm run qa:live-stack`),
+   - any cold Dockerfile rebuild failure (`npm run qa:dockerfile -- --cold`),
+   - any named-volume staleness (Prisma client schema drift between host and container),
+   - **any lazy-compile dev-loop regression** — Pillar S Surface 7
+     measured re-fetch p100 > 2000 ms across the warmed deterministic
+     route mix (`npm run qa:live-stack:perf`). The structural baseline
+     is binding: `next dev --turbo` is the default compiler;
+     `npm run dev:warm` is the dev container command and warms every
+     static AND every dynamic route in `route-inventory.json`;
+     `next.config.mjs` sets `onDemandEntries: { maxInactiveAge: 24h,
+     pagesBufferLength: 200 }`. See ADR 0029 / DEF-0014 / STANDARD.md §11.
 6. End any test report you produce with the **headline reporting block** from
    `STANDARD.md` §3 — coverage numbers FIRST, pass/fail second:
 
    ```
    Routes covered:    X of Y
    Roles exercised:   X of N
-   Pillars touched:   <A–R IDs>
-   Pillars green:     <A–R IDs>
-   Pillars not run:   <A–R IDs>     (must be empty for release)
+   Pillars touched:   <A–S IDs>
+   Pillars green:     <A–S IDs>
+   Pillars not run:   <A–S IDs>     (must be empty for release)
+   Live stack:        <commit SHA running in container> | migrations: 0 pending | sign-in matrix: ADMIN/MANAGER/SPECIALIST/COMMITTEE_MEMBER all green | dev-perf: p100 <Nms> (<2000ms budget)
    Pass / Fail / Skip: P / F / S
    ```
 

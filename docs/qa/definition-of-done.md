@@ -43,12 +43,16 @@ Pillar IDs are defined in [STANDARD.md §2](STANDARD.md#2-the-19-testing-pillars
 - [ ] R — Observability
 - [ ] **S — Live-Stack Reality Gate** (deployed-stack bring-up, migration
       parity, role-by-role real sign-in matrix, anonymous public-surface
-      invariants, Dockerfile cold-build sanity). REQUIRED for every PR
-      that touches `src/server/auth.ts`, `src/middleware.ts`,
+      invariants, public-API artifact probes, Dockerfile cold-build
+      sanity, named-volume staleness, **and dev-loop performance
+      invariant — Surface 7, 2000 ms re-fetch budget**). REQUIRED for
+      every PR that touches `src/server/auth.ts`, `src/middleware.ts`,
       `prisma/**`, `Dockerfile.*`, `docker-compose.*.yml`, `.env*`,
-      `scripts/web-entrypoint.sh`, `src/lib/api/error-catalog.ts`, or
+      `scripts/web-entrypoint.sh`, `src/lib/api/error-catalog.ts`,
+      `next.config.mjs`, `package.json#scripts`, `scripts/dev/**`, or
       any `src/app/api/auth/**` route. (Per
-      [STANDARD.md §2.S](STANDARD.md#2s-pillar-s--live-stack-reality-gate-binding).)
+      [STANDARD.md §2.S](STANDARD.md#2s-pillar-s--live-stack-reality-gate-binding)
+      and [STANDARD.md §11](STANDARD.md#11-dev-loop-performance-baseline).)
 
 For every box checked above, at least one new or updated spec MUST live under
 the corresponding folder (see STANDARD.md §2). Paste the spec paths here:
@@ -102,6 +106,14 @@ Confirm none of the following tripped on the smoke run for this PR
       `prisma/schema.prisma`; `.next/build-manifest.json` newer than
       latest `master` commit). (Per
       [STANDARD.md §4 (14)](STANDARD.md#4-hard-fail-conditions-no-exceptions).)
+- [ ] **Dev-loop performance invariant** green: Pillar S Surface 7
+      (`npm run qa:live-stack:perf` or `npm run qa:live-stack:full`)
+      measured re-fetch p100 < 2000 ms across the deterministic warmed
+      route mix. Required when this PR touches `next.config.mjs`,
+      `package.json#scripts.dev`, `scripts/dev/**`, `route-inventory.json`,
+      or `docker-compose.dev.yml`. (Per
+      [STANDARD.md §4 (15)](STANDARD.md#4-hard-fail-conditions-no-exceptions)
+      and [STANDARD.md §11](STANDARD.md#11-dev-loop-performance-baseline).)
 
 ## 5. PHI / security
 
@@ -192,7 +204,7 @@ Roles exercised:   X of N
 Pillars touched:   <A–S IDs>
 Pillars green:     <A–S IDs>
 Pillars not run:   <A–S IDs — must be empty for release PRs>
-Live stack:        <commit SHA running in container> | migrations: 0 pending | sign-in matrix: ADMIN/MANAGER/SPECIALIST/COMMITTEE_MEMBER all green
+Live stack:        <commit SHA running in container> | migrations: 0 pending | sign-in matrix: ADMIN/MANAGER/SPECIALIST/COMMITTEE_MEMBER all green | dev-perf: p100 <Nms> (<2000ms budget)
 Pass / Fail / Skip: P / F / S
 ```
 

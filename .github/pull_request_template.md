@@ -45,6 +45,17 @@ one new or updated spec under the pillar's folder.
 - [ ] P — Compliance controls (`tests/e2e/compliance/**`)
 - [ ] Q — Documentation integrity (`tests/docs/**`)
 - [ ] R — Observability (`tests/observability/**`)
+- [ ] **S — Live-Stack Reality Gate** (`scripts/qa/live-stack-smoke.mjs` +
+      `scripts/qa/check-migration-drift.mjs` +
+      `scripts/qa/check-dockerfile-build.mjs` + `tests/e2e/live-stack/**`).
+      REQUIRED for any PR that touches `src/server/auth.ts`,
+      `src/middleware.ts`, `prisma/**`, `Dockerfile.*`,
+      `docker-compose.*.yml`, `.env*`, `scripts/web-entrypoint.sh`,
+      `src/lib/api/error-catalog.ts`, `next.config.mjs`,
+      `package.json#scripts`, `scripts/dev/**`, or any
+      `src/app/api/auth/**` route. Surface 7 (dev-loop perf) is the
+      detector for the "every link feels slow" regression class
+      (DEF-0014, ADR 0029).
 
 ### New / updated specs
 
@@ -63,9 +74,10 @@ tests/contract/<file>.spec.ts
 ```
 Routes covered:    X of Y
 Roles exercised:   X of N
-Pillars touched:   <A–R IDs>
-Pillars green:     <A–R IDs>
-Pillars not run:   <A–R IDs>     (must be empty for release PRs)
+Pillars touched:   <A–S IDs>
+Pillars green:     <A–S IDs>
+Pillars not run:   <A–S IDs>     (must be empty for release PRs)
+Live stack:        <commit SHA running in container> | migrations: 0 pending | sign-in matrix: ADMIN/MANAGER/SPECIALIST/COMMITTEE_MEMBER all green | dev-perf: p100 <Nms> (<2000ms budget)
 Pass / Fail / Skip: P / F / S
 ```
 
@@ -82,6 +94,20 @@ Pass / Fail / Skip: P / F / S
 - [ ] Zero broken first-party links on touched routes.
 - [ ] OpenAPI / tRPC contract snapshots match the shipped surface.
 - [ ] No regression on `@hipaa`, `@ncqa`, `@cms-0057-f`, `@jc-npg-12` specs.
+- [ ] **Zero pending Prisma migrations** (`npm run qa:migrations` green — STANDARD.md §4 (11)).
+- [ ] **Every seeded staff role can sign in** on the deployed stack
+      (`npm run qa:live-stack` green for ADMIN, MANAGER, SPECIALIST,
+      COMMITTEE_MEMBER — STANDARD.md §4 (12)).
+- [ ] **Cold Dockerfile rebuild succeeds** (`npm run qa:dockerfile -- --cold`
+      green — STANDARD.md §4 (13); required when PR touches `Dockerfile.*`,
+      `package.json`, `prisma/**`, or postinstall hooks).
+- [ ] **Named-volume staleness** probe green (Prisma client schema host==container,
+      `.next/build-manifest.json` newer than latest master — STANDARD.md §4 (14)).
+- [ ] **Dev-loop performance invariant** green: `npm run qa:live-stack:perf`
+      (or `qa:live-stack:full`) Pillar S Surface 7 measured re-fetch p100
+      < 2000 ms (STANDARD.md §4 (15) + §11; required when PR touches
+      `next.config.mjs`, `package.json#scripts.dev`, `scripts/dev/**`,
+      `route-inventory.json`, or `docker-compose.dev.yml`).
 
 ## Coverage & inventories
 
@@ -101,6 +127,8 @@ Pass / Fail / Skip: P / F / S
 - [ ] `npm run lint` clean
 - [ ] `npm test` green
 - [ ] `node scripts/forbidden-terms.mjs` clean
+- [ ] `npm run qa:gate` green end-to-end (includes `qa:migrations` +
+      `qa:live-stack`; static-only green is no longer enough).
 - [ ] New Prisma schema changes have a migration in `prisma/migrations/**`
 - [ ] PHI fields written in new code use `encryptOptional`/`encrypt`
 - [ ] User-facing copy does not reference upgrade/uplift/migration language

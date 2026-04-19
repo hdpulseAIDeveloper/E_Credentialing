@@ -33,23 +33,30 @@ If you find a conflict between these documents, `STANDARD.md` and
 
 Every change MUST:
 
-- map to at least one of the 18 pillars (A–R) in `STANDARD.md` §2,
+- map to at least one of the **19 pillars (A–S)** in `STANDARD.md` §2.
+  Pillar S — Live-Stack Reality Gate — was added 2026-04-19 by
+  [ADR 0028](docs/dev/adr/0028-live-stack-reality-gate.md) and grew
+  Surface 7 (dev-loop performance invariant) by
+  [ADR 0029](docs/dev/adr/0029-dev-loop-performance-baseline.md).
 - have at least one spec under the pillar's folder
-  (`tests/e2e/<pillar>/**`, `tests/contract/**`, etc.),
+  (`tests/e2e/<pillar>/**`, `tests/contract/**`, `tests/e2e/live-stack/**`, etc.),
 - regenerate inventories via `npm run qa:inventory`,
 - keep `scripts/qa/check-coverage.ts` green,
 - add a per-screen card (`docs/qa/per-screen/<slug>.md`) for any new route,
 - add a per-flow card (`docs/qa/per-flow/<slug>.md`) for any new user flow,
 - pass the §4 hard-fail conditions (no console errors, no hydration warnings,
-  no 5xx, no PHI leakage, no broken first-party links),
+  no 5xx, no PHI leakage, no broken first-party links, no pending Prisma
+  migrations, no dead seed account, no cold Dockerfile rebuild failure,
+  no named-volume staleness, **no lazy-compile dev-loop regression**),
 - be reported using the **headline reporting block** from `STANDARD.md` §3:
 
   ```
   Routes covered:    X of Y
   Roles exercised:   X of N
-  Pillars touched:   <A–R IDs>
-  Pillars green:     <A–R IDs>
-  Pillars not run:   <A–R IDs>      (must be empty for release)
+  Pillars touched:   <A–S IDs>
+  Pillars green:     <A–S IDs>
+  Pillars not run:   <A–S IDs>      (must be empty for release)
+  Live stack:        <commit SHA running in container> | migrations: 0 pending | sign-in matrix: ADMIN/MANAGER/SPECIALIST/COMMITTEE_MEMBER all green | dev-perf: p100 <Nms> (<2000ms budget)
   Pass / Fail / Skip: P / F / S
   ```
 
@@ -76,6 +83,25 @@ Run" entry for a covered pillar counts as a **fail** of the gate.
    `@jc-npg-12`).
 10. `scripts/qa/check-coverage.ts` reporting any orphaned route, link, API,
     tRPC procedure, bot, webhook, job, or form.
+11. **Pending Prisma migrations** against the dev DB (`npm run qa:migrations`
+    — Pillar S Surface 2).
+12. **Any seeded staff role unable to sign in** via the live CSRF +
+    `/api/auth/callback/credentials` round-trip on the deployed stack
+    (`npm run qa:live-stack` — Pillar S Surface 3).
+13. **Cold Dockerfile rebuild failure** for any app service in any compose
+    file (`npm run qa:dockerfile -- --cold` — Pillar S Surface 6 prerequisite).
+14. **Named-volume staleness** — host `prisma/schema.prisma` SHA1 ≠ container
+    `node_modules/.prisma/client/schema.prisma` SHA1, OR
+    `.next/build-manifest.json` older than the latest `master` commit
+    (Pillar S Surface 6).
+15. **Lazy-compile dev-loop regression** — Pillar S Surface 7 measured
+    re-fetch p100 > 2000 ms across the warmed deterministic route mix
+    (`npm run qa:live-stack:perf`). The structural baseline is binding:
+    `next dev --turbo` is the default compiler; `npm run dev:warm` is the
+    dev container command and warms every static AND every dynamic route
+    in `route-inventory.json`; `next.config.mjs` sets
+    `onDemandEntries: { maxInactiveAge: 24h, pagesBufferLength: 200 }`.
+    See ADR 0029 / DEF-0014 / STANDARD.md §11.
 
 If your spec passes but one of these conditions fired during the run, mark the
 spec as failing and fix the condition. Do not file it as a "warning" or a
@@ -116,9 +142,10 @@ spec as failing and fix the condition. Do not file it as a "warning" or a
 ## QA report (headline first, per STANDARD.md §3)
 Routes covered:    X of Y
 Roles exercised:   X of N
-Pillars touched:   <A–R IDs>
-Pillars green:     <A–R IDs>
-Pillars not run:   <A–R IDs>
+Pillars touched:   <A–S IDs>
+Pillars green:     <A–S IDs>
+Pillars not run:   <A–S IDs>
+Live stack:        <commit SHA running in container> | migrations: 0 pending | sign-in matrix: ADMIN/MANAGER/SPECIALIST/COMMITTEE_MEMBER all green | dev-perf: p100 <Nms> (<2000ms budget)
 Pass / Fail / Skip: P / F / S
 
 ## Per-screen / per-flow cards

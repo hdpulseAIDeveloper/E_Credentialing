@@ -1,6 +1,6 @@
 # Technical Requirements Document (TRD) — E-Credentialing CVO Platform
 
-**Version:** 2.2
+**Version:** 2.3
 **Last Updated:** 2026-04-19
 **Status:** Active — kept current with the codebase
 **Audience:** Developers, architects, DevOps, security engineers
@@ -129,6 +129,79 @@ For diagrams and the full overview see [architecture.md](architecture.md) and
   request validation), ADR 0027 (Error Catalog SoT), [api/errors.md](../api/errors.md),
   [api/openapi-v1.yaml](../api/openapi-v1.yaml).
 
+### TR-F-012 Live-stack reality gate (Wave 22 / Pillar S)
+- **Need:** Static gates can pass while the deployed system is broken
+  (DEF-0009: sign-in dead in the dev container while every unit /
+  integration / Playwright spec was green; root causes were stale
+  named Docker volumes shadowing a fresh Prisma client, three pending
+  schema migrations, and a `Dockerfile.web` step ordering bug that
+  ran `prisma generate` before `prisma/` was copied). The deploy
+  pipeline must fail, not warn, when the deployed system is not
+  meeting the contract the static gates measured.
+- **Solution.**
+  - `npm run qa:gate` runs `qa:migrations` + `qa:live-stack` alongside
+    the static suite — green-on-static is no longer green overall.
+  - `scripts/qa/live-stack-smoke.mjs` probes seven surfaces over plain
+    HTTP (no browser): bring-up health (1), schema/migration parity (2,
+    via `scripts/qa/check-migration-drift.mjs`), role-by-role real CSRF
+    sign-in matrix (3), authenticated session probe (4), anonymous
+    public-surface invariants including the public-API artifacts —
+    `/api/v1/openapi.{json,yaml}`, `/api/v1/postman.json`,
+    `/changelog.rss` (5), stack-version pin + named-volume staleness
+    (6, opt-in via `--volume-probe`), dev-loop performance invariant
+    (7, opt-in via `--dev-perf`).
+  - `scripts/qa/check-dockerfile-build.mjs` lints every compose file
+    and (with `--cold`) rebuilds each app service `--no-cache` to
+    prevent regressions like the postinstall ordering bug.
+  - `tests/e2e/live-stack/role-login-matrix.spec.ts` is the
+    browser-driven complement to surface 3.
+- **Hard fails added.** `STANDARD.md` §4 11–14 — pending Prisma
+  migrations, dead seed-account login, cold Dockerfile build
+  regression, named-volume staleness — and §4 (15) — lazy-compile
+  dev loop (Surface 7 budget breach).
+- **References.** [ADR 0028](../dev/adr/0028-live-stack-reality-gate.md);
+  `docs/qa/STANDARD.md` §10.2; `docs/qa/defects/DEF-0009.md`.
+
+### TR-F-013 Dev-loop performance baseline (Wave 22 / DEF-0014)
+- **Need:** A fast, predictable inner loop is a customer-quality
+  property: a slow dev loop slows every demo, every bug fix, and
+  every hire's first week. DEF-0014 documented the recurring "every
+  link feels slow the first time" failure mode (`/providers/[id]`
+  cold compile measured at 14,968 ms) and traced it to three
+  compounding causes: (1) the warmer ignored dynamic routes, (2)
+  webpack was still the default `next dev` compiler, and (3) no
+  regression detector existed for either lapse.
+- **Solution (binding).**
+  - **Compiler:** the `dev` script in `package.json` MUST be
+    `next dev --turbo -p 6015`. A `dev:webpack` escape hatch exists
+    for the rare webpack-only debugging session and requires an open
+    defect card per the §11.3 anti-weakening rule (1).
+  - **Warming:** the dev container's command MUST be
+    `npm run dev:warm`, which spawns `next dev --turbo` through
+    `scripts/dev/dev-with-warmup.mjs` (a `FORCE_WEBPACK=1` env var is
+    the documented opt-out) and, once `/api/health` is 200, runs
+    `scripts/dev/warm-routes.mjs`. The warmer signs in as the seeded
+    admin then issues a GET against every static route and every
+    dynamic route in `route-inventory.json`. Dynamic routes are
+    expanded by harvesting the first matching `<Link>` from the
+    parent list page; if none is found, a synthetic UUID is
+    substituted (the page MODULE compiles regardless of whether the
+    loader resolves a row).
+  - **Compile cache:** `next.config.mjs` MUST set
+    `onDemandEntries: { maxInactiveAge: 86_400_000,
+    pagesBufferLength: 200 }` so a coffee break, a meeting, or a
+    long lunch does not evict the cache the warmer just paid to
+    build.
+  - **Detection.** Pillar S Surface 7
+    (`scripts/qa/live-stack-smoke.mjs --dev-perf`) probes a
+    deterministic cross-section of warmed routes twice — a warm-up
+    request and a measured re-fetch — and fails if the measured
+    re-fetch exceeds `DEV_PERF_BUDGET_MS` (default **2000 ms**). The
+    convenience target `npm run qa:live-stack:full` enables both
+    `--volume-probe` and `--dev-perf`.
+- **References.** [ADR 0029](../dev/adr/0029-dev-loop-performance-baseline.md);
+  `docs/qa/STANDARD.md` §11; `docs/qa/defects/DEF-0014.md`.
+
 ---
 
 ## 5. Non-functional requirements (TR-N)
@@ -145,6 +218,8 @@ For diagrams and the full overview see [architecture.md](architecture.md) and
 | TR-N-008 | FHIR p95 | < 400 ms at 20 RPS | k6 contract scripts |
 | TR-N-009 | Test coverage floors | 60/50/50/60 lines/funcs/branches/stmts | `vitest.config.ts` |
 | TR-N-010 | Accessibility | WCAG 2.2 AA | `@axe-core/playwright` on every E2E navigation |
+| TR-N-011 | Live-stack reality | All seven Pillar S surfaces green per release; no §4 (11–14) hard-fails | `npm run qa:live-stack:full` against the deployed stack at every PR + every deploy gate |
+| TR-N-012 | Dev-loop performance | Surface 7 measured re-fetch p100 < 2000 ms across the warmed deterministic route mix | `scripts/qa/live-stack-smoke.mjs --dev-perf` (DEV_PERF_BUDGET_MS=2000) + `npm run dev:warm` mandatory in dev container |
 
 ---
 
@@ -297,6 +372,8 @@ Maintained in [dev/adr/](../dev/adr/). Active ADRs:
 - 0025 — Problem Details (RFC 9457) for REST v1 errors
 - 0026 — Server-side request validation surface
 - 0027 — Public Error Catalog as the single source of truth
+- 0028 — Live-Stack Reality Gate (Pillar S)
+- 0029 — Dev-loop performance baseline (Turbopack default + dynamic-route warmer + Surface 7 budget)
 
 ---
 
@@ -315,3 +392,4 @@ required documents and must reflect the current state at all times.
 | 2026-04-15 | 1.0 | Initial; reflected implemented surface |
 | 2026-04-17 | 2.0 | Documentation refresh — restructured as TR-F / TR-N; added external system contracts table; aligned with shipped 60+ Prisma models |
 | 2026-04-19 | 2.2 | Documentation refresh (Wave 21 + 21.5) — added TR-F-011 (RFC 9457 Problem Details + Public Error Catalog); refreshed §13 ADR list to 0001–0027 (was 0001–0012). |
+| 2026-04-19 | 2.3 | Wave 22 / DEF-0014 refresh — added TR-F-012 (Live-stack reality gate / Pillar S) and TR-F-013 (Dev-loop performance baseline); added non-functional requirements TR-N-011 (live-stack reality, all seven Pillar S surfaces green per release) and TR-N-012 (dev-loop perf, p100 < 2000 ms re-fetch); refreshed §13 ADR list to 0001–0029. |

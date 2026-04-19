@@ -25,6 +25,23 @@ Process:
 | 0010 | [Pino for structured logs with PHI redaction](0010-pino-redaction.md) | Accepted |
 | 0011 | [Tamper-evident audit log (HMAC chain + DB triggers)](0011-audit-tamper-evidence.md) | Accepted |
 | 0012 | [NCQA CVO criteria catalog + snapshots](0012-ncqa-catalog.md) | Accepted |
+| 0013 | [Observability stack (Sentry + AppInsights + Prometheus + Grafana)](0013-observability-stack.md) | Accepted |
+| 0014 | [Multi-tenancy shim (Organization + AsyncLocalStorage)](0014-multi-tenancy-shim.md) | Accepted |
+| 0015 | [Design system (TanStack DataTable + Theme + `no-raw-color` rule)](0015-design-system.md) | Accepted |
+| 0016 | [Stripe billing (`BILLING_ENABLED` flag, dynamic SDK)](0016-stripe-billing.md) | Accepted |
+| 0017 | [Auditor-package one-click export](0017-auditor-package.md) | Accepted |
+| 0018 | [Public changelog + RSS](0018-public-changelog.md) | Accepted |
+| 0019 | [Iterator-aware coverage gate](0019-iterator-aware-coverage.md) | Accepted |
+| 0020 | [OpenAPI v1 spec](0020-openapi-v1-spec.md) | Accepted |
+| 0021 | [Schemathesis fuzz harness in CI](0021-schemathesis-fuzz-harness.md) | Accepted |
+| 0022 | [Public REST v1 SDK (TypeScript) generated from OAS](0022-public-rest-v1-sdk.md) | Accepted |
+| 0023 | [API versioning policy (semver + URL major)](0023-api-versioning-policy.md) | Accepted |
+| 0024 | [Deprecation / Sunset headers (RFC 8594 + RFC 8288)](0024-deprecation-sunset-headers.md) | Accepted |
+| 0025 | [Problem Details (RFC 9457) for REST v1 errors](0025-problem-details-rfc-9457.md) | Accepted |
+| 0026 | [Server-side request validation surface](0026-server-side-request-validation.md) | Accepted |
+| 0027 | [Public Error Catalog as the single source of truth](0027-error-catalog.md) | Accepted |
+| 0028 | [Pillar S — Live-Stack Reality Gate](0028-live-stack-reality-gate.md) | Accepted |
+| 0029 | [Dev-loop performance baseline (Turbopack + dynamic-route warmer + Surface 7 budget)](0029-dev-loop-performance-baseline.md) | Accepted |
 
 ## Template
 

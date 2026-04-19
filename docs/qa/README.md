@@ -7,8 +7,10 @@ acting on the codebase.
 
 | Document | Purpose |
 |---|---|
-| **[STANDARD.md](STANDARD.md)** | The HDPulseAI QA Standard — 18 testing pillars, hard-fail conditions, headline reporting rule, governance. Versioned. **This is the binding contract for every PR.** |
+| **[STANDARD.md](STANDARD.md)** | The HDPulseAI QA Standard — **19 testing pillars (A–S)**, **15 hard-fail conditions**, headline reporting rule, governance. Versioned (currently **v1.3.0**, 2026-04-19). **This is the binding contract for every PR.** |
 | **[definition-of-done.md](definition-of-done.md)** | The per-PR checklist derived from `STANDARD.md`. Every PR must satisfy it before merge. |
+| **[ADR 0028 — Pillar S](../dev/adr/0028-live-stack-reality-gate.md)** | Why the live-stack reality gate exists, what it probes, and the anti-weakening rules. |
+| **[ADR 0029 — Dev-loop performance baseline](../dev/adr/0029-dev-loop-performance-baseline.md)** | Why Turbopack is the default, why the warmer covers dynamic routes, why `onDemandEntries` is 24 h, and the Pillar S Surface 7 budget. |
 
 ## Contents
 
@@ -45,11 +47,23 @@ acting on the codebase.
 
 Before producing any code change in this repo:
 
-1. Read [STANDARD.md](STANDARD.md) — the 18 pillars are not optional.
+1. Read [STANDARD.md](STANDARD.md) — the **19 pillars (A–S)** are not optional.
 2. Read [definition-of-done.md](definition-of-done.md) — your PR description
-   must include the headline reporting block at the end of the DoD.
+   must include the headline reporting block (with the mandatory
+   `Live stack:` and dev-perf line) at the end of the DoD.
 3. Read the project-level Cursor rule `.cursor/rules/qa-standard.mdc` and the
-   root `AGENTS.md` for tool-agnostic agent expectations.
-4. Treat any browser console error, hydration warning, or
-   `Cannot read properties of undefined (reading 'call')` as a **hard failure**
-   (`STANDARD.md` §4) — never as a warning to be reported.
+   root `AGENTS.md` for tool-agnostic agent expectations. The same content
+   is mirrored in the global Cursor rule
+   `~/.cursor/rules/qa-standard-global.mdc` so every Cursor / Claude / Codex
+   agent in any HDPulseAI repo on this development machine inherits the
+   standard automatically.
+4. Treat any browser console error, hydration warning,
+   `Cannot read properties of undefined (reading 'call')`, **pending Prisma
+   migration, dead seed account, cold Dockerfile build failure,
+   named-volume staleness, or lazy-compile dev-loop regression** as a
+   **hard failure** (`STANDARD.md` §4 (1)–(15)) — never as a warning to
+   be reported.
+5. Run `npm run qa:live-stack:full` against your local dev stack before
+   marking work done. This single command exercises all seven Pillar S
+   surfaces (including `--volume-probe` and `--dev-perf`) and produces
+   the `Live stack:` line for the headline block.
